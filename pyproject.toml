@@ -23,6 +23,9 @@ python-source = "python" # Python source code is in the `python` directory
 bindings = "pyo3"        # pyo3 bindings is actually the default for maturin
 # features = ["pyo3/extension-module"]
 
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
 [project.optional-dependencies]
 dev = ["pytest>=6.0", "psutil", "hidefix", "h5py", "netCDF4", "zarr", "tensorstore"]
 
