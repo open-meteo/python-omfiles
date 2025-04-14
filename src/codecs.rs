@@ -112,7 +112,7 @@ impl PforDelta2dCodec {
         // let dtype = self.dtype();
 
         // Allocate output buffer with reasonable sizing
-        let mut output_buffer: Vec<u8> = vec![0u8; array.len() * self.element_size + 1024];
+        let mut output_buffer: Vec<u8> = vec![0u8; array.len() * self.element_size * 2 + 1024];
         let output_ptr = output_buffer.as_mut_ptr() as *mut c_uchar;
 
         // Get contiguous data from numpy array
@@ -157,7 +157,6 @@ impl PforDelta2dCodec {
             };
             encoded_size
         } else if dtype.is_equiv_to(&numpy::dtype::<u8>(py)) {
-            println!("encode u8");
             let array = array.downcast::<PyArrayDyn<u8>>()?;
             let encoded_size = unsafe {
                 om_file_format_sys::p4ndenc8(

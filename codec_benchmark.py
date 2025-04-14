@@ -5,8 +5,8 @@ import shutil
 import time
 
 import numpy as np
-from numcodecs.zarr3 import Blosc, Delta, PCodec, Quantize
-from omfiles.omfiles_numcodecs import PyPforDelta2dSerializer
+from numcodecs.zarr3 import Blosc, Delta, FixedScaleOffset, PCodec, Quantize
+from omfiles.omfiles_numcodecs import PyPforDelta2dCodec, PyPforDelta2dSerializer
 from tabulate import tabulate
 from zarr import create_array
 from zarr.storage import LocalStore
@@ -59,7 +59,7 @@ def get_codecs(dtype_name):
 
     codecs = {
         'none': None,
-        # 'pfordelta': PyPforDelta2dCodec(dtype=dtype_name),
+        'pfordelta': PyPforDelta2dCodec(dtype=dtype_name),
         'pfordelta_serializer': PyPforDelta2dSerializer(dtype=dtype_name),
         'pcodec': PCodec(level = 8, mode_spec="auto"),
         'blosc': Blosc(cname='zstd', clevel=5),
@@ -119,13 +119,17 @@ def benchmark_codec(dtype, data_pattern, data_size, tmp_dir):
                 serializer="auto"
             )
         else :
+            filters = [
+                FixedScaleOffset(offset=0, scale=1, dtype=data.dtype, astype=data.dtype),
+                Delta(dtype=data.dtype, astype=data.dtype)
+            ]
             z = create_array(
                 store,
                 shape=data.shape,
                 chunks=chunk_shape,
                 dtype=data.dtype,
                 fill_value=0,
-                filters=[],
+                filters=filters,
                 serializer=codec
             )
 
