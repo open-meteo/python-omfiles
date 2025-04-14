@@ -67,8 +67,6 @@ class PyPforDelta2d(Codec):
 
     def encode(self, buf):
         # Convert input to contiguous numpy array
-        print("buffer type", type(buf))
-        print("buffer dtype", buf.dtype)
         buf = ensure_contiguous_ndarray(buf)
         return self._impl_cache.encode_array(buf)
 
@@ -89,13 +87,8 @@ class PyPforDelta2d(Codec):
         out : numpy.ndarray
             Decoded data as a numpy array.
         """
-        print("out", out)
         if out is not None:
             # Case 1: Output array provided - use its size
-            print("type(out)", type(out))
-            print("self.dtype", self.dtype)
-            print("out.dtype", out.dtype)
-            print("out.shape", out.shape)
             out = ensure_contiguous_ndarray(out)
 
             # Convert input to numpy array
@@ -111,14 +104,12 @@ class PyPforDelta2d(Codec):
         else:
             # Case 2: No output array - we need to determine size
             # create output buffer
-            print("length", length)
             # Convert input to numpy array
             if not isinstance(buf, np.ndarray):
                 buf_array = np.frombuffer(buf, dtype=np.int8)
             else:
                 buf_array = buf
-            out = np.frombuffer(bytearray(length), dtype=self.dtype)
-            print("out.__len__()", out.__len__())
+            out = np.frombuffer(bytearray(length), dtype=np.int8) # FIXME: dtype here is set for bytes-bytes-codec
             bytes_written = self._impl_cache.decode_array(buf_array, out)
             return out
 
@@ -189,7 +180,7 @@ def as_numpy_array_wrapper(
     -------
         The result of `func` converted to a `Buffer`
     """
-    return prototype.buffer.from_bytes(func(buf.as_numpy_array(), None, length))
+    return prototype.buffer.from_bytes(func(buf.as_array_like(), None, length))
 
 class _NumcodecsBytesBytesCodecWithShapeLength(_NumcodecsCodec, BytesBytesCodec):
     def __init__(self, **codec_config: JSON) -> None:
@@ -197,7 +188,6 @@ class _NumcodecsBytesBytesCodecWithShapeLength(_NumcodecsCodec, BytesBytesCodec)
 
     async def _decode_single(self, chunk_data: Buffer, chunk_spec: ArraySpec) -> Buffer:
         chunk_length = int(np.prod(chunk_spec.shape) * np.dtype(chunk_spec.dtype).itemsize)
-        print("chunk_length", chunk_length)
         return await asyncio.to_thread(
             as_numpy_array_wrapper,
             self._codec.decode,
@@ -208,8 +198,8 @@ class _NumcodecsBytesBytesCodecWithShapeLength(_NumcodecsCodec, BytesBytesCodec)
 
     def _encode(self, chunk_bytes: Buffer, prototype: BufferPrototype) -> Buffer:
         encoded = self._codec.encode(chunk_bytes.as_array_like())
-        if isinstance(encoded, np.ndarray):  # Required for checksum codecs
-            return prototype.buffer.from_bytes(encoded.tobytes())
+        # if isinstance(encoded, np.ndarray):  # Required for checksum codecs
+        #     return prototype.buffer.from_bytes(encoded.tobytes())
         return prototype.buffer.from_bytes(encoded)
 
     async def _encode_single(self, chunk_data: Buffer, chunk_spec: ArraySpec) -> Buffer:

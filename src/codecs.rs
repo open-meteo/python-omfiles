@@ -112,7 +112,7 @@ impl PforDelta2dCodec {
         // let dtype = self.dtype();
 
         // Allocate output buffer with reasonable sizing
-        let mut output_buffer: Vec<u8> = vec![0u8; array.len() * self.element_size * 2 + 1024];
+        let mut output_buffer: Vec<u8> = vec![0u8; array.len() * self.element_size + 1024];
         let output_ptr = output_buffer.as_mut_ptr() as *mut c_uchar;
 
         // Get contiguous data from numpy array
@@ -121,7 +121,7 @@ impl PforDelta2dCodec {
             let encoded_size = unsafe {
                 om_file_format_sys::p4nzenc8(
                     array.as_slice_mut()?.as_mut_ptr() as *mut u8,
-                    array.len(), // FIXME: Here we have to do things differently for a ByteByteCodec...
+                    array.len(),
                     output_ptr,
                 )
             };
@@ -157,6 +157,7 @@ impl PforDelta2dCodec {
             };
             encoded_size
         } else if dtype.is_equiv_to(&numpy::dtype::<u8>(py)) {
+            println!("encode u8");
             let array = array.downcast::<PyArrayDyn<u8>>()?;
             let encoded_size = unsafe {
                 om_file_format_sys::p4ndenc8(
@@ -202,34 +203,6 @@ impl PforDelta2dCodec {
                 array.getattr("dtype")?
             )));
         };
-
-        // // Call FFI function
-        // let bytes_written = unsafe {
-        //     om_file_format_sys::om_encode_compress(
-        //         self.dtype,
-        //         self.compression,
-        //         data_ptr,
-        //         count as u64,
-        //         output_ptr,
-        //     )
-        // };
-
-        // // Handle possible errors
-        // if bytes_written == 0 && count > 0 && self.compression != OmCompression_t::COMPRESSION_NONE
-        // {
-        //     println!(
-        //         "Warning: Compression returned 0 bytes for {} elements",
-        //         count
-        //     );
-        // }
-
-        // if bytes_written as usize > output_buffer.capacity() {
-        //     return Err(PyValueError::new_err(format!(
-        //         "FFI compression wrote {} bytes, exceeding buffer capacity {}",
-        //         bytes_written,
-        //         output_buffer.capacity()
-        //     )));
-        // }
 
         // Set the actual length and return PyBytes
         unsafe {
