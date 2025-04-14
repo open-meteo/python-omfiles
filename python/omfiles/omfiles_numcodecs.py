@@ -11,78 +11,77 @@ from numcodecs.zarr3 import ArrayBytesCodec, BufferPrototype, NDBuffer, _Numcode
 from zarr.abc.codec import BytesBytesCodec
 from zarr.core.array_spec import ArraySpec
 from zarr.core.buffer import Buffer
-from zarr.core.common import JSON, parse_named_configuration
+from zarr.core.common import JSON
 
-from .omfiles import (
-    # PyPforDelta2dInt16Codec as RustPforDelta2dInt16Codec,
-    # PyPforDelta2dInt16LogarithmicCodec as RustPforDelta2dInt16LogarithmicCodec,
-    FpxXor2dCodec as RustFpxXor2dCodec,  # type: ignore[arg-type]
-)
+# from .omfiles import (
+#     # PyPforDelta2dInt16Codec as RustPforDelta2dInt16Codec,
+#     # PyPforDelta2dInt16LogarithmicCodec as RustPforDelta2dInt16LogarithmicCodec,
+#     FpxXor2dCodec as RustFpxXor2dCodec,  # type: ignore[arg-type]
+# )
 from .omfiles import (
     PforDelta2dCodec as RustPforDelta2dCodec,  # type: ignore[arg-type]
 )
 
+# @dataclass(frozen=True)
+# class PyFpxXor2dCodec(BytesBytesCodec):
+#     """FPX XOR 2D compression for floating-point data."""
+#     codec_id = 'fpx_xor_2d'
+#     is_fixed_size = False
+#     dtype: str = "float32"
 
-@dataclass(frozen=True)
-class PyFpxXor2dCodec(BytesBytesCodec):
-    """FPX XOR 2D compression for floating-point data."""
-    codec_id = 'fpx_xor_2d'
-    is_fixed_size = False
-    dtype: str = "float32"
+#     def __init__(self, dtype: str = "float32") -> None:
+#         dtype_parsed = parse_dtype(dtype)
+#         object.__setattr__(self, "dtype", dtype_parsed)
 
-    def __init__(self, dtype: str = "float32") -> None:
-        dtype_parsed = parse_dtype(dtype)
-        object.__setattr__(self, "dtype", dtype_parsed)
+#     @classmethod
+#     def from_dict(cls, data: dict[str, JSON]) -> Self:
+#         _, configuration_parsed = parse_named_configuration(data, "fpx_xor_2d")
+#         return cls(**configuration_parsed)  # type: ignore[arg-type]
 
-    @classmethod
-    def from_dict(cls, data: dict[str, JSON]) -> Self:
-        _, configuration_parsed = parse_named_configuration(data, "fpx_xor_2d")
-        return cls(**configuration_parsed)  # type: ignore[arg-type]
+#     def to_dict(self) -> dict[str, JSON]:
+#         return {
+#             "name": "fpx_xor_2d",
+#             "configuration": {
+#                 "dtype": self.dtype,
+#             },
+#         }
 
-    def to_dict(self) -> dict[str, JSON]:
-        return {
-            "name": "fpx_xor_2d",
-            "configuration": {
-                "dtype": self.dtype,
-            },
-        }
+#     def evolve_from_array_spec(self, array_spec: ArraySpec) -> Self:
+#         # Possibly we could auto-adapt the dtype based on the array_spec
+#         # For now, just return self since we don't adapt
+#         return self
 
-    def evolve_from_array_spec(self, array_spec: ArraySpec) -> Self:
-        # Possibly we could auto-adapt the dtype based on the array_spec
-        # For now, just return self since we don't adapt
-        return self
+#     @property
+#     def _impl(self) -> RustFpxXor2dCodec:
+#         return RustFpxXor2dCodec(self.dtype)
 
-    @property
-    def _impl(self) -> RustFpxXor2dCodec:
-        return RustFpxXor2dCodec(self.dtype)
+#     async def _decode_single(
+#         self,
+#         chunk_data: Buffer,
+#         chunk_spec: ArraySpec,
+#     ) -> Buffer:
+#         return await asyncio.to_thread(
+#                 lambda bytes_data: chunk_spec.prototype.buffer.from_bytes(
+#                     self._impl.decode(bytes_data.to_bytes(), np.prod(chunk_spec.shape))
+#                 ),
+#                 chunk_data
+#             )
 
-    async def _decode_single(
-        self,
-        chunk_data: Buffer,
-        chunk_spec: ArraySpec,
-    ) -> Buffer:
-        return await asyncio.to_thread(
-                lambda bytes_data: chunk_spec.prototype.buffer.from_bytes(
-                    self._impl.decode(bytes_data.to_bytes(), np.prod(chunk_spec.shape))
-                ),
-                chunk_data
-            )
+#     async def _encode_single(
+#         self,
+#         chunk_data: Buffer,
+#         chunk_spec: ArraySpec,
+#     ) -> Buffer | None:
+#         return await asyncio.to_thread(
+#             lambda chunk: chunk_spec.prototype.buffer.from_bytes(
+#                 self._impl.encode(chunk.as_numpy_array().tobytes())
+#             ),
+#             chunk_data,
+#         )
 
-    async def _encode_single(
-        self,
-        chunk_data: Buffer,
-        chunk_spec: ArraySpec,
-    ) -> Buffer | None:
-        return await asyncio.to_thread(
-            lambda chunk: chunk_spec.prototype.buffer.from_bytes(
-                self._impl.encode(chunk.as_numpy_array().tobytes())
-            ),
-            chunk_data,
-        )
-
-    def compute_encoded_size(self, input_byte_length: int, chunk_spec: ArraySpec) -> int:
-        # FPX XOR doesn't have a guaranteed size formula, so we provide a conservative estimate
-        return input_byte_length * 2  # A conservative estimate
+#     def compute_encoded_size(self, input_byte_length: int, chunk_spec: ArraySpec) -> int:
+#         # FPX XOR doesn't have a guaranteed size formula, so we provide a conservative estimate
+#         return input_byte_length * 2  # A conservative estimate
 
 
 def parse_dtype(data: JSON) -> str:
@@ -253,8 +252,10 @@ class PyPforDelta2d(Codec):
 
         # Use our optimized array-based encoding when possible
         try:
+            print("buf.dtype", buf.dtype)
             return self._impl_cache.encode_array(buf)
-        except (TypeError, AttributeError):
+        except (TypeError, AttributeError) as error:
+            print(error)
             # Fall back to byte encoding if array method not available
             return self._impl_cache.encode(buf.tobytes())
 

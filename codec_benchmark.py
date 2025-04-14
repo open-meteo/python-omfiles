@@ -6,7 +6,7 @@ import time
 
 import numpy as np
 from numcodecs.zarr3 import Blosc, Delta, PCodec, Quantize
-from omfiles.omfiles_numcodecs import PyFpxXor2dCodec, PyPforDelta2dCodec, PyPforDelta2dSerializer
+from omfiles.omfiles_numcodecs import PyPforDelta2dCodec, PyPforDelta2dSerializer
 from tabulate import tabulate
 from zarr import create_array
 from zarr.storage import LocalStore
@@ -56,7 +56,6 @@ def generate_float_data(shape, dtype, pattern='sequential'):
 
 # Codec configurations
 def get_codecs(dtype_name):
-    is_float = 'float' in dtype_name
 
     codecs = {
         'none': None,
@@ -66,9 +65,6 @@ def get_codecs(dtype_name):
         'blosc': Blosc(cname='zstd', clevel=5),
         'blosc_lz4': Blosc(cname='lz4', clevel=5),
     }
-
-    if is_float:
-        codecs['fpxxor'] = PyFpxXor2dCodec(dtype=dtype_name)
 
     return codecs
 
