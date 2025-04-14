@@ -212,7 +212,7 @@ impl PforDelta2dCodec {
         output_array: Bound<'py, PyUntypedArray>, // Output buffer to store decompressed data
     ) -> PyResult<usize> {
         // Get the raw pointers to work with
-        let input_ptr = unsafe { data.as_slice()? }.as_ptr() as *const c_void;
+        let input_ptr = unsafe { data.as_slice()? }.as_ptr();
         let input_size = data.len();
         // Empty data check
         if input_size == 0 {
@@ -222,54 +222,86 @@ impl PforDelta2dCodec {
         let py = data.py();
         let dtype = output_array.dtype();
 
-        let (output_ptr, output_elements) = if dtype.is_equiv_to(&numpy::dtype::<i8>(py)) {
+        let bytes_decoded = if dtype.is_equiv_to(&numpy::dtype::<i8>(py)) {
             let array = output_array.downcast::<PyArrayDyn<i8>>()?;
-            (
-                unsafe { array.as_slice_mut()?.as_mut_ptr() as *mut c_void },
-                array.len() / self.element_size, // FIXME!!!
-            )
+            let _encoded_size = unsafe {
+                om_file_format_sys::p4nzdec8(
+                    input_ptr as *mut u8,
+                    array.len(),
+                    array.as_slice_mut()?.as_mut_ptr() as *mut u8,
+                )
+            };
+            array.len()
         } else if dtype.is_equiv_to(&numpy::dtype::<i16>(py)) {
             let array = output_array.downcast::<PyArrayDyn<i16>>()?;
-            (
-                unsafe { array.as_slice_mut()?.as_mut_ptr() as *mut c_void },
-                array.len(),
-            )
+            let _encoded_size = unsafe {
+                om_file_format_sys::p4nzdec128v16(
+                    input_ptr as *mut u8,
+                    array.len(),
+                    array.as_slice_mut()?.as_mut_ptr() as *mut u16,
+                )
+            };
+            array.len()
         } else if dtype.is_equiv_to(&numpy::dtype::<i32>(py)) {
             let array = output_array.downcast::<PyArrayDyn<i32>>()?;
-            (
-                unsafe { array.as_slice_mut()?.as_mut_ptr() as *mut c_void },
-                array.len(),
-            )
+            let _encoded_size = unsafe {
+                om_file_format_sys::p4nzdec128v32(
+                    input_ptr as *mut u8,
+                    array.len(),
+                    array.as_slice_mut()?.as_mut_ptr() as *mut u32,
+                )
+            };
+            array.len()
         } else if dtype.is_equiv_to(&numpy::dtype::<i64>(py)) {
             let array = output_array.downcast::<PyArrayDyn<i64>>()?;
-            (
-                unsafe { array.as_slice_mut()?.as_mut_ptr() as *mut c_void },
-                array.len(),
-            )
+            let _encoded_size = unsafe {
+                om_file_format_sys::p4nzdec64(
+                    input_ptr as *mut u8,
+                    array.len(),
+                    array.as_slice_mut()?.as_mut_ptr() as *mut u64,
+                )
+            };
+            array.len()
         } else if dtype.is_equiv_to(&numpy::dtype::<u8>(py)) {
             let array = output_array.downcast::<PyArrayDyn<u8>>()?;
-            (
-                unsafe { array.as_slice_mut()?.as_mut_ptr() as *mut c_void },
-                array.len(),
-            )
+            let _encoded_size = unsafe {
+                om_file_format_sys::p4nddec8(
+                    input_ptr as *mut u8,
+                    array.len(),
+                    array.as_slice_mut()?.as_mut_ptr() as *mut u8,
+                )
+            };
+            array.len()
         } else if dtype.is_equiv_to(&numpy::dtype::<u16>(py)) {
             let array = output_array.downcast::<PyArrayDyn<u16>>()?;
-            (
-                unsafe { array.as_slice_mut()?.as_mut_ptr() as *mut c_void },
-                array.len(),
-            )
+            let _encoded_size = unsafe {
+                om_file_format_sys::p4nddec128v16(
+                    input_ptr as *mut u8,
+                    array.len(),
+                    array.as_slice_mut()?.as_mut_ptr() as *mut u16,
+                )
+            };
+            array.len()
         } else if dtype.is_equiv_to(&numpy::dtype::<u32>(py)) {
             let array = output_array.downcast::<PyArrayDyn<u32>>()?;
-            (
-                unsafe { array.as_slice_mut()?.as_mut_ptr() as *mut c_void },
-                array.len(),
-            )
+            let _encoded_size = unsafe {
+                om_file_format_sys::p4nddec128v32(
+                    input_ptr as *mut u8,
+                    array.len(),
+                    array.as_slice_mut()?.as_mut_ptr() as *mut u32,
+                )
+            };
+            array.len()
         } else if dtype.is_equiv_to(&numpy::dtype::<u64>(py)) {
             let array = output_array.downcast::<PyArrayDyn<u64>>()?;
-            (
-                unsafe { array.as_slice_mut()?.as_mut_ptr() as *mut c_void },
-                array.len(),
-            )
+            let _encoded_size = unsafe {
+                om_file_format_sys::p4nddec64(
+                    input_ptr as *mut u8,
+                    array.len(),
+                    array.as_slice_mut()?.as_mut_ptr() as *mut u64,
+                )
+            };
+            array.len()
         } else {
             return Err(PyTypeError::new_err(format!(
                 "Unsupported array dtype: {}",
@@ -277,19 +309,6 @@ impl PforDelta2dCodec {
             )));
         };
 
-        // Call the C FFI decode function
-        unsafe {
-            om_file_format_sys::om_decode_decompress(
-                self.dtype,
-                self.compression,
-                input_ptr,
-                output_elements as u64,
-                output_ptr,
-            )
-        };
-
-        // Return the actual number of bytes decoded
-        let bytes_decoded = output_elements * self.element_size;
         Ok(bytes_decoded)
     }
 }
