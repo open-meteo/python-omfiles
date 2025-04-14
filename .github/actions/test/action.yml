@@ -36,7 +36,7 @@ runs:
     - name: Run regular tests
       if: ${{ inputs.test-type == 'standard' && inputs.is-musl != 'true' }}
       run: |
-        python -m pip install pytest psutil
+        python -m pip install pytest psutil numcodecs zarr==3.0.3
         WHEEL_PATH=$(ls dist/*.whl)
         python -m pip install --force-reinstall "$WHEEL_PATH"
         pytest tests/
@@ -56,14 +56,14 @@ runs:
           pip install --upgrade pip
           WHEEL_PATH=$(ls dist/*.whl)
           pip install --force-reinstall "$WHEEL_PATH"
-          pip install pytest psutil
+          pip install pytest psutil numcodecs zarr==3.0.3
           pytest tests/
 
     # Minimum dependencies test
     - name: Run tests with minimum dependencies
       if: ${{ inputs.test-type == 'min_deps' }}
       run: |
-        python -m pip install pytest==6.0 psutil
+        python -m pip install pytest==6.0 psutil numcodecs zarr==3.0.3
         WHEEL_PATH=$(ls dist/*.whl)
         python -m pip install --force-reinstall "$WHEEL_PATH" \
           "numpy==1.20.0" \

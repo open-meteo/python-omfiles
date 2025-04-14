@@ -27,7 +27,7 @@ bindings = "pyo3"        # pyo3 bindings is actually the default for maturin
 asyncio_mode = "auto"
 
 [project.optional-dependencies]
-dev = ["pytest>=6.0", "psutil", "hidefix", "h5py", "netCDF4", "zarr", "tensorstore"]
+dev = ["pytest>=6.0", "psutil", "hidefix", "h5py", "netCDF4", "zarr", "tensorstore", "numcodecs"]
 
 [project.entry-points."xarray.backends"]
 om = "omfiles.xarray_backend:OmXarrayEntrypoint"
