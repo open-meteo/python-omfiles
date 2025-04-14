@@ -13,75 +13,9 @@ from zarr.core.array_spec import ArraySpec
 from zarr.core.buffer import Buffer
 from zarr.core.common import JSON
 
-# from .omfiles import (
-#     # PyPforDelta2dInt16Codec as RustPforDelta2dInt16Codec,
-#     # PyPforDelta2dInt16LogarithmicCodec as RustPforDelta2dInt16LogarithmicCodec,
-#     FpxXor2dCodec as RustFpxXor2dCodec,  # type: ignore[arg-type]
-# )
 from .omfiles import (
     PforDelta2dCodec as RustPforDelta2dCodec,  # type: ignore[arg-type]
 )
-
-# @dataclass(frozen=True)
-# class PyFpxXor2dCodec(BytesBytesCodec):
-#     """FPX XOR 2D compression for floating-point data."""
-#     codec_id = 'fpx_xor_2d'
-#     is_fixed_size = False
-#     dtype: str = "float32"
-
-#     def __init__(self, dtype: str = "float32") -> None:
-#         dtype_parsed = parse_dtype(dtype)
-#         object.__setattr__(self, "dtype", dtype_parsed)
-
-#     @classmethod
-#     def from_dict(cls, data: dict[str, JSON]) -> Self:
-#         _, configuration_parsed = parse_named_configuration(data, "fpx_xor_2d")
-#         return cls(**configuration_parsed)  # type: ignore[arg-type]
-
-#     def to_dict(self) -> dict[str, JSON]:
-#         return {
-#             "name": "fpx_xor_2d",
-#             "configuration": {
-#                 "dtype": self.dtype,
-#             },
-#         }
-
-#     def evolve_from_array_spec(self, array_spec: ArraySpec) -> Self:
-#         # Possibly we could auto-adapt the dtype based on the array_spec
-#         # For now, just return self since we don't adapt
-#         return self
-
-#     @property
-#     def _impl(self) -> RustFpxXor2dCodec:
-#         return RustFpxXor2dCodec(self.dtype)
-
-#     async def _decode_single(
-#         self,
-#         chunk_data: Buffer,
-#         chunk_spec: ArraySpec,
-#     ) -> Buffer:
-#         return await asyncio.to_thread(
-#                 lambda bytes_data: chunk_spec.prototype.buffer.from_bytes(
-#                     self._impl.decode(bytes_data.to_bytes(), np.prod(chunk_spec.shape))
-#                 ),
-#                 chunk_data
-#             )
-
-#     async def _encode_single(
-#         self,
-#         chunk_data: Buffer,
-#         chunk_spec: ArraySpec,
-#     ) -> Buffer | None:
-#         return await asyncio.to_thread(
-#             lambda chunk: chunk_spec.prototype.buffer.from_bytes(
-#                 self._impl.encode(chunk.as_numpy_array().tobytes())
-#             ),
-#             chunk_data,
-#         )
-
-#     def compute_encoded_size(self, input_byte_length: int, chunk_spec: ArraySpec) -> int:
-#         # FPX XOR doesn't have a guaranteed size formula, so we provide a conservative estimate
-#         return input_byte_length * 2  # A conservative estimate
 
 
 def parse_dtype(data: JSON) -> str:
@@ -92,121 +26,6 @@ def parse_dtype(data: JSON) -> str:
     if data not in valid_dtypes:
         raise ValueError(f"dtype must be one of {valid_dtypes}. Got '{data}'")
     return data
-
-# @dataclass(frozen=True)
-# class PyPforDelta2dCodec(BytesBytesCodec):
-#     """PFor-Delta 2D compression for various data types."""
-#     codec_id: ClassVar[str] = "pfor_delta_2d"
-#     is_fixed_size = False
-#     dtype: str = "int16"
-#     _impl_cache: RustPforDelta2dCodec = field(init=False, repr=False, compare=False, default=None)
-#     _buffer_cache: dict = field(init=False, repr=False, compare=False, default_factory=dict)
-#     _lock: asyncio.Lock = field(init=False, repr=False, compare=False, default_factory=asyncio.Lock)
-
-#     def __init__(self, dtype: str = "int16") -> None:
-#         dtype_parsed = parse_dtype(dtype)
-#         object.__setattr__(self, "dtype", dtype_parsed)
-#         object.__setattr__(self, "_impl_cache", RustPforDelta2dCodec(dtype_parsed))
-#         object.__setattr__(self, "_buffer_cache", {})
-#         object.__setattr__(self, "_lock", asyncio.Lock())
-
-#     @classmethod
-#     def from_dict(cls, data: dict[str, JSON]) -> Self:
-#         _, configuration_parsed = parse_named_configuration(data, "pfor_delta_2d")
-#         return cls(**configuration_parsed)  # type: ignore[arg-type]
-
-#     def to_dict(self) -> dict[str, JSON]:
-#         return {
-#             "name": "pfor_delta_2d",
-#             "configuration": {
-#                 "dtype": self.dtype,
-#             },
-#         }
-
-#     def evolve_from_array_spec(self, array_spec: ArraySpec) -> Self:
-#         # Possibly we could auto-adapt the dtype based on the array_spec
-#         # For now, just return self since we don't adapt
-#         return self
-
-#     @property
-#     def _impl(self) -> RustPforDelta2dCodec:
-#         return self._impl_cache
-
-#     async def _decode_single(
-#         self,
-#         chunk_data: Buffer,
-#         chunk_spec: ArraySpec,
-#     ) -> Buffer:
-#         # Use a thread pool executor to avoid blocking the event loop
-#         loop = asyncio.get_running_loop()
-
-#         # Get the expected output size
-#         output_size = np.prod(chunk_spec.shape) * np.dtype(self.dtype).itemsize
-
-#         # Get or create an appropriately sized output buffer
-#         async with self._lock:
-#             buffer_key = f"decode_{output_size}"
-#             if buffer_key not in self._buffer_cache:
-#                 # Create a new output buffer for this size
-#                 self._buffer_cache[buffer_key] = np.frombuffer(bytearray(output_size), dtype=np.int8)
-
-#             # Get the reusable buffer
-#             output_buffer = self._buffer_cache[buffer_key]
-
-#         # Run the decode operation in a thread
-#         return await loop.run_in_executor(
-#             None,
-#             self._decode_sync,
-#             chunk_data,
-#             chunk_spec,
-#             output_buffer
-#         )
-
-#     def _decode_sync(self, chunk_data: Buffer, chunk_spec: ArraySpec, output_buffer=None) -> Buffer:
-#         # Synchronous decode function to run in a thread
-#         if output_buffer is None:
-#             # No reusable buffer provided, fallback to standard decoding
-#             decoded = self._impl.decode(chunk_data.to_bytes(), np.prod(chunk_spec.shape))
-#             return chunk_spec.prototype.buffer.from_bytes(decoded)
-#         else:
-#             print("output buffer out type", output_buffer.dtype)
-#             # Use the reusable buffer
-#             bytes_written = self._impl.decode_array(
-#                 chunk_data.as_array_like(),
-#                 output_buffer
-#             )
-
-#             # Create a Buffer from the appropriate slice of the output buffer
-#             return chunk_spec.prototype.buffer.from_bytes(bytes(output_buffer[:bytes_written]))
-
-#     async def _encode_single(
-#         self,
-#         chunk_data: Buffer,
-#         chunk_spec: ArraySpec,
-#     ) -> Buffer | None:
-#         # Use a thread pool executor to avoid blocking the event loop
-#         loop = asyncio.get_running_loop()
-
-#         # For encoding, we generally can't know the output size in advance
-#         # so we won't try to reuse buffers for the output
-#         return await loop.run_in_executor(
-#             None,
-#             self._encode_sync,
-#             chunk_data,
-#             chunk_spec
-#         )
-
-#     def _encode_sync(self, chunk_data: Buffer, chunk_spec: ArraySpec) -> Buffer | None:
-#         # Synchronous encode function to run in a thread
-#         encoded = self._impl.encode_array(chunk_data.as_array_like())
-#         # encoded = self._impl.encode(chunk_data.to_bytes())
-#         return chunk_spec.prototype.buffer.from_bytes(encoded)
-
-#     def compute_encoded_size(self, input_byte_length: int, chunk_spec: ArraySpec) -> int:
-#         # PFor-Delta doesn't have a guaranteed size formula, so we can't implement this precisely
-#         # Return double the size to be safe
-#         return input_byte_length * 2 # A conservative estimate
-
 
 
 @dataclass(frozen=True)
@@ -249,15 +68,7 @@ class PyPforDelta2d(Codec):
     def encode(self, buf):
         # Convert input to contiguous numpy array
         buf = ensure_contiguous_ndarray(buf)
-
-        # Use our optimized array-based encoding when possible
-        try:
-            print("buf.dtype", buf.dtype)
-            return self._impl_cache.encode_array(buf)
-        except (TypeError, AttributeError) as error:
-            print(error)
-            # Fall back to byte encoding if array method not available
-            return self._impl_cache.encode(buf.tobytes())
+        return self._impl_cache.encode_array(buf)
 
 
     def decode(self, buf, out=None, length: int|None = None):
@@ -320,15 +131,16 @@ class _NumcodecsArrayBytesCodecWithShapeLength(_NumcodecsCodec, ArrayBytesCodec)
         super().__init__(**codec_config)
 
     async def _decode_single(self, chunk_data: Buffer, chunk_spec: ArraySpec) -> NDBuffer:
-        chunk_bytes = chunk_data.to_bytes()
+        chunk_bytes = chunk_data.as_array_like()
+
         chunk_length = np.prod(chunk_spec.shape) * np.dtype(chunk_spec.dtype).itemsize
-        out = await asyncio.to_thread(self._codec.decode, chunk_bytes, None, chunk_length)
+        out = np.frombuffer(bytearray(chunk_length), dtype=chunk_spec.dtype)
+        await asyncio.to_thread(self._codec.decode, chunk_bytes, out, chunk_length)
 
         return chunk_spec.prototype.nd_buffer.from_ndarray_like(out.reshape(chunk_spec.shape))
 
     async def _encode_single(self, chunk_data: NDBuffer, chunk_spec: ArraySpec) -> Buffer:
-        chunk_ndarray = chunk_data.as_ndarray_like()
-        out = await asyncio.to_thread(self._codec.encode, chunk_ndarray)
+        out = await asyncio.to_thread(self._codec.encode, chunk_data.as_ndarray_like())
         return chunk_spec.prototype.buffer.from_bytes(out)
 
 CODEC_PREFIX = "numcodecs."
