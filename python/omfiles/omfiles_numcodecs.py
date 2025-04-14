@@ -67,6 +67,8 @@ class PyPforDelta2d(Codec):
 
     def encode(self, buf):
         # Convert input to contiguous numpy array
+        print("buffer type", type(buf))
+        print("buffer dtype", buf.dtype)
         buf = ensure_contiguous_ndarray(buf)
         return self._impl_cache.encode_array(buf)
 

@@ -6,7 +6,7 @@ import time
 
 import numpy as np
 from numcodecs.zarr3 import Blosc, Delta, PCodec, Quantize
-from omfiles.omfiles_numcodecs import PyPforDelta2dCodec, PyPforDelta2dSerializer
+from omfiles.omfiles_numcodecs import PyPforDelta2dSerializer
 from tabulate import tabulate
 from zarr import create_array
 from zarr.storage import LocalStore
@@ -59,7 +59,7 @@ def get_codecs(dtype_name):
 
     codecs = {
         'none': None,
-        'pfordelta': PyPforDelta2dCodec(dtype=dtype_name),
+        # 'pfordelta': PyPforDelta2dCodec(dtype=dtype_name),
         'pfordelta_serializer': PyPforDelta2dSerializer(dtype=dtype_name),
         'pcodec': PCodec(level = 8, mode_spec="auto"),
         'blosc': Blosc(cname='zstd', clevel=5),
@@ -169,7 +169,7 @@ def main():
     if not os.path.exists(tmp_dir):
         os.makedirs(tmp_dir)
 
-    dtypes = [np.int32, np.uint32, np.int64, np.uint64]
+    dtypes = [np.int16, np.uint16, np.int32, np.uint32, np.int64, np.uint64]
     # dtypes = [np.int32, np.uint32, np.int64, np.uint64, np.float32, np.float64]
     patterns = ['sequential', 'incremental', 'random']
     sizes = [
@@ -245,7 +245,7 @@ def main_with_profiling():
 
     # Print sorted stats
     stats = pstats.Stats(profiler).sort_stats('cumtime')
-    stats.print_stats(10)  # Print top 30 time-consuming functions
+    stats.print_stats(50)  # Print top 30 time-consuming functions
 
     # Optionally save to file for more detailed analysis
     stats.dump_stats('benchmark_profile.prof')
