@@ -326,14 +326,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "om-file-format-sys"
+version = "0.0.0"
+source = "git+https://github.com/open-meteo/om-file-format?rev=7e362d01f0976416ad4a508e6bbdd74264562797#7e362d01f0976416ad4a508e6bbdd74264562797"
+dependencies = [
+ "bindgen",
+ "cc",
+ "libc",
+]
+
+[[package]]
 name = "omfiles-rs"
 version = "0.1.0"
-source = "git+https://github.com/terraputix/omfiles-rs?branch=main#5171ceab01300d969c06ab51a514a7d5f475e76e"
+source = "git+https://github.com/terraputix/omfiles-rs?rev=89dfee67c181208ee9bb1503a7eb51c8278f2f1d#89dfee67c181208ee9bb1503a7eb51c8278f2f1d"
 dependencies = [
  "memmap2",
  "ndarray",
  "num-traits",
- "om-file-format-sys",
+ "om-file-format-sys 0.0.0 (git+https://github.com/open-meteo/om-file-format?rev=7e362d01f0976416ad4a508e6bbdd74264562797)",
 ]
 
 [[package]]
@@ -343,7 +353,7 @@ dependencies = [
  "delegate",
  "num-traits",
  "numpy",
- "om-file-format-sys",
+ "om-file-format-sys 0.0.0 (git+https://github.com/open-meteo/om-file-format?rev=209100a6ab56d61d2a7d4c9f167e92e4b7548c46)",
  "omfiles-rs",
  "pyo3",
 ]

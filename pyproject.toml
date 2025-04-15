@@ -18,6 +18,10 @@ dependencies = [
     "xarray>=2023.1.0",
 ]
 
+[tool.ruff]
+# Disable fix for unused imports (`F401`).
+unfixable = ["F401"]
+
 [tool.maturin]
 python-source = "python" # Python source code is in the `python` directory
 bindings = "pyo3"        # pyo3 bindings is actually the default for maturin

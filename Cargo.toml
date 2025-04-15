@@ -13,7 +13,7 @@ pyo3 = { version = "0.23", features = ["abi3-py39"] }
 numpy = "0.23"
 num-traits = "0.2"
 delegate = "0.13"
-omfiles-rs = { git = "https://github.com/terraputix/omfiles-rs", branch = "main" }
+omfiles-rs = { git = "https://github.com/terraputix/omfiles-rs", rev = "89dfee67c181208ee9bb1503a7eb51c8278f2f1d" }
 om-file-format-sys = { git = "https://github.com/open-meteo/om-file-format", rev = "209100a6ab56d61d2a7d4c9f167e92e4b7548c46" }
 
 [features]
