@@ -27,7 +27,7 @@ def parse_dtype(data: JSON) -> str:
 
 
 @dataclass(frozen=True)
-class PyPforDelta2d(Codec):
+class TurboPfor(Codec):
     """PFor-Delta 2D compression for various data types."""
     codec_id: ClassVar[str] = "pfor"
     is_fixed_size = False
@@ -55,7 +55,7 @@ class PyPforDelta2d(Codec):
 
         Returns
         -------
-        codec : PyPforDelta2d
+        codec : TurboPfor
             A codec instance.
         """
         # Extract the configuration parameters
@@ -117,8 +117,7 @@ class PyPforDelta2d(Codec):
 
 
 # Register the codecs with numcodecs
-register_codec(PyPforDelta2d)
-# register_codec("pfor_delta_2d", PyPforDelta2dCodec)
+register_codec(TurboPfor)
 
-PforSerializer = _make_array_bytes_codec("pfor", "PyPforDelta2d")
-PforCodec = _make_bytes_bytes_codec("pfor", "PyPforDelta2d")
+PforSerializer = _make_array_bytes_codec("pfor", "TurboPfor")
+PforCodec = _make_bytes_bytes_codec("pfor", "TurboPfor")
