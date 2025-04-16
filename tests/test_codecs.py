@@ -74,16 +74,22 @@ async def test_pfordelta_roundtrip(store: Store, dtype: np.dtype) -> None:
         ],
         dtype=np.dtype(dtype))
 
+    chunk_shape = (1, 10) # NOTE: chunks are no clean divisor of data.shape
+    print("dtype.itemsize", np.dtype(dtype).itemsize)
+    chunk_length = int(np.prod(chunk_shape)) * np.dtype(dtype).itemsize
+
     delta_filter = Delta(dtype=delta_config[dtype.__name__])
     # Create array with our codec
     z = create_array(
         spath,
         shape=data.shape,
-        chunks=(1,10), # NOTE: chunks are no clean divisor of data.shape
+        chunks=chunk_shape,
         dtype=data.dtype,
         fill_value=0,
         filters=[delta_filter],
-        compressors=PyPforDelta2dCodec(dtype=dtype.__name__)
+        # Codec is used as a byte-byte-compressor here, therefore dtype is set like this.
+        # We should rather use it as a serializer, i.e. ByteArrayCompressor
+        compressors=PyPforDelta2dCodec(dtype='int8', length=chunk_length)
     )
 
     bytes_before = z.nbytes_stored()
