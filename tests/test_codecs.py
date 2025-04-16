@@ -3,7 +3,7 @@ import pytest
 from numcodecs.zarr3 import Delta
 
 # from numcodecs.delta import Delta
-from omfiles.omfiles_numcodecs import PyPforDelta2dCodec
+from omfiles.omfiles_numcodecs import PforCodec
 from zarr import create_array
 from zarr.abc.store import Store
 from zarr.storage import LocalStore, MemoryStore, StorePath
@@ -89,7 +89,7 @@ async def test_pfordelta_roundtrip(store: Store, dtype: np.dtype) -> None:
         filters=[delta_filter],
         # Codec is used as a byte-byte-compressor here, therefore dtype is set like this.
         # We should rather use it as a serializer, i.e. ByteArrayCompressor
-        compressors=PyPforDelta2dCodec(dtype='int8', length=chunk_length)
+        compressors=PforCodec(dtype='int8', length=chunk_length)
     )
 
     bytes_before = z.nbytes_stored()

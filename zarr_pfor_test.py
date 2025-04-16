@@ -1,10 +1,10 @@
 import numpy as np
 import zarr
-from omfiles.omfiles_numcodecs import PyPforDelta2dCodec
+from omfiles.omfiles_numcodecs import PforCodec
 from zarr.registry import register_codec
 
 # Register custom codec with zarr!
-register_codec("numcodecs.pfor", PyPforDelta2dCodec)
+register_codec("numcodecs.pfor", PforCodec)
 
 # --- Writing ---
 file_path = 'data_with_custom_codec.zarr'
@@ -19,7 +19,7 @@ z_array = zarr_group.create_array(
     shape=(1000, 1000),
     chunks=(1000, 1000),
     dtype='int16',  # Match the dtype you specified for the codec
-    compressors=[PyPforDelta2dCodec()],  # Registered codec instance
+    compressors=[PforCodec(dtype='int8', length=1_000_000 * 2)],  # Registered codec instance
     overwrite=True
 )
 

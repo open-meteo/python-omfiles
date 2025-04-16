@@ -6,7 +6,7 @@ import time
 
 import numpy as np
 from numcodecs.zarr3 import Blosc, Delta, FixedScaleOffset, PCodec, Quantize
-from omfiles.omfiles_numcodecs import PyPforDelta2dCodec, PyPforDelta2dSerializer
+from omfiles.omfiles_numcodecs import PforCodec, PforSerializer
 from tabulate import tabulate
 from zarr import create_array
 from zarr.storage import LocalStore
@@ -55,12 +55,12 @@ def generate_float_data(shape, dtype, pattern='sequential'):
     return base
 
 # Codec configurations
-def get_codecs(dtype_name):
-
+def get_codecs(dtype_name, chunk_shape):
+    chunk_len = int(np.prod(chunk_shape))
     codecs = {
         'none': None,
-        'pfordelta': PyPforDelta2dCodec(dtype=dtype_name),
-        'pfordelta_serializer': PyPforDelta2dSerializer(dtype=dtype_name),
+        'pfordelta': PforCodec(dtype='int8', length=np.dtype(dtype_name).itemsize * chunk_len),
+        'pfordelta_serializer': PforSerializer(dtype=dtype_name, length=chunk_len),
         'pcodec': PCodec(level = 8, mode_spec="auto"),
         'blosc': Blosc(cname='zstd', clevel=5),
         'blosc_lz4': Blosc(cname='lz4', clevel=5),
@@ -73,6 +73,9 @@ def benchmark_codec(dtype, data_pattern, data_size, tmp_dir):
     dtype_name = dtype.__name__
     is_float = 'float' in dtype_name
 
+    chunk_shape = (min(data_size[0], 1000), min(data_size[1], 100))
+    # chunk_shape = (data_size[0], data_size[1])
+
     # Generate appropriate test data
     if is_float:
         data = generate_float_data(data_size, dtype, data_pattern)
@@ -80,7 +83,7 @@ def benchmark_codec(dtype, data_pattern, data_size, tmp_dir):
         data = generate_int_data(data_size, dtype, data_pattern)
 
     # Get codec configurations for this dtype
-    codecs = get_codecs(dtype_name)
+    codecs = get_codecs(dtype_name, chunk_shape)
 
     # Set up filters based on data type
     if is_float:
@@ -94,8 +97,6 @@ def benchmark_codec(dtype, data_pattern, data_size, tmp_dir):
     for codec_name, codec in codecs.items():
         is_serializer = codec_name in ["pcodec", "pfordelta_serializer"]
 
-        chunk_shape = (min(data_size[0], 1000), min(data_size[1], 100))
-        # chunk_shape = (data_size[0], data_size[1])
         print(f"Testing codec: {codec_name} with data shape {data.shape} and chunk shape {chunk_shape}")
         # Path for this specific codec test
         path = os.path.join(tmp_dir, f"{dtype_name}_{codec_name}_{data_pattern}")

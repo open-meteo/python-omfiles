@@ -12,7 +12,7 @@ from numcodecs.zarr3 import (
 from zarr.core.common import JSON
 
 from .omfiles import (
-    PforDelta2dCodec as RustPforDelta2dCodec,  # type: ignore[arg-type]
+    PforDelta2dCodec as RustPforCodec,  # type: ignore[arg-type]
 )
 
 
@@ -37,11 +37,11 @@ class PyPforDelta2d(Codec):
     _buffer_pool: dict = field(init=False, repr=False, compare=False, default_factory=dict)
 
     def __post_init__(self):
-        object.__setattr__(self, "_impl_cache", RustPforDelta2dCodec(self.dtype))
+        object.__setattr__(self, "_impl_cache", RustPforCodec(self.dtype))
         object.__setattr__(self, "_buffer_pool", {})
 
     @property
-    def _impl(self) -> RustPforDelta2dCodec:
+    def _impl(self) -> RustPforCodec:
         return self._impl_cache
 
     @classmethod
@@ -120,5 +120,5 @@ class PyPforDelta2d(Codec):
 register_codec(PyPforDelta2d)
 # register_codec("pfor_delta_2d", PyPforDelta2dCodec)
 
-PyPforDelta2dSerializer = _make_array_bytes_codec("pfor", "PyPforDelta2d")
-PyPforDelta2dCodec = _make_bytes_bytes_codec("pfor", "PyPforDelta2d")
+PforSerializer = _make_array_bytes_codec("pfor", "PyPforDelta2d")
+PforCodec = _make_bytes_bytes_codec("pfor", "PyPforDelta2d")
