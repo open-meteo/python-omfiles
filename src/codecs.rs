@@ -2,33 +2,13 @@ use numpy::{
     ndarray, IntoPyArray, PyArray1, PyArrayDescr, PyArrayDescrMethods, PyArrayDyn, PyArrayMethods,
     PyUntypedArray, PyUntypedArrayMethods,
 };
-use om_file_format_sys::{OmCompression_t, OmDataType_t};
+use om_file_format_sys::OmDataType_t;
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::{PyBytes, PyDict};
+use pyo3::types::PyBytes;
 use std::ffi::c_uchar;
 
 const CODEC_ID_PFOR_DELTA_2D: &str = "pfor_delta_2d";
-
-// Helper to get OmDataType and element size from string
-fn get_dtype_info(dtype_str: &str) -> PyResult<(OmDataType_t, usize)> {
-    match dtype_str {
-        "int8" => Ok((OmDataType_t::DATA_TYPE_INT8_ARRAY, 1)),
-        "uint8" => Ok((OmDataType_t::DATA_TYPE_UINT8_ARRAY, 1)),
-        "int16" => Ok((OmDataType_t::DATA_TYPE_INT16_ARRAY, 2)),
-        "uint16" => Ok((OmDataType_t::DATA_TYPE_UINT16_ARRAY, 2)),
-        "int32" => Ok((OmDataType_t::DATA_TYPE_INT32_ARRAY, 4)),
-        "uint32" => Ok((OmDataType_t::DATA_TYPE_UINT32_ARRAY, 4)),
-        "int64" => Ok((OmDataType_t::DATA_TYPE_INT64_ARRAY, 8)),
-        "uint64" => Ok((OmDataType_t::DATA_TYPE_UINT64_ARRAY, 8)),
-        "float32" => Ok((OmDataType_t::DATA_TYPE_FLOAT_ARRAY, 4)),
-        "float64" => Ok((OmDataType_t::DATA_TYPE_DOUBLE_ARRAY, 8)),
-        _ => Err(PyValueError::new_err(format!(
-            "Unsupported dtype: {}",
-            dtype_str
-        ))),
-    }
-}
 
 fn get_dtype_size(dtype_str: &str) -> PyResult<usize> {
     match dtype_str {
@@ -49,23 +29,7 @@ fn get_dtype_size(dtype_str: &str) -> PyResult<usize> {
     }
 }
 
-fn get_dtype_string(dtype: OmDataType_t) -> Option<&'static str> {
-    match dtype {
-        OmDataType_t::DATA_TYPE_INT8_ARRAY => Some("int8"),
-        OmDataType_t::DATA_TYPE_UINT8_ARRAY => Some("uint8"),
-        OmDataType_t::DATA_TYPE_INT16_ARRAY => Some("int16"),
-        OmDataType_t::DATA_TYPE_UINT16_ARRAY => Some("uint16"),
-        OmDataType_t::DATA_TYPE_INT32_ARRAY => Some("int32"),
-        OmDataType_t::DATA_TYPE_UINT32_ARRAY => Some("uint32"),
-        OmDataType_t::DATA_TYPE_INT64_ARRAY => Some("int64"),
-        OmDataType_t::DATA_TYPE_UINT64_ARRAY => Some("uint64"),
-        OmDataType_t::DATA_TYPE_FLOAT_ARRAY => Some("float32"),
-        OmDataType_t::DATA_TYPE_DOUBLE_ARRAY => Some("float64"),
-        _ => None,
-    }
-}
-
-#[pyclass(module = "omfiles_numcodecs._omfiles_rs_bindings", dict)]
+#[pyclass(module = "omfiles_zarr_codecs._omfiles_rs_bindings", dict)]
 #[derive(Debug, Clone)]
 pub struct PforDelta2dCodec {
     // // Requires dtype (various int/float) at init time

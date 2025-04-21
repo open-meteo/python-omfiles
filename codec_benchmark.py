@@ -6,7 +6,7 @@ import time
 
 import numpy as np
 from numcodecs.zarr3 import Blosc, Delta, FixedScaleOffset, PCodec, Quantize
-from omfiles.omfiles_numcodecs import PforCodec, PforSerializer
+from omfiles.omfiles_zarr_codecs import PforCodec, PforSerializer
 from tabulate import tabulate
 from zarr import create_array
 from zarr.storage import LocalStore

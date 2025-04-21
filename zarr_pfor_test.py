@@ -1,10 +1,8 @@
 import numpy as np
 import zarr
-from omfiles.omfiles_numcodecs import PforCodec
-from zarr.registry import register_codec
+from omfiles.omfiles_zarr_codecs import PforCodec, PforSerializer
 
-# Register custom codec with zarr!
-register_codec("numcodecs.pfor", PforCodec)
+# Codecs are registered via entry points
 
 # --- Writing ---
 file_path = 'data_with_custom_codec.zarr'
@@ -19,7 +17,8 @@ z_array = zarr_group.create_array(
     shape=(1000, 1000),
     chunks=(1000, 1000),
     dtype='int16',  # Match the dtype you specified for the codec
-    compressors=[PforCodec(dtype='int8', length=1_000_000 * 2)],  # Registered codec instance
+    compressors=PforCodec(),  # Registered codec instance
+    serializer=PforSerializer(),  # Registered serializer instance
     overwrite=True
 )
 

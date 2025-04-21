@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 from numcodecs.zarr3 import Delta
-from omfiles.omfiles_numcodecs import PforCodec, PforSerializer
+from omfiles.omfiles_zarr_codecs import PforCodec, PforSerializer
 from zarr import create_array
 from zarr.abc.store import Store
 from zarr.storage import LocalStore, MemoryStore, StorePath

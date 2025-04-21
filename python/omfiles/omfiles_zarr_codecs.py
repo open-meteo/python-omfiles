@@ -1,13 +1,14 @@
 import asyncio
-from dataclasses import dataclass
-from typing import Any, ClassVar, Dict, Self
+from dataclasses import dataclass, field
+from typing import Any, Dict, Self
 
 import numpy as np
 from zarr.abc.codec import ArrayBytesCodec, BytesBytesCodec
+from zarr.abc.metadata import Metadata
 from zarr.core.array_spec import ArraySpec
 from zarr.core.buffer.core import Buffer, NDBuffer
 from zarr.core.chunk_grids import ChunkGrid
-from zarr.core.common import ChunkCoords
+from zarr.core.common import JSON, ChunkCoords
 
 from .omfiles import (
     PforDelta2dCodec as RustPforCodec,  # type: ignore[arg-type]
@@ -15,9 +16,11 @@ from .omfiles import (
 
 
 @dataclass(frozen=True)
-class PforSerializer(ArrayBytesCodec):
+class PforSerializer(ArrayBytesCodec, Metadata):
     """Array-to-bytes codec for PFor-Delta 2D compression."""
-    codec_id: ClassVar[str] = "omfiles.pfor_serializer"
+    name: str = "omfiles.pfor_serializer"
+    config: dict[str, JSON] = field(default_factory=dict)
+
     # _impl_cache: Any = field(init=False, repr=False, compare=False, default=None)
 
     # def __post_init__(self):
@@ -60,9 +63,11 @@ class PforSerializer(ArrayBytesCodec):
 
 
 @dataclass(frozen=True)
-class PforCodec(BytesBytesCodec):
+class PforCodec(BytesBytesCodec, Metadata):
     """Bytes-to-bytes codec for PFor-Delta 2D compression."""
-    codec_id: ClassVar[str] = "omfiles.pfor"
+    name: str = "omfiles.pfor"
+    config: dict[str, JSON] = field(default_factory=dict)
+
     # _impl_cache: Any = field(init=False, repr=False, compare=False, default=None)
 
     # def __post_init__(self):
