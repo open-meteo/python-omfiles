@@ -1,123 +1,104 @@
-from dataclasses import dataclass, field
-from typing import Any, ClassVar, Self
+import asyncio
+from dataclasses import dataclass
+from typing import Any, ClassVar, Dict, Self
 
 import numpy as np
-from numcodecs.abc import Codec
-from numcodecs.compat import ensure_contiguous_ndarray
-from numcodecs.registry import register_codec
-from numcodecs.zarr3 import (
-    _make_array_bytes_codec,
-    _make_bytes_bytes_codec,
-)
-from zarr.core.common import JSON
+from zarr.abc.codec import ArrayBytesCodec, BytesBytesCodec
+from zarr.core.array_spec import ArraySpec
+from zarr.core.buffer.core import Buffer, NDBuffer
+from zarr.core.chunk_grids import ChunkGrid
+from zarr.core.common import ChunkCoords
 
 from .omfiles import (
     PforDelta2dCodec as RustPforCodec,  # type: ignore[arg-type]
 )
 
 
-def parse_dtype(data: JSON) -> str:
-    if not isinstance(data, str):
-        raise TypeError(f"Value must be a string. Got {type(data)} instead.")
-    valid_dtypes = ["int8", "uint8", "int16", "uint16", "int32", "uint32",
-                    "int64", "uint64", "float32", "float64"]
-    if data not in valid_dtypes:
-        raise ValueError(f"dtype must be one of {valid_dtypes}. Got '{data}'")
-    return data
-
-
 @dataclass(frozen=True)
-class TurboPfor(Codec):
-    """PFor-Delta 2D compression for various data types."""
-    codec_id: ClassVar[str] = "pfor"
-    is_fixed_size = False
-    dtype: str = "int16"
-    length: int|None = None
-    _impl_cache: Any = field(init=False, repr=False, compare=False, default=None)
-    _buffer_pool: dict = field(init=False, repr=False, compare=False, default_factory=dict)
+class PforSerializer(ArrayBytesCodec):
+    """Array-to-bytes codec for PFor-Delta 2D compression."""
+    codec_id: ClassVar[str] = "omfiles.pfor_serializer"
+    # _impl_cache: Any = field(init=False, repr=False, compare=False, default=None)
 
-    def __post_init__(self):
-        object.__setattr__(self, "_impl_cache", RustPforCodec(self.dtype))
-        object.__setattr__(self, "_buffer_pool", {})
+    # def __post_init__(self):
+    #     object.__setattr__(self, "_impl_cache", RustPforCodec(self.dtype))
 
     @property
     def _impl(self) -> RustPforCodec:
-        return self._impl_cache
+        return RustPforCodec()
+
+    async def _encode_single(self, chunk_data: NDBuffer, chunk_spec: ArraySpec) -> Buffer:
+        """Encode a single array chunk to bytes."""
+        chunk_ndarray = chunk_data.as_ndarray_like()
+        out = await asyncio.to_thread(self._impl.encode_array, chunk_ndarray, chunk_spec.dtype)
+        return chunk_spec.prototype.buffer.from_bytes(out)
+
+    async def _decode_single(self, chunk_data: Buffer, chunk_spec: ArraySpec) -> NDBuffer:
+        """Decode a single byte chunk to an array."""
+        chunk_bytes = chunk_data.to_bytes()
+        out = await asyncio.to_thread(self._impl.decode_array, chunk_bytes, chunk_spec.dtype, np.prod(chunk_spec.shape))
+        return chunk_spec.prototype.nd_buffer.from_ndarray_like(out.reshape(chunk_spec.shape))
+
+
+    def compute_encoded_size(self, input_byte_length: int, chunk_spec: ArraySpec) -> int:
+        # PFor compression is variable-size
+        raise NotImplementedError("PFor compression produces variable-sized output")
+
+    def validate(self, *, shape: ChunkCoords, dtype: np.dtype[Any], chunk_grid: ChunkGrid) -> None:
+        """Validate codec compatibility with the array spec."""
+        pass
+        # if dtype != np.dtype(self.dtype):
+        #     raise ValueError(f"Array dtype {dtype} doesn't match codec dtype {self.dtype}")
 
     @classmethod
-    def from_config(cls, config) -> Self:
-        """Create a codec instance from a configuration dict.
-
-        Parameters
-        ----------
-        config : dict
-            Configuration parameters for this codec.
-
-        Returns
-        -------
-        codec : TurboPfor
-            A codec instance.
-        """
-        # Extract the configuration parameters
-        dtype = config.get('dtype', 'int16')
-        length = config.get('length')
-
-        # Create and return the codec instance
-        return cls(dtype=dtype, length=length)
-
-    def encode(self, buf):
-        # Convert input to contiguous numpy array
-        buf = ensure_contiguous_ndarray(buf)
-        return self._impl_cache.encode_array(buf)
+    def from_config(cls, config: Dict[str, Any]) -> Self:
+        """Create codec instance from configuration."""
+        return cls()
+        # dtype = config.get('dtype', 'int16')
+        # length = config.get('length')
+        # return cls(dtype=dtype, length=length)
 
 
-    def decode(self, buf, out=None):
-        """Decode (decompress) data.
+@dataclass(frozen=True)
+class PforCodec(BytesBytesCodec):
+    """Bytes-to-bytes codec for PFor-Delta 2D compression."""
+    codec_id: ClassVar[str] = "omfiles.pfor"
+    # _impl_cache: Any = field(init=False, repr=False, compare=False, default=None)
 
-        Parameters
-        ----------
-        buf : bytes-like
-            Data to be decoded.
-        out : array-like, optional
-            Array to store the decoded results. If provided, its size determines
-            how many elements to decode.
+    # def __post_init__(self):
+    #     object.__setattr__(self, "_impl_cache", RustPforCodec(self.dtype))
 
-        Returns
-        -------
-        out : numpy.ndarray
-            Decoded data as a numpy array.
-        """
-        print("decode with self.length ", self.length)
-        if out is not None:
-            # Case 1: Output array provided - use its size
-            out = ensure_contiguous_ndarray(out)
+    @property
+    def _impl(self) -> RustPforCodec:
+        return RustPforCodec()
 
-            # Convert input to numpy array
-            if not isinstance(buf, np.ndarray):
-                buf_array = np.frombuffer(buf, dtype=np.int8)
-            else:
-                buf_array = buf
+    async def _encode_single(self, chunk_data: Buffer, chunk_spec: ArraySpec) -> Buffer:
+        """Encode a single bytes chunk."""
+        out = await asyncio.to_thread(
+            self._impl.encode_array,
+            chunk_data.as_array_like(),
+            np.dtype('int8')
+        )
+        return chunk_spec.prototype.buffer.from_bytes(out)
 
-            # Use array-based decoding
-            bytes_written = self._impl_cache.decode_array(buf_array, out)
-            return out
+    async def _decode_single(self, chunk_data: Buffer, chunk_spec: ArraySpec) -> Buffer:
+        """Decode a single bytes chunk."""
+        out = await asyncio.to_thread(
+            self._impl.decode_array,
+            chunk_data.to_bytes(),
+            np.dtype('int8'),
+            np.prod(chunk_spec.shape) * chunk_spec.dtype.itemsize
+        )
+        return chunk_spec.prototype.buffer.from_bytes(out)
 
-        else:
-            # Case 2: No output array - we need to determine size
-            # create output buffer
-            # Convert input to numpy array
-            if not isinstance(buf, np.ndarray):
-                buf_array = np.frombuffer(buf, dtype=np.int8)
-            else:
-                buf_array = buf
-            out = np.zeros(shape=self.length, dtype=self.dtype)
-            # out = np.frombuffer(bytearray(length), dtype=np.int8) # FIXME: dtype here is set for bytes-bytes-codec
-            bytes_written = self._impl_cache.decode_array(buf_array, out)
-            return out
+    def compute_encoded_size(self, input_byte_length: int, chunk_spec: ArraySpec) -> int:
+        # PFor compression is variable-size
+        raise NotImplementedError("PFor compression produces variable-sized output")
 
-
-# Register the codecs with numcodecs
-register_codec(TurboPfor)
-
-PforSerializer = _make_array_bytes_codec("pfor", "TurboPfor")
-PforCodec = _make_bytes_bytes_codec("pfor", "TurboPfor")
+    @classmethod
+    def from_config(cls, config: Dict[str, Any]) -> Self:
+        """Create codec instance from configuration."""
+        return cls()
+        # dtype = config.get('dtype', 'int16')
+        # length = config.get('length')
+        # return cls(dtype=dtype, length=length)

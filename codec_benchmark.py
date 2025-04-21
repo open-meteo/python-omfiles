@@ -59,8 +59,8 @@ def get_codecs(dtype_name, chunk_shape):
     chunk_len = int(np.prod(chunk_shape))
     codecs = {
         'none': None,
-        'pfordelta': PforCodec(dtype='int8', length=np.dtype(dtype_name).itemsize * chunk_len),
-        'pfordelta_serializer': PforSerializer(dtype=dtype_name, length=chunk_len),
+        'pfordelta': PforCodec(),
+        'pfordelta_serializer': PforSerializer(),
         'pcodec': PCodec(level = 8, mode_spec="auto"),
         'blosc': Blosc(cname='zstd', clevel=5),
         'blosc_lz4': Blosc(cname='lz4', clevel=5),
