@@ -18,13 +18,24 @@ dependencies = [
     "xarray>=2023.1.0",
 ]
 
+[tool.ruff]
+# Disable fix for unused imports (`F401`).
+unfixable = ["F401"]
+
 [tool.maturin]
 python-source = "python" # Python source code is in the `python` directory
 bindings = "pyo3"        # pyo3 bindings is actually the default for maturin
 # features = ["pyo3/extension-module"]
 
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
 [project.optional-dependencies]
-dev = ["pytest>=6.0", "psutil", "hidefix", "h5py", "netCDF4", "zarr", "tensorstore"]
+dev = ["pytest>=6.0", "psutil", "hidefix", "h5py", "netCDF4", "zarr", "tensorstore", "numcodecs"]
 
 [project.entry-points."xarray.backends"]
 om = "omfiles.xarray_backend:OmXarrayEntrypoint"
+
+[project.entry-points."zarr.codecs"]
+"omfiles.pfor" = "omfiles.omfiles_zarr_codecs:PforCodec"
+"omfiles.pfor_serializer" = "omfiles.omfiles_zarr_codecs:PforSerializer"

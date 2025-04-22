@@ -201,6 +201,37 @@ impl OmFilePyReader {
         self.with_reader(|reader| Ok(reader.get_name().unwrap_or("".to_string())))
     }
 
+    #[getter]
+    fn chunk_dimensions(&self) -> PyResult<Vec<u64>> {
+        self.with_reader(|reader| {
+            let dtype = reader.data_type();
+            if dtype == DataType::None {
+                // "groups"
+                return Ok(vec![]);
+            } else if (dtype as u8) < (DataType::Int8Array as u8) {
+                // scalars
+                return Ok(vec![]);
+            }
+            Ok(reader.get_chunk_dimensions().to_vec())
+        })
+    }
+
+    #[getter]
+    fn scale_factor(&self) -> PyResult<f32> {
+        self.with_reader(|reader| Ok(reader.scale_factor()))
+    }
+
+    #[getter]
+    fn add_offset(&self) -> PyResult<f32> {
+        self.with_reader(|reader| Ok(reader.add_offset()))
+    }
+
+    fn get_complete_lut(&self) -> PyResult<Vec<u64>> {
+        let lut =
+            self.with_reader(|reader| reader.get_complete_lut().map_err(convert_omfilesrs_error))?;
+        Ok(lut)
+    }
+
     fn __getitem__<'py>(
         &self,
         py: Python<'py>,
