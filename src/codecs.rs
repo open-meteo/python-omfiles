@@ -31,36 +31,12 @@ fn get_dtype_size(dtype_str: &str) -> PyResult<usize> {
 
 #[pyclass(module = "omfiles_zarr_codecs._omfiles_rs_bindings", dict)]
 #[derive(Debug, Clone)]
-pub struct PforDelta2dCodec {
-    // // Requires dtype (various int/float) at init time
-    // dtype: OmDataType_t,
-    // element_size: usize,
-    // compression: OmCompression_t,
-}
+pub struct PforDelta2dCodec {}
 
 #[pymethods]
 impl PforDelta2dCodec {
     #[new]
     fn new() -> PyResult<Self> {
-        // let (om_dtype, element_size) = get_dtype_info(dtype)?;
-        // // Check if dtype is supported by this specific compression in C
-        // match om_dtype {
-        //     OmDataType_t::DATA_TYPE_INT8_ARRAY
-        //     | OmDataType_t::DATA_TYPE_INT16_ARRAY
-        //     | OmDataType_t::DATA_TYPE_INT32_ARRAY
-        //     | OmDataType_t::DATA_TYPE_INT64_ARRAY
-        //     | OmDataType_t::DATA_TYPE_UINT8_ARRAY
-        //     | OmDataType_t::DATA_TYPE_UINT16_ARRAY
-        //     | OmDataType_t::DATA_TYPE_UINT32_ARRAY
-        //     | OmDataType_t::DATA_TYPE_UINT64_ARRAY => { /* Supported */ }
-        //     _ => {
-        //         return Err(PyValueError::new_err(format!(
-        //             "{} does not support dtype '{}'",
-        //             CODEC_ID_PFOR_DELTA_2D, dtype
-        //         )))
-        //     }
-        // }
-
         Ok(PforDelta2dCodec {})
     }
 
@@ -68,20 +44,6 @@ impl PforDelta2dCodec {
     fn codec_id(&self) -> &'static str {
         CODEC_ID_PFOR_DELTA_2D
     }
-
-    // #[getter]
-    // fn dtype(&self) -> PyResult<String> {
-    //     get_dtype_string(self.dtype)
-    //         .map(String::from)
-    //         .ok_or_else(|| PyValueError::new_err("Internal error: Invalid dtype stored"))
-    // }
-
-    // fn get_config(&self, py: Python<'_>) -> PyResult<Py<PyDict>> {
-    //     let dict = PyDict::new(py);
-    //     dict.set_item("id", self.codec_id())?;
-    //     dict.set_item("dtype", self.dtype()?)?;
-    //     Ok(dict.into())
-    // }
 
     #[pyo3(signature = (array, dtype))]
     fn encode_array<'py>(

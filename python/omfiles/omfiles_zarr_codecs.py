@@ -2,6 +2,7 @@ import asyncio
 from dataclasses import dataclass, field
 from typing import Any, Dict, Self
 
+import numcodecs.abc
 import numpy as np
 from zarr.abc.codec import ArrayBytesCodec, BytesBytesCodec
 from zarr.abc.metadata import Metadata
@@ -14,6 +15,41 @@ from .omfiles import (
     PforDelta2dCodec as RustPforCodec,  # type: ignore[arg-type]
 )
 
+
+@dataclass(frozen=True)
+class TurboPfor(numcodecs.abc.Codec):
+    codec_id = "turbo_pfor"
+    dtype: str = "int16"
+    chunk_elements: int | None = None
+
+    @classmethod
+    def from_config(cls, config) -> Self:
+        """
+        Create a codec instance from a configuration dict.
+        """
+        dtype = config.get('dtype', 'int16')
+        chunk_elements = config.get('chunk_elements')
+        return cls(dtype=dtype, chunk_elements=chunk_elements)
+
+    @property
+    def _impl(self) -> RustPforCodec:
+        return RustPforCodec()
+
+    def encode(self, buf):
+        return self._impl.encode_array(buf, np.dtype(self.dtype))
+
+    def decode(self, buf, out=None):
+        if out is not None:
+            raise ValueError("Output array not supported")
+
+        if isinstance(buf, np.ndarray):
+            buf = buf.tobytes()
+        else:
+            buf = buf
+
+        return self._impl.decode_array(buf, np.dtype(self.dtype), self.chunk_elements)
+
+numcodecs.register_codec(TurboPfor)
 
 @dataclass(frozen=True)
 class PforSerializer(ArrayBytesCodec, Metadata):
