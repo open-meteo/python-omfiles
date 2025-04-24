@@ -31,9 +31,6 @@ pub struct OmFilePyReader {
     shape: Vec<u64>,
 }
 
-unsafe impl Send for OmFilePyReader {}
-unsafe impl Sync for OmFilePyReader {}
-
 #[pymethods]
 impl OmFilePyReader {
     #[new]
@@ -321,7 +318,7 @@ fn read_untyped_array<'py, T: Element + OmFileArrayDataType + Clone + Zero>(
 
 /// Small helper function to get the correct shape of the data. We need to
 /// be careful with scalars and groups!
-fn get_shape_vec(reader: &OmFileReader<BackendImpl>) -> Vec<u64> {
+pub fn get_shape_vec<Backend>(reader: &OmFileReader<Backend>) -> Vec<u64> {
     let dtype = reader.data_type();
     if dtype == DataType::None {
         // "groups"
