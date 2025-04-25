@@ -1,6 +1,18 @@
 use pyo3::prelude::*;
 use std::ops::Range;
 
+/// Type annotation support via pyo3_stub_gen
+impl pyo3_stub_gen::PyStubType for ArrayIndex {
+    fn type_output() -> pyo3_stub_gen::TypeInfo {
+        let mut import = std::collections::HashSet::new();
+        import.insert("omfiles".into());
+        pyo3_stub_gen::TypeInfo {
+            name: "omfiles.types.BasicSelection".into(),
+            import,
+        }
+    }
+}
+
 /// A simplified numpy-like array basic indexing implementation.
 /// Compare https://numpy.org/doc/stable/user/basics.indexing.html.
 /// Supports integer, slice, newaxis and ellipsis indexing.

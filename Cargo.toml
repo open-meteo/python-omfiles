@@ -1,12 +1,17 @@
 [package]
-name = "omfilesrspy"
+name = "python-omfiles"
 version = "0.0.2"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [lib]
 name = "omfiles"
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
+
+[[bin]]
+name = "stub_gen"
+path = "src/bin/stub_gen.rs"
+doc = false
 
 [dependencies]
 pyo3 = { version = "0.24", features = ["abi3-py39", "experimental-async"] }
@@ -14,10 +19,10 @@ numpy = "0.24"
 num-traits = "0.2"
 delegate = "0.13"
 omfiles-rs = { git = "https://github.com/terraputix/omfiles-rs", branch = "async-reader" }
-pyo3-async-runtimes = { version = "0.24", features = ["attributes", "async-std-runtime"] }
+pyo3-async-runtimes = { version = "0.24", features = ["async-std-runtime"] }
 thiserror = "2.0.12"
 async-lock = "3.4.0"
+pyo3-stub-gen = "0.7.0"
+maplit = "1.0.2"
 
 [features]
-extension-module = ["pyo3/extension-module"]
-default = ["extension-module"]
