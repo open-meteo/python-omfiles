@@ -14,16 +14,27 @@ use omfiles_rs::{
     io::writer::{OmFileWriter, OmFileWriterArrayFinalized, OmOffsetSize},
 };
 use pyo3::{exceptions::PyValueError, prelude::*};
+use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
 use std::{fs::File, sync::Mutex};
 
+#[gen_stub_pyclass]
 #[pyclass]
+/// A Python wrapper for the Rust OmFileWriter implementation.
 pub struct OmFilePyWriter {
     file_writer: Mutex<Option<OmFileWriter<File>>>,
 }
 
+#[gen_stub_pymethods]
 #[pymethods]
 impl OmFilePyWriter {
     #[new]
+    /// Initialize an OmFilePyWriter.
+    ///
+    /// Args:
+    ///     file_path: Path where the .om file will be created
+    ///
+    /// Raises:
+    /// OSError: If the file cannot be created
     fn new(file_path: &str) -> PyResult<Self> {
         let file_handle = File::create(file_path)?;
         let writer = OmFileWriter::new(file_handle, 8 * 1024); // initial capacity of 8KB
@@ -36,6 +47,18 @@ impl OmFilePyWriter {
             text_signature = "(root_variable, /)",
             signature = (root_variable)
         )]
+    /// Finalize and close the .om file by writing the trailer with the root variable.
+    ///
+    /// Args:
+    ///     root_variable: The OmVariable that serves as the root/entry point of the file hierarchy.
+    ///                    All other variables should be accessible through this root variable.
+    ///
+    /// Returns:
+    ///     None on success.
+    ///
+    /// Raises:
+    ///     ValueError: If the writer has already been closed
+    ///     RuntimeError: If a thread lock error occurs or if there's an error writing to the file
     fn close(&mut self, root_variable: OmVariable) -> PyResult<()> {
         let mut guard = self.file_writer.lock().map_err(|e| {
             PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Lock error: {}", e))
@@ -57,6 +80,7 @@ impl OmFilePyWriter {
     }
 
     #[getter]
+    /// Check if the writer is closed.
     fn closed(&self) -> PyResult<bool> {
         let guard = self.file_writer.lock().map_err(|e| {
             PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Lock error: {}", e))
@@ -69,6 +93,24 @@ impl OmFilePyWriter {
             text_signature = "(data, chunks, scale_factor=1.0, add_offset=0.0, compression='pfor_delta_2d', name='data', children=[])",
             signature = (data, chunks, scale_factor=None, add_offset=None, compression=None, name=None, children=None)
         )]
+    /// Write a numpy array to the .om file with specified chunking and scaling parameters.
+    ///
+    /// Args:
+    ///     data: Input array to be written. Supported dtypes are:
+    ///           float32, float64, int8, uint8, int16, uint16, int32, uint32, int64, uint64,
+    ///     chunks: Chunk sizes for each dimension of the array
+    ///     scale_factor: Scale factor for data compression (default: 1.0)
+    ///     add_offset: Offset value for data compression (default: 0.0)
+    ///     compression: Compression algorithm to use (default: "pfor_delta_2d")
+    ///                  Supported values: "pfor_delta_2d", "fpx_xor_2d", "pfor_delta_2d_int16", "pfor_delta_2d_int16_logarithmic"
+    ///     name: Name of the variable to be written (default: "data")
+    ///     children: List of child variables (default: [])
+    ///
+    /// Returns:
+    ///     OmVariable representing the written group in the file structure
+    ///
+    /// Raises:
+    ///     ValueError: If the data type is unsupported or if parameters are invalid
     fn write_array(
         &mut self,
         data: &Bound<'_, PyUntypedArray>,
@@ -148,6 +190,20 @@ impl OmFilePyWriter {
         text_signature = "(value, name, children=None)",
         signature = (value, name, children=None)
     )]
+    /// Write a scalar value to the .om file.
+    ///
+    /// Args:
+    ///     value: Scalar value to write. Supported types are:
+    ///            int8, int16, int32, int64, uint8, uint16, uint32, uint64, float32, float64, String
+    ///     name: Name of the scalar variable
+    ///     children: List of child variables (default: None)
+    ///
+    /// Returns:
+    ///     OmVariable representing the written scalar in the file structure
+    ///
+    /// Raises:
+    ///     ValueError: If the value type is unsupported (e.g., booleans)
+    ///     RuntimeError: If there's an error writing to the file
     fn write_scalar(
         &mut self,
         value: &Bound<PyAny>,
@@ -184,7 +240,7 @@ impl OmFilePyWriter {
             self.store_scalar(value, name, &children)?
         } else {
             return Err(PyValueError::new_err(format!(
-                    "Unsupported attribute type for name '{}'. Supported types are: i8, i16, i32, i64, u8, u16, u32, u64, f32, f64",
+                    "Unsupported attribute type for name '{}'. Supported types are: String, i8, i16, i32, i64, u8, u16, u32, u64, f32, f64",
                     name
                 )));
         };
@@ -195,6 +251,18 @@ impl OmFilePyWriter {
         text_signature = "(name, children)",
         signature = (name, children)
     )]
+    /// Create a new group in the .om file. This is essentially a variable with no data,
+    /// which serves as a container for other variables.
+    ///
+    /// Args:
+    ///     name: Name of the group
+    ///     children: List of child variables
+    ///
+    /// Returns:
+    ///     OmVariable representing the written group in the file structure
+    ///
+    /// Raises:
+    ///     RuntimeError: If there's an error writing to the file
     fn write_group(&mut self, name: &str, children: Vec<OmVariable>) -> PyResult<OmVariable> {
         let children: Vec<OmOffsetSize> = children.iter().map(Into::into).collect();
 

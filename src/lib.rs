@@ -1,4 +1,5 @@
 use pyo3::prelude::*;
+use pyo3_stub_gen::define_stub_info_gatherer;
 mod array_index;
 mod compression;
 mod data_type;
@@ -18,3 +19,9 @@ fn omfiles<'py>(m: &Bound<'py, PyModule>) -> PyResult<()> {
 
     Ok(())
 }
+
+pub fn test_something() {
+    println!("Testing something...");
+}
+
+define_stub_info_gatherer!(stub_info);

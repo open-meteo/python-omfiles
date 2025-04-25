@@ -1,8 +1,11 @@
 use omfiles_rs::io::writer::OmOffsetSize;
 use pyo3::prelude::*;
+use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
 
+#[gen_stub_pyclass]
 #[pyclass]
 #[derive(Clone)]
+/// Represents a variable in an OM file.
 pub(crate) struct OmVariable {
     #[pyo3(get)]
     pub name: String,
@@ -12,6 +15,7 @@ pub(crate) struct OmVariable {
     pub size: u64,
 }
 
+#[gen_stub_pymethods]
 #[pymethods]
 impl OmVariable {
     fn __repr__(&self) -> String {
