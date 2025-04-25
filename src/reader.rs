@@ -1,10 +1,13 @@
 use crate::{
     array_index::ArrayIndex, data_type::get_numpy_dtype, errors::convert_omfilesrs_error,
-    fsspec_backend::FsSpecBackend, hierarchy::OmVariable,
+    fsspec_backend::FsSpecBackend, hierarchy::OmVariable, typed_array::OmFileTypedArray,
 };
 use delegate::delegate;
 use num_traits::Zero;
-use numpy::{Element, IntoPyArray, PyArrayDescr, PyArrayMethods, PyUntypedArray};
+use numpy::{
+    ndarray::{self},
+    Element, PyArrayDescr,
+};
 use omfiles_rs::{
     backend::{
         backends::OmFileReaderBackend,
@@ -17,6 +20,7 @@ use pyo3::{prelude::*, BoundObject};
 use std::{
     collections::HashMap,
     fs::File,
+    ops::Range,
     sync::{Arc, RwLock},
 };
 
@@ -198,11 +202,9 @@ impl OmFilePyReader {
         self.with_reader(|reader| Ok(reader.get_name().unwrap_or("".to_string())))
     }
 
-    fn __getitem__<'py>(
-        &self,
-        py: Python<'py>,
-        ranges: ArrayIndex,
-    ) -> PyResult<Bound<'py, PyUntypedArray>> {
+    fn __getitem__<'py>(&self, ranges: ArrayIndex) -> PyResult<OmFileTypedArray> {
+        let io_size_max = None;
+        let io_size_merge = None;
         let read_ranges = ranges.to_read_range(&self.shape)?;
 
         self.with_reader(|reader| {
@@ -225,16 +227,96 @@ impl OmFilePyReader {
                 DataType::Float => Err(scalar_error),
                 DataType::Double => Err(scalar_error),
                 DataType::String => Err(scalar_error),
-                DataType::Int8Array => read_untyped_array::<i8>(&reader, read_ranges, py),
-                DataType::Uint8Array => read_untyped_array::<u8>(&reader, read_ranges, py),
-                DataType::Int16Array => read_untyped_array::<i16>(&reader, read_ranges, py),
-                DataType::Uint16Array => read_untyped_array::<u16>(&reader, read_ranges, py),
-                DataType::Int32Array => read_untyped_array::<i32>(&reader, read_ranges, py),
-                DataType::Uint32Array => read_untyped_array::<u32>(&reader, read_ranges, py),
-                DataType::Int64Array => read_untyped_array::<i64>(&reader, read_ranges, py),
-                DataType::Uint64Array => read_untyped_array::<u64>(&reader, read_ranges, py),
-                DataType::FloatArray => read_untyped_array::<f32>(&reader, read_ranges, py),
-                DataType::DoubleArray => read_untyped_array::<f64>(&reader, read_ranges, py),
+                DataType::Int8Array => {
+                    let array = read_squeezed_typed_array::<i8>(
+                        &reader,
+                        &read_ranges,
+                        io_size_max,
+                        io_size_merge,
+                    )?;
+                    Ok(OmFileTypedArray::Int8(array))
+                }
+                DataType::Uint8Array => {
+                    let array = read_squeezed_typed_array::<u8>(
+                        &reader,
+                        &read_ranges,
+                        io_size_max,
+                        io_size_merge,
+                    )?;
+                    Ok(OmFileTypedArray::Uint8(array))
+                }
+                DataType::Int16Array => {
+                    let array = read_squeezed_typed_array::<i16>(
+                        &reader,
+                        &read_ranges,
+                        io_size_max,
+                        io_size_merge,
+                    )?;
+                    Ok(OmFileTypedArray::Int16(array))
+                }
+                DataType::Uint16Array => {
+                    let array = read_squeezed_typed_array::<u16>(
+                        &reader,
+                        &read_ranges,
+                        io_size_max,
+                        io_size_merge,
+                    )?;
+                    Ok(OmFileTypedArray::Uint16(array))
+                }
+                DataType::Int32Array => {
+                    let array = read_squeezed_typed_array::<i32>(
+                        &reader,
+                        &read_ranges,
+                        io_size_max,
+                        io_size_merge,
+                    )?;
+                    Ok(OmFileTypedArray::Int32(array))
+                }
+                DataType::Uint32Array => {
+                    let array = read_squeezed_typed_array::<u32>(
+                        &reader,
+                        &read_ranges,
+                        io_size_max,
+                        io_size_merge,
+                    )?;
+                    Ok(OmFileTypedArray::Uint32(array))
+                }
+                DataType::Int64Array => {
+                    let array = read_squeezed_typed_array::<i64>(
+                        &reader,
+                        &read_ranges,
+                        io_size_max,
+                        io_size_merge,
+                    )?;
+                    Ok(OmFileTypedArray::Int64(array))
+                }
+                DataType::Uint64Array => {
+                    let array = read_squeezed_typed_array::<u64>(
+                        &reader,
+                        &read_ranges,
+                        io_size_max,
+                        io_size_merge,
+                    )?;
+                    Ok(OmFileTypedArray::Uint64(array))
+                }
+                DataType::FloatArray => {
+                    let array = read_squeezed_typed_array::<f32>(
+                        &reader,
+                        &read_ranges,
+                        io_size_max,
+                        io_size_merge,
+                    )?;
+                    Ok(OmFileTypedArray::Float(array))
+                }
+                DataType::DoubleArray => {
+                    let array = read_squeezed_typed_array::<f64>(
+                        &reader,
+                        &read_ranges,
+                        io_size_max,
+                        io_size_merge,
+                    )?;
+                    Ok(OmFileTypedArray::Double(array))
+                }
                 DataType::StringArray => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
                     "String Arrays not currently supported",
                 )),
@@ -303,17 +385,17 @@ impl OmFilePyReader {
     }
 }
 
-fn read_untyped_array<'py, T: Element + OmFileArrayDataType + Clone + Zero>(
+fn read_squeezed_typed_array<T: Element + OmFileArrayDataType + Clone + Zero>(
     reader: &OmFileReader<impl OmFileReaderBackend>,
-    read_ranges: Vec<std::ops::Range<u64>>,
-    py: Python<'py>,
-) -> PyResult<Bound<'py, PyUntypedArray>> {
+    read_ranges: &[Range<u64>],
+    io_size_max: Option<u64>,
+    io_size_merge: Option<u64>,
+) -> PyResult<ndarray::ArrayD<T>> {
     let array = reader
-        .read::<T>(&read_ranges, None, None)
-        .map_err(convert_omfilesrs_error)?;
-    // We only add dimensions that are no singleton dimensions to the output shape
-    // This is basically a dimensional squeeze and it is the same behavior as numpy
-    Ok(array.squeeze().into_pyarray(py).as_untyped().to_owned()) // FIXME: avoid cloning?
+        .read::<T>(read_ranges, io_size_max, io_size_merge)
+        .map_err(convert_omfilesrs_error)?
+        .squeeze();
+    Ok(array)
 }
 
 /// Small helper function to get the correct shape of the data. We need to
@@ -357,7 +439,6 @@ mod tests {
     use super::*;
     use crate::array_index::IndexType;
     use crate::create_test_binary_file;
-    use numpy::{PyArrayDyn, PyArrayMethods, PyUntypedArrayMethods};
 
     #[test]
     fn test_read_simple_v3_data() -> Result<(), Box<dyn std::error::Error>> {
@@ -365,35 +446,33 @@ mod tests {
         let file_path = "test_files/read_test.om";
         pyo3::prepare_freethreaded_python();
 
-        Python::with_gil(|py| {
-            let reader = OmFilePyReader::from_path(file_path).unwrap();
-            let ranges = ArrayIndex(vec![
-                IndexType::Slice {
-                    start: Some(0),
-                    stop: Some(5),
-                    step: None,
-                },
-                IndexType::Slice {
-                    start: Some(0),
-                    stop: Some(5),
-                    step: None,
-                },
-            ]);
-            let data = reader.__getitem__(py, ranges).expect("Could not get item!");
-            let data = data
-                .downcast::<PyArrayDyn<f32>>()
-                .expect("Could not downcast to PyArrayDyn<f32>");
+        let reader = OmFilePyReader::from_path(file_path).unwrap();
+        let ranges = ArrayIndex(vec![
+            IndexType::Slice {
+                start: Some(0),
+                stop: Some(5),
+                step: None,
+            },
+            IndexType::Slice {
+                start: Some(0),
+                stop: Some(5),
+                step: None,
+            },
+        ]);
+        let data = reader.__getitem__(ranges).expect("Could not get item!");
+        let data = match data {
+            OmFileTypedArray::Float(data) => data,
+            _ => panic!("Unexpected data type"),
+        };
 
-            assert_eq!(data.shape(), [5, 5]);
+        assert_eq!(data.shape(), [5, 5]);
 
-            let read_only = data.readonly();
-            let data = read_only.as_slice().expect("Could not convert to slice!");
-            let expected_data = vec![
-                0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0,
-                15.0, 16.0, 17.0, 18.0, 19.0, 20.0, 21.0, 22.0, 23.0, 24.0,
-            ];
-            assert_eq!(data, expected_data);
-        });
+        let data = data.as_slice().expect("Could not convert to slice!");
+        let expected_data = vec![
+            0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0,
+            16.0, 17.0, 18.0, 19.0, 20.0, 21.0, 22.0, 23.0, 24.0,
+        ];
+        assert_eq!(data, expected_data);
 
         Ok(())
     }

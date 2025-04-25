@@ -8,6 +8,7 @@ mod hierarchy;
 mod reader;
 mod reader_async;
 mod test_utils;
+mod typed_array;
 mod writer;
 
 /// A Python module implemented in Rust.
