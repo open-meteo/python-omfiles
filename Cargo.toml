@@ -11,7 +11,7 @@ crate-type = ["cdylib", "rlib"]
 [[bin]]
 name = "stub_gen"
 path = "src/bin/stub_gen.rs"
-doc = false
+doc = true
 
 [dependencies]
 pyo3 = { version = "0.24", features = ["abi3-py39", "experimental-async"] }
@@ -22,7 +22,9 @@ omfiles-rs = { git = "https://github.com/terraputix/omfiles-rs", branch = "async
 pyo3-async-runtimes = { version = "0.24", features = ["async-std-runtime"] }
 thiserror = "2.0.12"
 async-lock = "3.4.0"
-pyo3-stub-gen = "0.7.0"
-maplit = "1.0.2"
+# pyo3-stub-gen = "0.7.0"
+pyo3-stub-gen = { git = "https://github.com/terraputix/pyo3-stub-gen", branch = "temporary-fix-for-abi3-datetime", features = [
+    "abi3",
+] }
 
 [features]

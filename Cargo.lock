@@ -966,12 +966,12 @@ dependencies = [
 
 [[package]]
 name = "pyo3-stub-gen"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ca7c2d6e22cba51cc9766b6dee4087218cc445fdf99db62fa4f269e074351b46"
+version = "0.8.1"
+source = "git+https://github.com/terraputix/pyo3-stub-gen?branch=temporary-fix-for-abi3-datetime#21aecd671e8ef5a1924f16139dae7203f700c8fa"
 dependencies = [
  "anyhow",
  "chrono",
+ "indexmap",
  "inventory",
  "itertools 0.13.0",
  "log",
@@ -986,10 +986,10 @@ dependencies = [
 
 [[package]]
 name = "pyo3-stub-gen-derive"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3ee49d727163163a0c6fc3fee4636c8b5c82e1bb868e85cf411be7ae9e4e5b40"
+version = "0.8.1"
+source = "git+https://github.com/terraputix/pyo3-stub-gen?branch=temporary-fix-for-abi3-datetime#21aecd671e8ef5a1924f16139dae7203f700c8fa"
 dependencies = [
+ "heck",
  "proc-macro2",
  "quote",
  "syn",
@@ -1001,7 +1001,6 @@ version = "0.0.2"
 dependencies = [
  "async-lock",
  "delegate",
- "maplit",
  "num-traits",
  "numpy",
  "omfiles-rs",

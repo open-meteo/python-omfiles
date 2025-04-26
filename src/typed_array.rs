@@ -7,7 +7,7 @@ impl pyo3_stub_gen::PyStubType for OmFileTypedArray {
         let mut import = std::collections::HashSet::new();
         import.insert("numpy.typing".into());
         pyo3_stub_gen::TypeInfo {
-            name: "numpy.typing.NDArray[typing.union[numpy.float32, numpy.float64, numpy.int32, numpy.int64, numpy.uint32, numpy.uint64, numpy.int8, numpy.uint8, numpy.int16, numpy.uint16]]".into(),
+            name: "numpy.typing.NDArray[typing.Union[numpy.float32, numpy.float64, numpy.int32, numpy.int64, numpy.uint32, numpy.uint64, numpy.int8, numpy.uint8, numpy.int16, numpy.uint16]]".into(),
             import,
         }
     }

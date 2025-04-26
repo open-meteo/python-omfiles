@@ -13,7 +13,7 @@ mod typed_array;
 mod writer;
 
 /// A Python module implemented in Rust.
-#[pymodule(gil_used = false)]
+#[pymodule]
 fn omfiles<'py>(m: &Bound<'py, PyModule>) -> PyResult<()> {
     m.add_class::<reader::OmFilePyReader>()?;
     m.add_class::<writer::OmFilePyWriter>()?;
@@ -21,10 +21,6 @@ fn omfiles<'py>(m: &Bound<'py, PyModule>) -> PyResult<()> {
     m.add_class::<hierarchy::OmVariable>()?;
 
     Ok(())
-}
-
-pub fn test_something() {
-    println!("Testing something...");
 }
 
 define_stub_info_gatherer!(stub_info);

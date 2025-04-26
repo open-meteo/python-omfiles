@@ -44,7 +44,7 @@ impl OmFileReaderBackendAsync for AsyncBackendImpl {
 /// in OM files. It supports reading from local files via memory mapping or
 /// from remote files through fsspec compatibility.
 #[gen_stub_pyclass]
-#[pyclass]
+#[pyclass(module = "omfiles.omfiles")]
 pub struct OmFilePyReaderAsync {
     /// The reader is stored in an Option to be able to properly close it,
     /// particularly when working with memory-mapped files.
