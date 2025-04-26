@@ -11,7 +11,7 @@ crate-type = ["cdylib", "rlib"]
 [[bin]]
 name = "stub_gen"
 path = "src/bin/stub_gen.rs"
-doc = false
+doc = true
 
 [dependencies]
 pyo3 = { version = "0.23", features = ["abi3-py38"] }
@@ -19,5 +19,8 @@ numpy = "0.23"
 num-traits = "0.2"
 delegate = "0.13"
 omfiles-rs = { git = "https://github.com/terraputix/omfiles-rs", branch = "main" }
+pyo3-stub-gen = { git = "https://github.com/terraputix/pyo3-stub-gen", branch = "temporary-fix-for-abi3-datetime", features = [
+    "abi3",
+] }
 
 [features]

@@ -14,19 +14,47 @@ use omfiles_rs::{
     io::reader::OmFileReader,
 };
 use pyo3::{prelude::*, BoundObject};
+use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
 use std::{
     collections::HashMap,
     fs::File,
     sync::{Arc, RwLock},
 };
 
-#[pyclass]
+/// An OmFilePyReader class for reading .om files.
+///
+/// A reader object can have an arbitrary number of child readers, each representing
+/// a multidimensional variable or a scalar variable (an attribute). Thus, this class
+/// implements a tree-like structure for multi-dimensional data access.
+///
+/// Variables in OM-Files do not have named dimensions! That means you have to know
+/// what the dimensions represent in advance or you need to explicitly encode them as
+/// some kind of attribute.
+///
+/// Most likely we will adopt the xarray convention which is implemented for zarr
+/// which requires multi-dimensional variables to have an attribute called
+/// _ARRAY_DIMENSIONS that contains a list of dimension names.
+/// These dimension names should be encoded somewhere in the .om file hierarchy
+/// as attributes.
+///
+/// Therefore, it might be useful to differentiate in some way between
+/// hdf5-like groups and datasets/n-dim arrays in an om-file.
+///
+/// Group: Can contain datasets/arrays, attributes, and other groups.
+/// Dataset: Data-array, might have associated attributes.
+/// Attribute: A named data value associated with a group or dataset.
+#[gen_stub_pyclass]
+#[pyclass(module = "omfiles.omfiles")]
 pub struct OmFilePyReader {
     /// The reader is stored in an Option to be able to properly close it,
     /// particularly when working with memory-mapped files.
     /// The RwLock is used to allow multiple readers to access the reader
     /// concurrently, but only one writer to close it.
     reader: RwLock<Option<OmFileReader<BackendImpl>>>,
+    /// Get the shape of the data stored in the .om file.
+    ///
+    /// Returns:
+    ///     List containing the dimensions of the data
     #[pyo3(get)]
     shape: Vec<u64>,
 }
@@ -34,8 +62,16 @@ pub struct OmFilePyReader {
 unsafe impl Send for OmFilePyReader {}
 unsafe impl Sync for OmFilePyReader {}
 
+#[gen_stub_pymethods]
 #[pymethods]
 impl OmFilePyReader {
+    /// Initialize an OmFilePyReader from a file path or fsspec file object.
+    ///
+    /// Args:
+    ///     source: Path to the .om file to read or a fsspec file object
+    ///
+    /// Raises:
+    ///     ValueError: If the file cannot be opened or is invalid
     #[new]
     fn new(source: PyObject) -> PyResult<Self> {
         Python::with_gil(|py| {
@@ -56,6 +92,13 @@ impl OmFilePyReader {
         })
     }
 
+    /// Create an OmFilePyReader from a file path.
+    ///
+    /// Args:
+    ///     file_path: Path to the .om file to read
+    ///
+    /// Returns:
+    ///     OmFilePyReader instance
     #[staticmethod]
     fn from_path(file_path: &str) -> PyResult<Self> {
         let file_handle = File::open(file_path)
@@ -70,6 +113,13 @@ impl OmFilePyReader {
         })
     }
 
+    /// Create an OmFilePyReader from a fsspec file object.
+    ///
+    /// Args:
+    ///     file_obj: fsspec file object with read, seek methods and fs attribute
+    ///
+    /// Returns:
+    ///     OmFilePyReader instance
     #[staticmethod]
     fn from_fsspec(file_obj: PyObject) -> PyResult<Self> {
         Python::with_gil(|py| {
@@ -95,6 +145,7 @@ impl OmFilePyReader {
         })
     }
 
+    /// Get a mapping of variable names to their file offsets and sizes.
     fn get_flat_variable_metadata(&self) -> PyResult<HashMap<String, OmVariable>> {
         self.with_reader(|reader| {
             let metadata = reader.get_flat_variable_metadata();
@@ -114,6 +165,7 @@ impl OmFilePyReader {
         })
     }
 
+    /// Initialize a new OmFilePyReader from a child variable.
     fn init_from_variable(&self, variable: OmVariable) -> PyResult<Self> {
         self.with_reader(|reader| {
             let child_reader = reader
@@ -128,11 +180,26 @@ impl OmFilePyReader {
         })
     }
 
-    // Context manager methods
+    /// Enter a context manager block.
+    ///
+    /// Returns:
+    ///     Self for use in context manager
+    ///
+    /// Raises:
+    ///     ValueError: If the reader is already closed
     fn __enter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
         slf
     }
 
+    /// Exit a context manager block, closing the reader.
+    ///
+    /// Args:
+    ///     _exc_type: The exception type, if an exception was raised
+    ///     _exc_value: The exception value, if an exception was raised
+    ///     _traceback: The traceback, if an exception was raised
+    ///
+    /// Returns:
+    ///     False (exceptions are not suppressed)
     #[pyo3(signature = (_exc_type=None, _exc_value=None, _traceback=None))]
     fn __exit__(
         &self,
@@ -144,6 +211,10 @@ impl OmFilePyReader {
         Ok(false)
     }
 
+    /// Check if the reader is closed.
+    ///
+    /// Returns:
+    ///     True if the reader is closed, False otherwise
     #[getter]
     fn closed(&self) -> PyResult<bool> {
         let guard = self.reader.try_read().map_err(|e| {
@@ -153,6 +224,12 @@ impl OmFilePyReader {
         Ok(guard.is_none())
     }
 
+    /// Close the reader and release resources.
+    ///
+    /// This method releases all resources associated with the reader.
+    /// After closing, any operation on the reader will raise a ValueError.
+    ///
+    /// It is safe to call this method multiple times.
     fn close(&self) -> PyResult<()> {
         // Need write access to take the reader
         let mut guard = self.reader.try_write().map_err(|e| {
@@ -178,6 +255,10 @@ impl OmFilePyReader {
         Ok(())
     }
 
+    /// Check if the variable is a scalar.
+    ///
+    /// Returns:
+    ///     True if the variable is a scalar, False otherwise
     #[getter]
     fn is_scalar(&self) -> PyResult<bool> {
         self.with_reader(|reader| {
@@ -186,21 +267,56 @@ impl OmFilePyReader {
         })
     }
 
+    /// Check if the variable is a group (a variable with data type None).
+    ///
+    /// Returns:
+    ///     True if the variable is a group, False otherwise
     #[getter]
     fn is_group(&self) -> PyResult<bool> {
         self.with_reader(|reader| Ok(reader.data_type() == DataType::None))
     }
 
+    /// Get the data type of the data stored in the .om file.
+    ///
+    /// Returns:
+    ///     Numpy data type of the data
     #[getter]
     fn dtype<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyArrayDescr>> {
         self.with_reader(|reader| get_numpy_dtype(py, &reader.data_type()))
     }
 
+    /// Get the name of the variable stored in the .om file.
+    ///
+    /// Returns:
+    ///     Name of the variable or an empty string if not available
     #[getter]
     fn name(&self) -> PyResult<String> {
         self.with_reader(|reader| Ok(reader.get_name().unwrap_or("".to_string())))
     }
 
+    /// Read data from the open variable.om file using numpy-style indexing.
+    /// Currently only slices with step 1 are supported.
+    ///
+    /// The returned array will have singleton dimensions removed (squeezed).
+    /// For example, if you index a 3D array with [1,:,2], the result will
+    /// be a 1D array since dimensions 0 and 2 have size 1.
+    ///
+    /// Args:
+    ///     ranges: Index expression that can be either a single slice/integer
+    ///            or a tuple of slices/integers for multi-dimensional access.
+    ///            Supports NumPy basic indexing including:
+    ///            - Integers (e.g., a[1,2])
+    ///            - Slices (e.g., a[1:10])
+    ///            - Ellipsis (...)
+    ///            - None/newaxis
+    ///
+    /// Returns:
+    ///     NDArray containing the requested data with squeezed singleton dimensions.
+    ///     The data type of the array matches the data type stored in the file
+    ///     (int8, uint8, int16, uint16, int32, uint32, int64, uint64, float32, or float64).
+    ///
+    /// Raises:
+    ///     ValueError: If the requested ranges are invalid or if there's an error reading the data
     fn __getitem__<'py>(
         &self,
         py: Python<'py>,
@@ -249,6 +365,13 @@ impl OmFilePyReader {
         })
     }
 
+    /// Get the scalar value of the variable.
+    ///
+    /// Returns:
+    ///     The scalar value as a Python object (str, int, or float)
+    ///
+    /// Raises:
+    ///     ValueError: If the variable is not a scalar
     fn get_scalar(&self) -> PyResult<PyObject> {
         self.with_reader(|reader| {
             Python::with_gil(|py| match reader.data_type() {

@@ -18,7 +18,7 @@ use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
 use std::{fs::File, sync::Mutex};
 
 #[gen_stub_pyclass]
-#[pyclass]
+#[pyclass(module = "omfiles.omfiles")]
 /// A Python wrapper for the Rust OmFileWriter implementation.
 pub struct OmFilePyWriter {
     file_writer: Mutex<Option<OmFileWriter<File>>>,
