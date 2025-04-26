@@ -2,9 +2,9 @@
 
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![PyPI version](https://badge.fury.io/py/omfiles.svg)](https://pypi.org/project/omfiles/)
-[![Build and Test](https://github.com/terraputix/omfilesrspy/actions/workflows/build-test.yml/badge.svg)](https://github.com/terraputix/omfilesrspy/actions/workflows/build-test.yml)
+[![Build and Test](https://github.com/open-meteo/python-omfiles/actions/workflows/build-test.yml/badge.svg)](https://github.com/open-meteo/python-omfiles/actions/workflows/build-test.yml)
 [![Project Status: WIP – Initial development is in progress, but there has not yet been a stable, usable release suitable for the public.](https://www.repostatus.org/badges/latest/wip.svg)](https://www.repostatus.org/#wip)
-[![Publish](https://github.com/terraputix/omfilesrspy/actions/workflows/publish.yml/badge.svg)](https://github.com/terraputix/omfilesrspy/actions/workflows/publish.yml)
+[![Publish](https://github.com/open-meteo/python-omfiles/actions/workflows/publish.yml/badge.svg)](https://github.com/open-meteo/python-omfiles/actions/workflows/publish.yml)
 
 ## Installation
 
