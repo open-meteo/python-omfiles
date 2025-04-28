@@ -81,12 +81,14 @@ impl OmFilePyReader {
                 Self::from_path(&path)
             } else {
                 let obj = source.bind(py);
-                if obj.hasattr("read")? && obj.hasattr("seek")? && obj.hasattr("fs")? {
+                if obj.hasattr("path")? && obj.hasattr("fs")? {
+                    let fs = obj.getattr("fs")?.unbind();
+                    let path = obj.getattr("path")?.extract::<String>()?;
                     // If source has fsspec-like attributes, treat it as a fsspec file object
-                    Self::from_fsspec(source)
+                    Self::from_fsspec(fs, path)
                 } else {
                     Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
-                        "Input must be either a file path string or a fsspec file object",
+                        "Input must be either a file path string or an fsspec.core.OpenFile object",
                     ))
                 }
             }
@@ -122,20 +124,17 @@ impl OmFilePyReader {
     /// Returns:
     ///     OmFilePyReader instance
     #[staticmethod]
-    fn from_fsspec(file_obj: PyObject) -> PyResult<Self> {
+    fn from_fsspec(fs_obj: PyObject, path: String) -> PyResult<Self> {
         Python::with_gil(|py| {
-            let bound_object = file_obj.bind(py);
+            let bound_object = fs_obj.bind(py);
 
-            if !bound_object.hasattr("read")?
-                || !bound_object.hasattr("seek")?
-                || !bound_object.hasattr("fs")?
-            {
+            if !bound_object.hasattr("cat_file")? || !bound_object.hasattr("size")? {
                 return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
                         "Input must be a valid fsspec file object with read, seek methods and fs attribute",
                     ));
             }
 
-            let backend = BackendImpl::FsSpec(FsSpecBackend::new(file_obj)?);
+            let backend = BackendImpl::FsSpec(FsSpecBackend::new(fs_obj, path)?);
             let reader = OmFileReader::new(Arc::new(backend)).map_err(convert_omfilesrs_error)?;
             let shape = get_shape_vec(&reader);
 

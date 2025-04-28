@@ -78,18 +78,18 @@ impl OmFilePyReaderAsync {
     /// IOError
     ///     If there's an error reading the file
     #[staticmethod]
-    async fn from_fsspec(file_obj: PyObject) -> PyResult<Self> {
-        let backend = Python::with_gil(|py| {
-            let bound_object = file_obj.bind(py);
+    async fn from_fsspec(fs_obj: PyObject, path: String) -> PyResult<Self> {
+        Python::with_gil(|py| {
+            let bound_object = fs_obj.bind(py);
 
-            if !bound_object.hasattr("read_bytes")? || !bound_object.hasattr("fs")? {
+            if !bound_object.hasattr("_cat_file")? && !bound_object.hasattr("_size")? {
                 return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
-                    "Input must be a valid fsspec file object with read_bytes and fs attribute",
+                    "Input must be a valid fsspec file object with `_cat_file` and `_size` methods",
                 ));
             }
-
-            Ok(AsyncFsSpecBackend::new(file_obj)?)
+            Ok(())
         })?;
+        let backend = AsyncFsSpecBackend::new(fs_obj, path).await?;
         let backend = AsyncBackendImpl::FsSpec(backend);
         let reader = OmFileReader::async_new(Arc::new(backend))
             .await

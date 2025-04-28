@@ -195,7 +195,7 @@ class OmFilePyReaderAsync:
     Shape of the array data in the file (read-only property)
     """
     @staticmethod
-    def from_fsspec(file_obj:typing.Any) -> OmFilePyReaderAsync:
+    async def from_fsspec(fs_obj:typing.Any, path:builtins.str) -> OmFilePyReaderAsync:
         r"""
         Create a new async reader from an fsspec file object.
         
@@ -217,7 +217,7 @@ class OmFilePyReaderAsync:
             If there's an error reading the file
         """
     @staticmethod
-    def from_path(file_path:builtins.str) -> OmFilePyReaderAsync:
+    async def from_path(file_path:builtins.str) -> OmFilePyReaderAsync:
         r"""
         Create a new async reader from a local file path.
         
@@ -236,7 +236,7 @@ class OmFilePyReaderAsync:
         IOError
             If the file cannot be opened or read
         """
-    def read_concurrent(self, ranges:omfiles.types.BasicSelection) -> numpy.typing.NDArray[typing.Union[numpy.float32, numpy.float64, numpy.int32, numpy.int64, numpy.uint32, numpy.uint64, numpy.int8, numpy.uint8, numpy.int16, numpy.uint16]]:
+    async def read_concurrent(self, ranges:omfiles.types.BasicSelection) -> numpy.typing.NDArray[typing.Union[numpy.float32, numpy.float64, numpy.int32, numpy.int64, numpy.uint32, numpy.uint64, numpy.int8, numpy.uint8, numpy.int16, numpy.uint16]]:
         r"""
         Read data from the array concurrently based on specified ranges.
         
