@@ -144,7 +144,23 @@ unset CONDA_PREFIX
 ### Tests
 
 ```bash
-cargo test --no-default-features
+cargo test
+```
+
+runs rust tests.
+
+```bash
+pytest tests/
+```
+
+runs Python tests.
+
+### Python Type Stubs
+
+Can be generated from the rust doc comments via
+
+```bash
+cargo run stub_gen
 ```
 
 ## Benchmarks
