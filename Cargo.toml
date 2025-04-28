@@ -18,7 +18,7 @@ pyo3 = { version = "0.24", features = ["abi3-py39", "experimental-async"] }
 numpy = "0.24"
 num-traits = "0.2"
 delegate = "0.13"
-omfiles-rs = { git = "https://github.com/open-meteo/rust-omfiles", revision = "a102901bda2a1d599a38b08bfa9fc686f4c033d8" }
+omfiles-rs = { git = "https://github.com/open-meteo/rust-omfiles", rev = "a102901bda2a1d599a38b08bfa9fc686f4c033d8" }
 pyo3-async-runtimes = { version = "0.24", features = ["async-std-runtime"] }
 thiserror = "2.0.12"
 async-lock = "3.4.0"
