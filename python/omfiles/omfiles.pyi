@@ -36,104 +36,155 @@ class OmFilePyReader:
     r"""
     Get the shape of the data stored in the .om file.
     
-    Returns:
+    Returns
+    -------
+    list
         List containing the dimensions of the data
     """
     closed: builtins.bool
     r"""
     Check if the reader is closed.
     
-    Returns:
+    Returns
+    -------
+    bool
         True if the reader is closed, False otherwise
     """
     is_scalar: builtins.bool
     r"""
     Check if the variable is a scalar.
     
-    Returns:
+    Returns
+    -------
+    bool
         True if the variable is a scalar, False otherwise
     """
     is_group: builtins.bool
     r"""
     Check if the variable is a group (a variable with data type None).
     
-    Returns:
+    Returns
+    -------
+    bool
         True if the variable is a group, False otherwise
     """
     dtype: numpy.dtype
     r"""
     Get the data type of the data stored in the .om file.
     
-    Returns:
+    Returns
+    -------
+    numpy.dtype
         Numpy data type of the data
     """
     name: builtins.str
     r"""
     Get the name of the variable stored in the .om file.
     
-    Returns:
+    Returns
+    -------
+    str
         Name of the variable or an empty string if not available
     """
     def __new__(cls, source:typing.Any) -> OmFilePyReader:
         r"""
         Initialize an OmFilePyReader from a file path or fsspec file object.
         
-        Args:
-            source: Path to the .om file to read or a fsspec file object
+        Parameters
+        ----------
+        source : str or fsspec.core.OpenFile
+            Path to the .om file to read or a fsspec file object
         
-        Raises:
-            ValueError: If the file cannot be opened or is invalid
+        Raises
+        ------
+        ValueError
+            If the file cannot be opened or is invalid
         """
     @staticmethod
     def from_path(file_path:builtins.str) -> OmFilePyReader:
         r"""
         Create an OmFilePyReader from a file path.
         
-        Args:
-            file_path: Path to the .om file to read
+        Parameters
+        ----------
+        file_path : str
+            Path to the .om file to read
         
-        Returns:
+        Returns
+        -------
+        OmFilePyReader
             OmFilePyReader instance
         """
     @staticmethod
-    def from_fsspec(file_obj:typing.Any) -> OmFilePyReader:
+    def from_fsspec(fs_obj:typing.Any, path:builtins.str) -> OmFilePyReader:
         r"""
-        Create an OmFilePyReader from a fsspec file object.
+        Create an OmFilePyReader from a fsspec fs object.
         
-        Args:
-            file_obj: fsspec file object with read, seek methods and fs attribute
+        Parameters
+        ----------
+        fs_obj : fsspec.spec.AbstractFileSystem
+            A fsspec file system object which needs to have the methods `cat_file` and `size`.
+        path : str
+            The path to the file within the file system.
         
-        Returns:
-            OmFilePyReader instance
+        Returns
+        -------
+        OmFilePyReader
+            A new reader instance
         """
     def get_flat_variable_metadata(self) -> builtins.dict[builtins.str, OmVariable]:
         r"""
         Get a mapping of variable names to their file offsets and sizes.
+        
+        Returns
+        -------
+        dict
+            Dictionary mapping variable names to their metadata
         """
     def init_from_variable(self, variable:OmVariable) -> OmFilePyReader:
         r"""
         Initialize a new OmFilePyReader from a child variable.
+        
+        Parameters
+        ----------
+        variable : OmVariable
+            Variable metadata to create a new reader from
+        
+        Returns
+        -------
+        OmFilePyReader
+            A new reader for the specified variable
         """
     def __enter__(self) -> OmFilePyReader:
         r"""
         Enter a context manager block.
         
-        Returns:
+        Returns
+        -------
+        OmFilePyReader
             Self for use in context manager
         
-        Raises:
-            ValueError: If the reader is already closed
+        Raises
+        ------
+        ValueError
+            If the reader is already closed
         """
     def __exit__(self, _exc_type:typing.Optional[typing.Any]=None, _exc_value:typing.Optional[typing.Any]=None, _traceback:typing.Optional[typing.Any]=None) -> builtins.bool:
         r"""
         Exit a context manager block, closing the reader.
         
-        Args:
-            _exc_type: The exception type, if an exception was raised
-            _exc_value: The exception value, if an exception was raised
-            _traceback: The traceback, if an exception was raised
+        Parameters
+        ----------
+        _exc_type : type, optional
+            The exception type, if an exception was raised
+        _exc_value : Exception, optional
+            The exception value, if an exception was raised
+        _traceback : traceback, optional
+            The traceback, if an exception was raised
         
-        Returns:
+        Returns
+        -------
+        bool
             False (exceptions are not suppressed)
         """
     def close(self) -> None:
@@ -145,7 +196,7 @@ class OmFilePyReader:
         
         It is safe to call this method multiple times.
         """
-    def __getitem__(self, ranges:omfiles.types.BasicSelection) -> numpy.typing.NDArray[typing.Any]:
+    def __getitem__(self, ranges:omfiles.types.BasicSelection) -> numpy.typing.NDArray[typing.Union[numpy.float32, numpy.float64, numpy.int32, numpy.int64, numpy.uint32, numpy.uint64, numpy.int8, numpy.uint8, numpy.int16, numpy.uint16]]:
         r"""
         Read data from the open variable.om file using numpy-style indexing.
         Currently only slices with step 1 are supported.
@@ -154,32 +205,135 @@ class OmFilePyReader:
         For example, if you index a 3D array with [1,:,2], the result will
         be a 1D array since dimensions 0 and 2 have size 1.
         
-        Args:
-            ranges: Index expression that can be either a single slice/integer
-                   or a tuple of slices/integers for multi-dimensional access.
-                   Supports NumPy basic indexing including:
-                   - Integers (e.g., a[1,2])
-                   - Slices (e.g., a[1:10])
-                   - Ellipsis (...)
-                   - None/newaxis
+        Parameters
+        ----------
+        ranges : array-like
+            Index expression that can be either a single slice/integer
+            or a tuple of slices/integers for multi-dimensional access.
+            Supports NumPy basic indexing including:
+            - Integers (e.g., a[1,2])
+            - Slices (e.g., a[1:10])
+            - Ellipsis (...)
+            - None/newaxis
         
-        Returns:
+        Returns
+        -------
+        ndarray
             NDArray containing the requested data with squeezed singleton dimensions.
             The data type of the array matches the data type stored in the file
             (int8, uint8, int16, uint16, int32, uint32, int64, uint64, float32, or float64).
         
-        Raises:
-            ValueError: If the requested ranges are invalid or if there's an error reading the data
+        Raises
+        ------
+        ValueError
+            If the requested ranges are invalid or if there's an error reading the data
         """
     def get_scalar(self) -> typing.Any:
         r"""
         Get the scalar value of the variable.
         
-        Returns:
+        Returns
+        -------
+        object
             The scalar value as a Python object (str, int, or float)
         
-        Raises:
-            ValueError: If the variable is not a scalar
+        Raises
+        ------
+        ValueError
+            If the variable is not a scalar
+        """
+
+class OmFilePyReaderAsync:
+    r"""
+    A reader for OM files with async access.
+    
+    This class provides asynchronous access to multi-dimensional array data stored
+    in OM files. It supports reading from local files via memory mapping or
+    from remote files through fsspec compatibility.
+    """
+    shape: builtins.list[builtins.int]
+    r"""
+    Shape of the array data in the file (read-only property)
+    """
+    @staticmethod
+    async def from_fsspec(fs_obj:typing.Any, path:builtins.str) -> OmFilePyReaderAsync:
+        r"""
+        Create a new async reader from an fsspec fs object.
+        
+        Parameters
+        ----------
+        fs_obj : fsspec.spec.AbstractFileSystem
+            A fsspec file system object which needs to have the async methods `_cat_file` and `_size`.
+        path: String
+            The path to the file within the file system.
+        
+        Returns
+        -------
+        OmFilePyReaderAsync
+            A new reader instance
+        
+        Raises
+        ------
+        TypeError
+            If the provided file object is not a valid fsspec file
+        IOError
+            If there's an error reading the file
+        """
+    @staticmethod
+    async def from_path(file_path:builtins.str) -> OmFilePyReaderAsync:
+        r"""
+        Create a new async reader from a local file path.
+        
+        Parameters
+        ----------
+        file_path : str
+            Path to the OM file to read
+        
+        Returns
+        -------
+        OmFilePyReaderAsync
+            A new reader instance
+        
+        Raises
+        ------
+        IOError
+            If the file cannot be opened or read
+        """
+    async def read_concurrent(self, ranges:omfiles.types.BasicSelection) -> numpy.typing.NDArray[typing.Union[numpy.float32, numpy.float64, numpy.int32, numpy.int64, numpy.uint32, numpy.uint64, numpy.int8, numpy.uint8, numpy.int16, numpy.uint16]]:
+        r"""
+        Read data from the array concurrently based on specified ranges.
+        
+        Parameters
+        ----------
+        ranges : ArrayIndex
+            Index or slice object specifying the ranges to read
+        
+        Returns
+        -------
+        OmFileTypedArray
+            Array data of the appropriate numpy type
+        
+        Raises
+        ------
+        ValueError
+            If the reader is closed
+        TypeError
+            If the data type is not supported
+        """
+    def close(self) -> None:
+        r"""
+        Close the reader and release any resources.
+        
+        This method properly closes the underlying file resources.
+        
+        Returns
+        -------
+        None
+        
+        Raises
+        ------
+        RuntimeError
+            If the reader cannot be closed due to concurrent access
         """
 
 class OmFilePyWriter:
