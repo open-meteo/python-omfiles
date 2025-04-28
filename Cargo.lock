@@ -806,7 +806,7 @@ dependencies = [
 [[package]]
 name = "omfiles-rs"
 version = "0.1.0"
-source = "git+https://github.com/terraputix/omfiles-rs?branch=async-reader#fbf3dffed44f27b0b91c2f9dfd9e98492c4b0ce1"
+source = "git+https://github.com/open-meteo/rust-omfiles#a102901bda2a1d599a38b08bfa9fc686f4c033d8"
 dependencies = [
  "async-executor",
  "async-lock",

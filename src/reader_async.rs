@@ -1,6 +1,6 @@
 use crate::{
     array_index::ArrayIndex, errors::convert_omfilesrs_error, fsspec_backend::AsyncFsSpecBackend,
-    reader::get_shape_vec, typed_array::OmFileTypedArray,
+    typed_array::OmFileTypedArray,
 };
 use async_lock::RwLock;
 use delegate::delegate;
@@ -15,28 +15,11 @@ use omfiles_rs::{
         mmapfile::{MmapFile, Mode},
     },
     core::data_types::{DataType, OmFileArrayDataType},
-    io::reader::OmFileReader,
+    io::reader_async::OmFileReaderAsync,
 };
 use pyo3::prelude::*;
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
 use std::{fs::File, ops::Range, sync::Arc};
-
-enum AsyncBackendImpl {
-    FsSpec(AsyncFsSpecBackend),
-    Mmap(MmapFile),
-}
-
-impl OmFileReaderBackendAsync for AsyncBackendImpl {
-    delegate! {
-        to match self {
-            AsyncBackendImpl::Mmap(backend) => backend,
-            AsyncBackendImpl::FsSpec(backend) => backend,
-        } {
-            fn count_async(&self) -> usize;
-            async fn get_bytes_async(&self, offset: u64, count: u64) -> Result<Vec<u8>, omfiles_rs::errors::OmFilesRsError>;
-        }
-    }
-}
 
 /// A reader for OM files with async access.
 ///
@@ -50,7 +33,7 @@ pub struct OmFilePyReaderAsync {
     /// particularly when working with memory-mapped files.
     /// The RwLock is used to allow multiple readers to access the reader
     /// concurrently, but only one writer to close it.
-    reader: RwLock<Option<OmFileReader<AsyncBackendImpl>>>,
+    reader: RwLock<Option<OmFileReaderAsync<AsyncBackendImpl>>>,
     /// Shape of the array data in the file (read-only property)
     #[pyo3(get)]
     shape: Vec<u64>,
@@ -91,7 +74,7 @@ impl OmFilePyReaderAsync {
         })?;
         let backend = AsyncFsSpecBackend::new(fs_obj, path).await?;
         let backend = AsyncBackendImpl::FsSpec(backend);
-        let reader = OmFileReader::async_new(Arc::new(backend))
+        let reader = OmFileReaderAsync::new(Arc::new(backend))
             .await
             .map_err(convert_omfilesrs_error)?;
 
@@ -123,7 +106,7 @@ impl OmFilePyReaderAsync {
         let file_handle = File::open(file_path)
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyIOError, _>(e.to_string()))?;
         let backend = AsyncBackendImpl::Mmap(MmapFile::new(file_handle, Mode::ReadOnly)?);
-        let reader = OmFileReader::async_new(Arc::new(backend))
+        let reader = OmFileReaderAsync::new(Arc::new(backend))
             .await
             .map_err(convert_omfilesrs_error)?;
         let shape = get_shape_vec(&reader);
@@ -325,7 +308,7 @@ impl OmFilePyReaderAsync {
 }
 
 async fn read_squeezed_typed_array<T>(
-    reader: &OmFileReader<AsyncBackendImpl>,
+    reader: &OmFileReaderAsync<AsyncBackendImpl>,
     read_ranges: &[Range<u64>],
     io_size_max: Option<u64>,
     io_size_merge: Option<u64>,
@@ -335,9 +318,40 @@ where
 {
     // Just do the Rust async operation
     let array = reader
-        .read_async::<T>(read_ranges, io_size_max, io_size_merge)
+        .read::<T>(read_ranges, io_size_max, io_size_merge)
         .await
         .map_err(convert_omfilesrs_error)?;
 
     Ok(array.squeeze())
+}
+
+/// Small helper function to get the correct shape of the data. We need to
+/// be careful with scalars and groups!
+fn get_shape_vec<Backend>(reader: &OmFileReaderAsync<Backend>) -> Vec<u64> {
+    let dtype = reader.data_type();
+    if dtype == DataType::None {
+        // "groups"
+        return vec![];
+    } else if (dtype as u8) < (DataType::Int8Array as u8) {
+        // scalars
+        return vec![];
+    }
+    reader.get_dimensions().to_vec()
+}
+
+enum AsyncBackendImpl {
+    FsSpec(AsyncFsSpecBackend),
+    Mmap(MmapFile),
+}
+
+impl OmFileReaderBackendAsync for AsyncBackendImpl {
+    delegate! {
+        to match self {
+            AsyncBackendImpl::Mmap(backend) => backend,
+            AsyncBackendImpl::FsSpec(backend) => backend,
+        } {
+            fn count_async(&self) -> usize;
+            async fn get_bytes_async(&self, offset: u64, count: u64) -> Result<Vec<u8>, omfiles_rs::errors::OmFilesRsError>;
+        }
+    }
 }

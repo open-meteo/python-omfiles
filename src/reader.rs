@@ -522,7 +522,7 @@ fn read_squeezed_typed_array<T: Element + OmFileArrayDataType + Clone + Zero>(
 
 /// Small helper function to get the correct shape of the data. We need to
 /// be careful with scalars and groups!
-pub fn get_shape_vec<Backend>(reader: &OmFileReader<Backend>) -> Vec<u64> {
+fn get_shape_vec<Backend>(reader: &OmFileReader<Backend>) -> Vec<u64> {
     let dtype = reader.data_type();
     if dtype == DataType::None {
         // "groups"
