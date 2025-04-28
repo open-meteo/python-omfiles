@@ -145,7 +145,7 @@ class OmFilePyReader:
         
         It is safe to call this method multiple times.
         """
-    def __getitem__(self, ranges:omfiles.types.BasicSelection) -> numpy.typing.NDArray[typing.Union[numpy.float32, numpy.float64, numpy.int32, numpy.int64, numpy.uint32, numpy.uint64, numpy.int8, numpy.uint8, numpy.int16, numpy.uint16]]:
+    def __getitem__(self, ranges:omfiles.types.BasicSelection) -> numpy.typing.NDArray[typing.Any]:
         r"""
         Read data from the open variable.om file using numpy-style indexing.
         Currently only slices with step 1 are supported.
@@ -180,97 +180,6 @@ class OmFilePyReader:
         
         Raises:
             ValueError: If the variable is not a scalar
-        """
-
-class OmFilePyReaderAsync:
-    r"""
-    A reader for OM files with async access.
-    
-    This class provides asynchronous access to multi-dimensional array data stored
-    in OM files. It supports reading from local files via memory mapping or
-    from remote files through fsspec compatibility.
-    """
-    shape: builtins.list[builtins.int]
-    r"""
-    Shape of the array data in the file (read-only property)
-    """
-    @staticmethod
-    def from_fsspec(file_obj:typing.Any) -> OmFilePyReaderAsync:
-        r"""
-        Create a new async reader from an fsspec file object.
-        
-        Parameters
-        ----------
-        file_obj : fsspec.core.OpenFile
-            An fsspec file object with read_bytes method and fs attribute.
-        
-        Returns
-        -------
-        OmFilePyReaderAsync
-            A new reader instance
-        
-        Raises
-        ------
-        TypeError
-            If the provided file object is not a valid fsspec file
-        IOError
-            If there's an error reading the file
-        """
-    @staticmethod
-    def from_path(file_path:builtins.str) -> OmFilePyReaderAsync:
-        r"""
-        Create a new async reader from a local file path.
-        
-        Parameters
-        ----------
-        file_path : str
-            Path to the OM file to read
-        
-        Returns
-        -------
-        OmFilePyReaderAsync
-            A new reader instance
-        
-        Raises
-        ------
-        IOError
-            If the file cannot be opened or read
-        """
-    def read_concurrent(self, ranges:omfiles.types.BasicSelection) -> numpy.typing.NDArray[typing.Union[numpy.float32, numpy.float64, numpy.int32, numpy.int64, numpy.uint32, numpy.uint64, numpy.int8, numpy.uint8, numpy.int16, numpy.uint16]]:
-        r"""
-        Read data from the array concurrently based on specified ranges.
-        
-        Parameters
-        ----------
-        ranges : ArrayIndex
-            Index or slice object specifying the ranges to read
-        
-        Returns
-        -------
-        OmFileTypedArray
-            Array data of the appropriate numpy type
-        
-        Raises
-        ------
-        ValueError
-            If the reader is closed
-        TypeError
-            If the data type is not supported
-        """
-    def close(self) -> None:
-        r"""
-        Close the reader and release any resources.
-        
-        This method properly closes the underlying file resources.
-        
-        Returns
-        -------
-        None
-        
-        Raises
-        ------
-        RuntimeError
-            If the reader cannot be closed due to concurrent access
         """
 
 class OmFilePyWriter:
