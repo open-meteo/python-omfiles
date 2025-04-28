@@ -42,12 +42,14 @@ pub struct OmFilePyReaderAsync {
 #[gen_stub_pymethods]
 #[pymethods]
 impl OmFilePyReaderAsync {
-    /// Create a new async reader from an fsspec file object.
+    /// Create a new async reader from an fsspec fs object.
     ///
     /// Parameters
     /// ----------
-    /// file_obj : fsspec.core.OpenFile
-    ///     An fsspec file object with read_bytes method and fs attribute.
+    /// fs_obj : fsspec.spec.AbstractFileSystem
+    ///     A fsspec file system object which needs to have the async methods `_cat_file` and `_size`.
+    /// path: String
+    ///     The path to the file within the file system.
     ///
     /// Returns
     /// -------
