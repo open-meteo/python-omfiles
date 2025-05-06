@@ -44,13 +44,10 @@ class OmDataStore(WritableCFDataStore):
 
     def __init__(self, root_variable: OmFilePyReader):
         self.root_variable = root_variable
-        self.variables_store = self._build_variables_offset_store()
-
-    def _build_variables_offset_store(self) -> dict[str, OmVariable]:
-        return self.root_variable.get_flat_variable_metadata()
+        self.variables_store = self.root_variable.get_flat_variable_metadata()
 
     def get_variables(self):
-        return FrozenDict((k, self.open_store_variable(k)) for k in self.variables_store)
+        return FrozenDict(self._get_datasets_for_variable(self.root_variable))
 
     def get_attrs(self):
         # Global attributes are attributes directly under the root variable.
@@ -101,55 +98,42 @@ class OmDataStore(WritableCFDataStore):
 
         return dimensions
 
-    def open_store_variable(self, k):
-        if k not in self.variables_store:
-            raise KeyError(f"Variable {k} not found in the store")
+    def _get_datasets_for_variable(self, reader: OmFilePyReader):
+        datasets = {}
+        direct_children = self._find_direct_children_in_store("")
 
-        # Create a new reader for the specific variable
-        variable = self.variables_store[k]
-        reader = self.root_variable.init_from_variable(variable)
-        if reader is None:
-            raise ValueError(f"Failed to read variable {k} at offset {variable.offset}")
+        for k, variable in direct_children.items():
+            child_reader = reader.init_from_variable(variable)
+            if not (child_reader.is_scalar or child_reader.is_group):
+                # This is an array variable
+                backend_array = OmBackendArray(reader=child_reader)
+                shape = backend_array.reader.shape
 
-        # Get attributes to check for dimension information
-        attrs = self._get_attributes_for_variable(reader, k)
-        attrs_for_var = {k: v for k, v in attrs.items() if k != DIMENSION_KEY}
+                # Get attributes to check for dimension information
+                attrs = self._get_attributes_for_variable(child_reader, k)
+                attrs_for_var = {attr_k: attr_v for attr_k, attr_v in attrs.items() if attr_k != DIMENSION_KEY}
 
-        # Handle groups or scalars differently
-        if reader.is_group:
-            # For groups, create an empty array directly
-            data = np.array(0, dtype=np.int32)
-            return Variable(dims=(), data=data, attrs=attrs_for_var)
+                # Look for dimension names in the _ARRAY_DIMENSIONS attribute
+                if DIMENSION_KEY in attrs:
+                    dim_names = attrs[DIMENSION_KEY]
+                    if isinstance(dim_names, str):
+                        # Dimensions are stored as a comma-separated string, split them
+                        dim_names = dim_names.split(',')
+                else:
+                    # Default to generic dimension names if not specified
+                    dim_names = [f"dim{i}" for i in range(len(shape))]
 
-        elif reader.is_scalar:
-            # For scalars, get the scalar value directly
-            data = np.array(reader.get_scalar())
-            return Variable(dims=(), data=data, attrs=attrs_for_var)
+                # Check if this variable is itself a dimension variable
+                variable_name = k.split('/')[-1]  # Get the actual name without parent path
 
-        else:
-            backend_array = OmBackendArray(reader=reader)
-            shape = backend_array.reader.shape
-            # Look for dimension names in the _ARRAY_DIMENSIONS attribute
-            if DIMENSION_KEY in attrs:
-                dim_names = attrs[DIMENSION_KEY]
-                if isinstance(dim_names, str):
-                    # Dimensions are stored as a comma-separated string, split them
-                    dim_names = dim_names.split(',')
-            else:
-                # Default to generic dimension names if not specified
-                dim_names = [f"dim{i}" for i in range(len(shape))]
+                # If this variable is a 1D array and its name matches a dimension name, use its own name
+                if len(shape) == 1 and variable_name in self._get_known_dimensions():
+                    dim_names = [variable_name]
 
-            # Check if this variable is itself a dimension variable (a coordinate)
-            # This is typically determined by checking if the variable name matches one of the dimension names
-            # in the dataset, but we need to keep track of known dimensions
-            variable_name = k.split('/')[-1]  # Get the actual name without parent path
+                data = indexing.LazilyIndexedArray(backend_array)
+                datasets[k] = Variable(dims=dim_names, data=data, attrs=attrs_for_var, encoding=None, fastpath=True)
 
-            # If this variable is a 1D array and its name matches a dimension name, use its own name
-            if len(shape) == 1 and variable_name in self._get_known_dimensions():
-                dim_names = [variable_name]
-
-            data = indexing.LazilyIndexedArray(backend_array)
-            return Variable(dims=dim_names, data=data, attrs=attrs_for_var, encoding=None, fastpath=True)
+        return datasets
 
     def close(self):
         self.root_variable.close()

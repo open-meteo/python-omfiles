@@ -134,13 +134,6 @@ jobs:
             test-type: standard
 
           # Additional Python versions for Linux x86_64
-          - name: Python 3.8
-            runner: ubuntu-latest
-            platform-name: linux-x86_64
-            is-musl: false
-            python-version: "3.8"
-            test-type: standard
-
           - name: Python 3.9
             runner: ubuntu-latest
             platform-name: linux-x86_64
@@ -169,12 +162,19 @@ jobs:
             python-version: "3.13"
             test-type: standard
 
+          - name: Python 3.14-Dev
+            runner: ubuntu-latest
+            platform-name: linux-x86_64
+            is-musl: false
+            python-version: "3.14-dev"
+            test-type: standard
+
           # Minimum dependencies test
           - name: Min Dependencies
             runner: ubuntu-latest
             platform-name: linux-x86_64
             is-musl: false
-            python-version: "3.8"
+            python-version: "3.9"
             test-type: min_deps
     steps:
       # Use the test composite action
