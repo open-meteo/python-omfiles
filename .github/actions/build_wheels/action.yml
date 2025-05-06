@@ -1,0 +1,71 @@
+name: "Build Package"
+description: "Build wheels for all platforms"
+
+inputs:
+  python-version:
+    description: "Python version to use for building"
+    required: false
+    default: "3.12"
+  target:
+    description: "Target architecture"
+    required: true
+  manylinux:
+    description: "Manylinux version"
+    required: false
+    default: ""
+  is-musl:
+    description: "Whether this is a musl build"
+    required: false
+    default: "false"
+  before-script:
+    description: "Script to run before building"
+    required: false
+    default: ""
+  platform-name:
+    description: "Platform name for artifact identification"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    # Cache Rust build artifacts
+    - name: Cache Rust build
+      uses: actions/cache@v4
+      with:
+        path: |
+          target
+        key: ${{ runner.os }}-build-${{ inputs.platform-name }}-${{ hashFiles('**/Cargo.lock', 'src/**') }}
+        restore-keys: |
+          ${{ runner.os }}-build-${{ inputs.platform-name }}-
+
+    - uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+        cache: ${{ inputs.is-musl != 'true' && 'pip' || '' }}
+
+    # Install python dependencies to run cargo tests
+    - name: Install required python dependencies
+      if: ${{ inputs.is-musl != 'true' }}
+      run: pip install numpy fsspec s3fs xarray
+      shell: bash
+
+    - name: Run cargo tests
+      if: ${{ inputs.is-musl != 'true' }}
+      run: cargo test --no-default-features
+      shell: bash
+
+    - name: Build wheels
+      uses: PyO3/maturin-action@v1
+      with:
+        target: ${{ inputs.target }}
+        args: --release --out dist --find-interpreter
+        sccache: "true"
+        manylinux: ${{ inputs.manylinux }}
+        container: ${{ inputs.is-musl == 'true' && 'off' || '' }}
+        before-script-linux: ${{ inputs.before-script }}
+
+    - name: Upload wheels
+      uses: actions/upload-artifact@v4
+      with:
+        name: wheels-${{ inputs.platform-name }}
+        path: dist

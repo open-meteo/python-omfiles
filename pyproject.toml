@@ -3,20 +3,42 @@ requires = ["maturin>=1.7,<2.0"]
 build-backend = "maturin"
 
 [project]
-name = "omfilesrspy"
-requires-python = ">=3.8"
+name = "omfiles"
+requires-python = ">=3.9"
 classifiers = [
     "Programming Language :: Rust",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dynamic = ["version"]
-dependencies = ["numpy>=1.20.0", "fsspec>=2024.10.0", "s3fs>=2024.10.0"]
-
-[tool.maturin]
-python-source = "python" # Python source code is in the `python` directory
-bindings = "pyo3"        # pyo3 bindings is actually the default for maturin
-# features = ["pyo3/extension-module"]
+dependencies = [
+    "numpy>=1.20.0",
+    "fsspec>=2023.1.0",
+    "s3fs>=2023.1.0",
+    "xarray>=2023.1.0",
+]
 
 [project.optional-dependencies]
-dev = ["pytest>=6.0"]
+dev = [
+    "pytest>=6.0",
+    "psutil",
+    "hidefix",
+    "h5py",
+    "netCDF4",
+    "zarr",
+    "tensorstore",
+]
+
+[tool.maturin]
+python-source = "python"             # Python source code is in the `python` directory
+bindings = "pyo3"                    # pyo3 bindings is actually the default for maturin
+features = ["pyo3/extension-module"] # Define extension module in pyproject.toml instead of Cargo.toml to not mess with `cargo test`
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+[tool.ruff.lint]
+unfixable = ["F401"]
+
+[project.entry-points."xarray.backends"]
+om = "omfiles.xarray_backend:OmXarrayEntrypoint"

@@ -21,7 +21,6 @@ __pycache__/
 .Python
 .venv/
 env/
-bin/
 build/
 develop-eggs/
 dist/
@@ -79,3 +78,6 @@ docs/_build/
 
 # Pyenv
 .python-version
+
+# CSpell Spell Checker
+cspell.json

@@ -1,0 +1,189 @@
+name: Build and Test
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "*"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build - ${{ matrix.platform.name }}
+    runs-on: ${{ matrix.platform.runner }}
+    container: ${{ matrix.platform.container }}
+    strategy:
+      matrix:
+        platform:
+          - name: linux-x86_64
+            runner: ubuntu-latest
+            target: x86_64
+            before-script: python3 -m ensurepip && cat /etc/os-release && yum install clang -y
+            manylinux: "2_28"
+            is-musl: false
+
+          - name: linux-aarch64
+            runner: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            skip_tests: true
+            before-script: |
+              apt-get update && \
+              apt-get install --assume-yes --no-install-recommends crossbuild-essential-arm64
+            manylinux: "2_28"
+            is-musl: false
+
+          - name: linux-musl-x86_64
+            runner: ubuntu-22.04
+            target: x86_64-unknown-linux-musl
+            container: docker://messense/rust-musl-cross:x86_64-musl
+            before-script: cat /etc/os-release && apt install clang -y
+            manylinux: musllinux_1_2
+            is-musl: true
+
+          - name: windows-x64
+            runner: windows-latest
+            target: x64
+            is-musl: false
+
+          - name: macos-x86_64
+            runner: macos-13
+            target: x86_64
+            is-musl: false
+
+          - name: macos-arm64
+            runner: macos-14
+            target: aarch64
+            is-musl: false
+
+    steps:
+      # Use the build composite action
+      - uses: actions/checkout@v4
+
+      - name: Build wheels
+        uses: ./.github/actions/build_wheels
+        with:
+          python-version: "3.12"
+          target: ${{ matrix.platform.target }}
+          manylinux: ${{ matrix.platform.manylinux }}
+          is-musl: ${{ matrix.platform.is-musl }}
+          before-script: ${{ matrix.platform.before-script }}
+          platform-name: ${{ matrix.platform.name }}
+
+  sdist:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build sdist
+        uses: PyO3/maturin-action@v1
+        with:
+          command: sdist
+          args: --out dist
+      - name: Upload sdist
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-sdist
+          path: dist
+
+  test:
+    needs: build
+    name: Test - ${{ matrix.config.name }}
+    runs-on: ${{ matrix.config.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          # Platform tests with Python 3.12
+          - name: Linux x86_64
+            runner: ubuntu-latest
+            platform-name: linux-x86_64
+            is-musl: false
+            python-version: "3.12"
+            test-type: standard
+
+          - name: Linux musl
+            runner: ubuntu-22.04
+            platform-name: linux-musl-x86_64
+            is-musl: true
+            python-version: "3.12"
+            test-type: standard
+
+          - name: Windows
+            runner: windows-latest
+            platform-name: windows-x64
+            is-musl: false
+            python-version: "3.12"
+            test-type: standard
+
+          - name: macOS x86_64
+            runner: macos-13
+            platform-name: macos-x86_64
+            is-musl: false
+            python-version: "3.12"
+            test-type: standard
+
+          - name: macOS ARM64
+            runner: macos-14
+            platform-name: macos-arm64
+            is-musl: false
+            python-version: "3.12"
+            test-type: standard
+
+          # Additional Python versions for Linux x86_64
+          - name: Python 3.9
+            runner: ubuntu-latest
+            platform-name: linux-x86_64
+            is-musl: false
+            python-version: "3.9"
+            test-type: standard
+
+          - name: Python 3.10
+            runner: ubuntu-latest
+            platform-name: linux-x86_64
+            is-musl: false
+            python-version: "3.10"
+            test-type: standard
+
+          - name: Python 3.11
+            runner: ubuntu-latest
+            platform-name: linux-x86_64
+            is-musl: false
+            python-version: "3.11"
+            test-type: standard
+
+          - name: Python 3.13
+            runner: ubuntu-latest
+            platform-name: linux-x86_64
+            is-musl: false
+            python-version: "3.13"
+            test-type: standard
+
+          - name: Python 3.14-Dev
+            runner: ubuntu-latest
+            platform-name: linux-x86_64
+            is-musl: false
+            python-version: "3.14-dev"
+            test-type: standard
+
+          # Minimum dependencies test
+          - name: Min Dependencies
+            runner: ubuntu-latest
+            platform-name: linux-x86_64
+            is-musl: false
+            python-version: "3.9"
+            test-type: min_deps
+    steps:
+      # Use the test composite action
+      - uses: actions/checkout@v4
+
+      - name: Run tests
+        uses: ./.github/actions/test
+        with:
+          python-version: ${{ matrix.config.python-version }}
+          is-musl: ${{ matrix.config.is-musl }}
+          test-type: ${{ matrix.config.test-type }}
+          platform-name: ${{ matrix.config.platform-name }}

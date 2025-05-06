@@ -1,0 +1,74 @@
+name: "Test Package"
+description: "Run tests on built wheels"
+
+inputs:
+  python-version:
+    description: "Python version to use for testing"
+    required: false
+    default: "3.12"
+  is-musl:
+    description: "Whether this is a musl build"
+    required: false
+    default: "false"
+  test-type:
+    description: "Type of test to run (standard or min_deps)"
+    required: false
+    default: "standard"
+  platform-name:
+    description: "Platform name for artifact identification"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Download wheels
+      uses: actions/download-artifact@v4
+      with:
+        name: wheels-${{ inputs.platform-name }}
+        path: dist
+
+    # Regular tests (non-musl platforms)
+    - name: Run regular tests
+      if: ${{ inputs.test-type == 'standard' && inputs.is-musl != 'true' }}
+      run: |
+        python -m pip install pytest psutil
+        WHEEL_PATH=$(ls dist/*.whl)
+        python -m pip install --force-reinstall "$WHEEL_PATH"
+        pytest tests/
+      shell: bash
+
+    # Musl tests
+    - name: Run musl tests
+      if: ${{ inputs.test-type == 'standard' && inputs.is-musl == 'true' }}
+      uses: addnab/docker-run-action@v3
+      with:
+        image: alpine:latest
+        options: -v ${{ github.workspace }}:/io -w /io
+        run: |
+          apk add python3 py3-pip py3-psutil gcc python3-dev musl-dev linux-headers
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install --upgrade pip
+          WHEEL_PATH=$(ls dist/*.whl)
+          pip install --force-reinstall "$WHEEL_PATH"
+          pip install pytest psutil
+          pytest tests/
+
+    # Minimum dependencies test
+    - name: Run tests with minimum dependencies
+      if: ${{ inputs.test-type == 'min_deps' }}
+      run: |
+        python -m pip install pytest==6.0 psutil
+        WHEEL_PATH=$(ls dist/*.whl)
+        python -m pip install --force-reinstall "$WHEEL_PATH" \
+          "numpy==1.20.0" \
+          "fsspec==2023.1.0" \
+          "s3fs==2023.1.0" \
+          "xarray==2023.1.0"
+        pytest tests/ -v
+      shell: bash
