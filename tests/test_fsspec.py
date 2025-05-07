@@ -34,13 +34,6 @@ async def s3_backend_async():
     fs = S3FileSystem(anon=True, asynchronous=True, default_block_size=256, default_cache_type="none")
     yield fs
 
-# TODO: Investigate why caching does not work correctly for async backends
-# @pytest.fixture
-# async def s3_backend_async_with_cache():
-#     s3_fs = S3FileSystem(anon=True, asynchronous=True, default_block_size=256, default_cache_type="none")
-#     fs = CachingFileSystem(fs=s3_fs, cache_check=3600, block_size=256, cache_storage="cache", check_files=False, same_names=True)
-#     yield fs
-
 
 def test_local_read(local_fs, temp_om_file):
     reader = omfiles.OmFilePyReader.from_fsspec(local_fs, temp_om_file)
