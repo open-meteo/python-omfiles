@@ -1,10 +1,11 @@
 from abc import ABC, abstractmethod
+from datetime import datetime
 from functools import cached_property
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 import numpy as np
 
-from omfiles.utils import _modulo_positive
+from omfiles.utils import EPOCH, _modulo_positive
 
 
 class AbstractGrid(ABC):
@@ -59,7 +60,6 @@ class AbstractGrid(ABC):
         Get lat/lon coordinates for a given grid point indices.
         """
         pass
-
 
 
 class RegularLatLonGrid(AbstractGrid):
@@ -211,10 +211,6 @@ class OmDomain:
             Grid implementation for this domain
         file_length : int
             Number of time steps in each file chunk
-        description : str, optional
-            Human-readable description of the domain
-        variables : list, optional
-            List of variable names available in this domain
         temporal_resolution_seconds : int, optional
             Time resolution in seconds (default: 3600 = 1 hour)
         """
@@ -225,7 +221,8 @@ class OmDomain:
 
     def time_to_chunk_index(self, timestamp: np.datetime64) -> int:
         """
-        Convert a timestamp to a chunk index.
+        Convert a timestamp to a chunk index. This depends on the file_length
+        and the temporal_resolution_seconds of the domain.
 
         Parameters:
         -----------
@@ -237,18 +234,37 @@ class OmDomain:
         int
             The chunk index containing the timestamp
         """
-        # Basic implementation - can be extended with domain-specific logic
-        epoch = np.datetime64('1970-01-01T00:00:00')
-        seconds_since_epoch = (timestamp - epoch) / np.timedelta64(1, 's')
-
-        # Get temporal resolution from metadata (placeholder - real implementation would get from metadata)
-        temporal_resolution = 3600  # 1 hour in seconds
-
-        # Calculate chunk index
-        chunk_index = int(seconds_since_epoch / (self.file_length * temporal_resolution))
+        seconds_since_epoch = (timestamp - EPOCH) / np.timedelta64(1, 's')
+        chunk_index = int(seconds_since_epoch / (self.file_length * self.temporal_resolution_seconds))
         return chunk_index
 
-    def get_chunk_time_range(self, chunk_index: int, temporal_resolution_seconds: int = 3600) -> np.ndarray:
+    def chunks_for_date_range(
+        self,
+        start_timestamp: np.datetime64,
+        end_timestamp: np.datetime64,
+    ) -> List[int]:
+        """
+        Find all chunk indices that contain data within the given date range.
+
+        Parameters:
+        -----------
+        start_date : datetime
+            Start date for the data range
+        end_date : datetime
+            End date for the data range
+        Returns:
+        --------
+        List[int]
+            List of chunk indices containing data within the date range
+        """
+        # Get chunk indices for start and end dates
+        start_chunk = self.time_to_chunk_index(start_timestamp)
+        end_chunk = self.time_to_chunk_index(end_timestamp)
+
+        # Generate list of all chunks between start and end (inclusive)
+        return list(range(start_chunk, end_chunk +1))
+
+    def get_chunk_time_range(self, chunk_index: int):
         """
         Get the time range covered by a specific chunk.
 
@@ -256,21 +272,20 @@ class OmDomain:
         -----------
         chunk_index : int
             Index of the chunk
-        temporal_resolution_seconds : int, optional
-            Time resolution in seconds (default: 3600 = 1 hour)
 
         Returns:
         --------
         np.ndarray
             Array of datetime64 objects representing the time points in the chunk
         """
-        epoch = np.datetime64('1970-01-01T00:00:00')
-        chunk_start_seconds = chunk_index * self.file_length * temporal_resolution_seconds
-        start_time = epoch + np.timedelta64(chunk_start_seconds, 's')
+        chunk_start_seconds = chunk_index * self.file_length * self.temporal_resolution_seconds
+        start_time = EPOCH + np.timedelta64(chunk_start_seconds, 's')
 
-        # Create array of time points
-        time_points = start_time + np.arange(self.file_length) * np.timedelta64(temporal_resolution_seconds, 's')
-        return time_points
+        # Generate timestamps at regular intervals from the start time
+        time_delta = np.timedelta64(self.temporal_resolution_seconds, 's')
+        # Note: better type inference via list comprehension here
+        timestamps = np.array([start_time + i * time_delta for i in range(self.file_length)])
+        return timestamps
 
 # - MARK: Create grid instances for supported domains
 
@@ -296,18 +311,34 @@ _ecmwf_ifs025_grid = RegularLatLonGrid(
     lon_step_size=180/(721-1)
 )
 
+# https://github.com/open-meteo/open-meteo/blob/1753ebb4966d05f61b17dd5bdf59700788d4a913/Sources/App/MeteoFrance/MeteoFranceDomain.swift#L348
+_meteofrance_arpege_europe_grid = RegularLatLonGrid(
+    lat_start=20,
+    lat_steps=521,
+    lat_step_size=0.1,
+    lon_start=-32,
+    lon_steps=741,
+    lon_step_size=0.1
+)
+
 DOMAINS: dict[str, OmDomain] = {
     'dwd_icon_d2': OmDomain(
         name='dwd_icon_d2',
         grid=_dwd_icon_d2_grid,
         file_length=121,
-        temporal_resolution_seconds=3600  # 1 hour
+        temporal_resolution_seconds=3600
     ),
     'ecmwf_ifs025': OmDomain(
         name='ecmwf_ifs025',
         grid=_ecmwf_ifs025_grid,
         file_length=104,
-        temporal_resolution_seconds=3600  # 1 hour
+        temporal_resolution_seconds=3600*3
     ),
+    'meteofrance_arpege_europe': OmDomain(
+        name='meteofrance_arpege_europe',
+        grid=_meteofrance_arpege_europe_grid,
+        file_length=114+3*24,
+        temporal_resolution_seconds=3600
+    )
     # Additional domains can be added here
 }

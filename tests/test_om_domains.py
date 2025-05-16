@@ -68,14 +68,14 @@ def test_ecmwf_grid():
 
     # Test some known points on the grid
     # Point at the prime meridian and equator
-    assert ecmwf_grid.findPointXy(0.0, 0.0) is not None
+    assert ecmwf_grid.findPointXy(0.0, 0.0) == (720, 360)
 
     # Point at the North Pole
-    assert ecmwf_grid.findPointXy(90.0, 0.0) is not None
+    assert ecmwf_grid.findPointXy(90.0, 0.0) == (720, 720)
 
     # Test some edge points (ensure they are properly handled)
-    assert ecmwf_grid.findPointXy(-90.0, -180.0) is not None
-    assert ecmwf_grid.findPointXy(90.0, 180.0) is not None
+    assert ecmwf_grid.findPointXy(-90.0, -180.0) == (0, 0)
+    assert ecmwf_grid.findPointXy(90.0, 180.0) == (0, 720)
 
     # Test wrapping for global grid
     # A point at longitude 181 should wrap to longitude -179
@@ -101,7 +101,9 @@ def test_grid_coordinates():
 
     # Test round-trip conversion
     lat, lon = 14.0, 125.0
-    x, y = grid.findPointXy(lat, lon)
+    result = grid.findPointXy(lat, lon)
+    assert result is not None, f"Could not find grid point for ({lat}, {lon})"
+    x, y = result
     assert grid.getCoordinates(x, y) == (lat, lon)
 
 
