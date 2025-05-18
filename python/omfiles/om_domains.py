@@ -187,6 +187,7 @@ _ecmwf_ifs025_grid = RegularLatLonGrid(
     lon_step_size=180/(721-1)
 )
 
+# Méteo-France ARPEGE Europe grid: nx: 741, ny: 521 points
 # https://github.com/open-meteo/open-meteo/blob/522917b1d6e72a7e6b7d4ae7dfb49b0c556a6992/Sources/App/MeteoFrance/MeteoFranceDomain.swift#L341
 _meteofrance_arpege_europe_grid = RegularLatLonGrid(
     lat_start=20,
@@ -195,6 +196,39 @@ _meteofrance_arpege_europe_grid = RegularLatLonGrid(
     lon_start=-32,
     lon_steps=741,
     lon_step_size=0.1
+)
+
+# Méteo-France ARPEGE World grid: nx: 1440, ny: 721 points
+# https://github.com/open-meteo/open-meteo/blob/522917b1d6e72a7e6b7d4ae7dfb49b0c556a6992/Sources/App/MeteoFrance/MeteoFranceDomain.swift#L343
+_meteofrance_arpege_world025_grid = RegularLatLonGrid(
+    lat_start=-90,
+    lat_steps=721,
+    lat_step_size=0.25,
+    lon_start=-180,
+    lon_steps=1440,
+    lon_step_size=0.25
+)
+
+# Méteo-France AROME France grid: nx: 1121, ny: 717 points
+# https://github.com/open-meteo/open-meteo/blob/522917b1d6e72a7e6b7d4ae7dfb49b0c556a6992/Sources/App/MeteoFrance/MeteoFranceDomain.swift#L345
+_meteofrance_arome_france0025_grid = RegularLatLonGrid(
+    lat_start=37.5,
+    lat_steps=717,
+    lat_step_size=0.025,
+    lon_start=-12.0,
+    lon_steps=1121,
+    lon_step_size=0.025
+)
+
+# Méteo-France AROME France HD grid: nx: 2801, ny: 1791 points
+# https://github.com/open-meteo/open-meteo/blob/522917b1d6e72a7e6b7d4ae7dfb49b0c556a6992/Sources/App/MeteoFrance/MeteoFranceDomain.swift#L347
+_meteofrance_arome_france_hd_grid = RegularLatLonGrid(
+    lat_start=37.5,
+    lat_steps=1791,
+    lat_step_size=0.01,
+    lon_start=-12.0,
+    lon_steps=2801,
+    lon_step_size=0.01
 )
 
 DOMAINS: dict[str, OmDomain] = {
@@ -249,8 +283,50 @@ DOMAINS: dict[str, OmDomain] = {
     'meteofrance_arpege_europe': OmDomain(
         name='meteofrance_arpege_europe',
         grid=_meteofrance_arpege_europe_grid,
-        file_length=114+3*24,
+        file_length=114+3*24,  # From MeteoFranceDomain.omFileLength for arpege_europe case
         temporal_resolution_seconds=3600
+    ),
+    'meteofrance_arpege_world025': OmDomain(
+        name='meteofrance_arpege_world025',
+        grid=_meteofrance_arpege_world025_grid,
+        file_length=114+4*24,  # From MeteoFranceDomain.omFileLength for arpege_world case
+        temporal_resolution_seconds=3600
+    ),
+    'meteofrance_arome_france0025': OmDomain(
+        name='meteofrance_arome_france0025',
+        grid=_meteofrance_arome_france0025_grid,
+        file_length=36+3*24,  # From MeteoFranceDomain.omFileLength for arome_france case
+        temporal_resolution_seconds=3600
+    ),
+    'meteofrance_arome_france_hd': OmDomain(
+        name='meteofrance_arome_france_hd',
+        grid=_meteofrance_arome_france_hd_grid,
+        file_length=36+3*24,  # From MeteoFranceDomain.omFileLength for arome_france_hd case
+        temporal_resolution_seconds=3600
+    ),
+    'meteofrance_arome_france0025_15min': OmDomain(
+        name='meteofrance_arome_france0025_15min',
+        grid=_meteofrance_arome_france0025_grid,  # Using the same grid as non-15min version
+        file_length=24*2,  # From MeteoFranceDomain.omFileLength for arome_france_15min case
+        temporal_resolution_seconds=900
+    ),
+    'meteofrance_arome_france_hd_15min': OmDomain(
+        name='meteofrance_arome_france_hd_15min',
+        grid=_meteofrance_arome_france_hd_grid,  # Using the same grid as non-15min version
+        file_length=24*2,  # From MeteoFranceDomain.omFileLength for arome_france_hd_15min case
+        temporal_resolution_seconds=900
+    ),
+    'meteofrance_arpege_europe_probabilities': OmDomain(
+        name='meteofrance_arpege_europe_probabilities',
+        grid=_meteofrance_arpege_europe_grid,  # Using the same grid as non-probabilities version
+        file_length=(102+4*24)//3,  # From MeteoFranceDomain.omFileLength for arpege_europe_probabilities case
+        temporal_resolution_seconds=3600*3
+    ),
+    'meteofrance_arpege_world025_probabilities': OmDomain(
+        name='meteofrance_arpege_world025_probabilities',
+        grid=_meteofrance_arpege_world025_grid,  # Using the same grid as non-probabilities version
+        file_length=(102+4*24)//3,  # From MeteoFranceDomain.omFileLength for arpege_world_probabilities case
+        temporal_resolution_seconds=3600*3
     )
     # Additional domains can be added here
 }

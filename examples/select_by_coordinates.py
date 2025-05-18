@@ -213,12 +213,16 @@ if __name__ == "__main__":
     print(f"Date range: {start_date} to {end_date}")
 
     # Domain display names for nicer legends
-    display_names = {
+    domains_and_display_names = {
         'dwd_icon': 'DWD ICON (Global)',
         'dwd_icon_eu': 'DWD ICON (Europe)',
         'dwd_icon_d2': 'DWD ICON D2 (Central Europe)',
         'ecmwf_ifs025': 'ECMWF IFS (Global)',
-        'meteofrance_arpege_europe': 'Météo-France ARPEGE (Europe)'
+        'meteofrance_arpege_europe': 'Météo-France ARPEGE (Europe)',
+        'meteofrance_arpege_world025': 'Météo-France ARPEGE (Global)',
+        'meteofrance_arome_france0025': 'Météo-France AROME (France)',
+        'meteofrance_arome_france_hd': 'Météo-France AROME HD (France)',
+        'meteofrance_arome_france_hd_15min': 'Météo-France AROME HD 15min (France)',
     }
 
     # Collect data from each domain
@@ -226,7 +230,7 @@ if __name__ == "__main__":
     successful_domains = []
 
     # Loop through all domains in the main function
-    for domain_name in DOMAINS.keys():
+    for domain_name in domains_and_display_names.keys():
         try:
             print(f"\nTrying to fetch data from domain: {domain_name}")
             ds = get_data_for_coordinates(
@@ -251,14 +255,14 @@ if __name__ == "__main__":
         exit(1)
 
     # Domain colors for consistent line colors
-    colors = plt.cm.get_cmap('tab10')(np.linspace(0, 1, len(successful_domains)))
+    colors = plt.get_cmap('tab10')(np.linspace(0, 1, len(successful_domains)))
 
     plt.figure(figsize=(12, 6))
 
     # Plot data from each domain
     for i, domain_name in enumerate(successful_domains):
         ds = domain_data[domain_name]
-        label = display_names.get(domain_name, domain_name)
+        label = domains_and_display_names[domain_name]
         ds[variable].plot(label=label, color=colors[i], linewidth=2)
 
     # Enhance the plot
