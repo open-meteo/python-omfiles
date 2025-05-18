@@ -66,7 +66,7 @@ runs:
         python -m pip install pytest==6.0 psutil
         WHEEL_PATH=$(ls dist/*.whl)
         python -m pip install --force-reinstall "$WHEEL_PATH" \
-          "numpy==1.20.0" \
+          "numpy==1.21.0" \
           "fsspec==2023.1.0" \
           "s3fs==2023.1.0" \
           "xarray==2023.1.0"
