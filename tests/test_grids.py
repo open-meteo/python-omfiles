@@ -1,4 +1,5 @@
 import numpy as np
+import pyproj
 import pytest
 from omfiles.grids import (
     LambertAzimuthalEqualAreaProjection,
@@ -8,6 +9,7 @@ from omfiles.grids import (
     StereographicProjection,
 )
 from omfiles.om_domains import RegularLatLonGrid
+from omfiles.utils import _normalize_longitude
 
 # Fixtures for grids
 
@@ -371,3 +373,220 @@ def test_lambert_conformal_conic_projection():
     assert abs(lon - 30.711975) < 0.001
     point_idx = grid.findPointXy(lat=lat, lon=lon)
     assert point_idx == (1642, 1573)
+
+
+def test_rotated_latlon_against_proj():
+    # Create our custom projection
+    lat_origin = -36.0885
+    lon_origin = 245.305
+    custom_proj = RotatedLatLonProjection(lat_origin=lat_origin, lon_origin=lon_origin)
+
+    # Create equivalent PROJ projection
+    proj_string = (f"+proj=ob_tran +o_proj=longlat +o_lat_p={-lat_origin} "
+                    f"+o_lon_p=0.0 +lon_0={lon_origin} +datum=WGS84 +no_defs +type=crs")
+    proj_proj = pyproj.Proj(proj_string)
+
+    # Test points covering different regions
+    test_points = [
+        (0, 0),       # Origin
+        (45, 45),     # Mid-latitude point
+        (-45, -45),   # Mid-latitude point (southern hemisphere)
+        (10, 50),     # Europe
+        (40, -100),   # North America
+        (50, -170),   # Pacific
+        (-30, 170),   # South Pacific
+    ]
+
+    for lat, lon in test_points:
+        # Forward transformation using our implementation
+        custom_x, custom_y = custom_proj.forward(latitude=lat, longitude=lon)
+
+        # Forward transformation using PROJ
+        # Note: PROJ expects (lon, lat) order, not (lat, lon)
+        # proj_x, proj_y = proj_proj(np.radians(lon), np.radians(lat))
+        proj_x, proj_y = proj_proj(lon, lat)
+        # The following fix should be available in proj, but something is weird
+        # with radians/degrees with ob_tran....
+        # https://github.com/OSGeo/PROJ/issues/2804
+        proj_x = np.degrees(proj_x)
+        proj_y = np.degrees(proj_y)
+
+        # Compare results - allowing for small differences due to floating point math
+        # Convert to radians for comparison since our implementation works in radians
+        assert abs(custom_x - proj_x) < 1e-5, f"X mismatch for ({lat}, {lon}): custom={custom_x}, proj={proj_x}"
+        assert abs(custom_y - proj_y) < 1e-5, f"Y mismatch for ({lat}, {lon}): custom={custom_y}, proj={proj_y}"
+
+        # Test inverse transformation
+        custom_lat, custom_lon = custom_proj.inverse(x=custom_x, y=custom_y)
+        # PROJ expects inverse=True for inverse transform
+        proj_lon, proj_lat = proj_proj(np.radians(proj_x), np.radians(proj_y), inverse=True)
+
+        # Compare results
+        assert abs(custom_lat - proj_lat) < 1e-5, f"Lat mismatch for ({custom_x}, {custom_y}): custom={custom_lat}, proj={proj_lat}"
+        assert abs(np.mod(custom_lon - proj_lon + 180, 360) - 180) < 1e-5, f"Lon mismatch for ({custom_x}, {custom_y}): custom={custom_lon}, proj={proj_lon}"
+
+
+def test_stereographic_against_proj():
+    # Create our custom projection
+    latitude = 90.0  # North pole
+    longitude = 249.0
+    radius = 6371229.0
+    custom_proj = StereographicProjection(latitude=latitude, longitude=longitude, radius=radius)
+
+    # Create equivalent PROJ projection
+    proj_string = (f"+proj=stere +lat_0={latitude} +lon_0={longitude} +k=1 "
+                  f"+x_0=0 +y_0=0 +R={radius} +units=m +no_defs")
+    proj_proj = pyproj.Proj(proj_string)
+
+    # Test points - staying away from singular points (poles)
+    test_points = [
+        (0, 0),      # Equator
+        (45, 45),    # Mid-latitude
+        (60, -120),  # Northern regions
+        (45, 249),   # Along the central meridian
+        (70, 249),   # Along the central meridian
+        (80, 249),   # Along the central meridian
+    ]
+
+    for lat, lon in test_points:
+        # Forward transformation using our implementation
+        custom_x, custom_y = custom_proj.forward(latitude=lat, longitude=lon)
+
+        # Forward transformation using PROJ
+        # PROJ uses (lon, lat) order
+        proj_x, proj_y = proj_proj(lon, lat)
+
+        # Compare results (allowing some tolerance due to potential differences in algorithms)
+        # Stereographic projections can have larger errors for points far from the center
+        tolerance = 1  # tolerance in meters
+        assert abs(custom_x - proj_x) < tolerance, f"X mismatch for ({lat}, {lon}): custom={custom_x}, proj={proj_x}"
+        assert abs(custom_y - proj_y) < tolerance, f"Y mismatch for ({lat}, {lon}): custom={custom_y}, proj={proj_y}"
+
+        # Test inverse transformation
+        custom_lat, custom_lon = custom_proj.inverse(x=custom_x, y=custom_y)
+        proj_lon, proj_lat = proj_proj(proj_x, proj_y, inverse=True)
+
+        # Compare results
+        assert abs(custom_lat - proj_lat) < 1e-5, f"Lat mismatch: custom={custom_lat}, proj={proj_lat}"
+        custom_lon = _normalize_longitude(custom_lon)
+        assert abs(custom_lon - proj_lon) < 1e-4, f"Lon mismatch: custom={custom_lon}, proj={proj_lon}"
+
+def test_lambert_azimuthal_equal_area_against_proj():
+    # Create our custom projection
+    lambda_0 = -2.5  # Central longitude in degrees
+    phi_1 = 54.9     # Standard parallel/latitude in degrees
+    radius = 6371229.0  # Earth radius in meters
+    custom_proj = LambertAzimuthalEqualAreaProjection(lambda_0=lambda_0, phi_1=phi_1, radius=radius)
+
+    # Create equivalent PROJ projection
+    # For Lambert Azimuthal Equal Area, we use lat_0 for the standard parallel and lon_0 for central longitude
+    proj_string = (f"+proj=laea +lat_0={phi_1} +lon_0={lambda_0} +x_0=0 +y_0=0 "
+                  f"+R={radius} +units=m +no_defs +type=crs")
+    proj_proj = pyproj.Proj(proj_string)
+
+    # Test points covering different regions
+    test_points = [
+        (0, 0),       # Origin
+        (54.9, -2.5), # Projection center (should map to 0,0)
+        (45, 45),     # Mid-latitude point
+        (-45, -45),   # Mid-latitude point (southern hemisphere)
+        (10, 50),     # Europe
+        (40, -100),   # North America
+        (50, -170),   # Pacific
+        (-30, 170),   # South Pacific
+        # Test point from the existing test
+        (57.745566, 10.620785)
+    ]
+
+    for lat, lon in test_points:
+        # Forward transformation using our implementation
+        custom_x, custom_y = custom_proj.forward(latitude=lat, longitude=lon)
+
+        # Forward transformation using PROJ
+        # Note: PROJ expects (lon, lat) order, not (lat, lon)
+        proj_x, proj_y = proj_proj(lon, lat)
+
+        # Compare results - Lambert projections can have larger differences due to algorithmic differences
+        # Use a reasonable tolerance (e.g., 0.1 meter for a 6.3 million meter radius)
+        tolerance = 0.1
+        assert abs(custom_x - proj_x) < tolerance, f"X mismatch for ({lat}, {lon}): custom={custom_x}, proj={proj_x}"
+        assert abs(custom_y - proj_y) < tolerance, f"Y mismatch for ({lat}, {lon}): custom={custom_y}, proj={proj_y}"
+
+        # Test inverse transformation (skip points very close to the poles where inverse can be unstable)
+        if abs(lat) < 89:
+            custom_lat, custom_lon = custom_proj.inverse(x=custom_x, y=custom_y)
+            # PROJ expects inverse=True for inverse transform
+            proj_lon, proj_lat = proj_proj(proj_x, proj_y, inverse=True)
+
+            # Compare results with appropriate tolerance
+            # For inverse transformations, angular differences can be larger
+            angular_tolerance = 1e-5  # roughly 0.00001 degrees
+            assert abs(custom_lat - proj_lat) < angular_tolerance, \
+                f"Lat mismatch for ({custom_x}, {custom_y}): custom={custom_lat}, proj={proj_lat}"
+
+            # Handle longitude wraparound for comparison
+            lon_diff = np.mod(abs(custom_lon - proj_lon), 360)
+            assert min(lon_diff, 360 - lon_diff) < angular_tolerance, \
+                f"Lon mismatch for ({custom_x}, {custom_y}): custom={custom_lon}, proj={proj_lon}"
+
+def test_lambert_conformal_conic_against_proj():
+    # Create our custom projection with parameters from the existing test
+    lambda_0 = 352       # Reference longitude in degrees
+    phi_0 = 55.5         # Reference latitude in degrees
+    phi_1 = 55.5         # First standard parallel in degrees
+    phi_2 = 55.5         # Second standard parallel in degrees
+    radius = 6371229.0   # Earth radius in meters
+
+    custom_proj = LambertConformalConicProjection(
+        lambda_0=lambda_0, phi_0=phi_0, phi_1=phi_1, phi_2=phi_2, radius=radius
+    )
+
+    lambda_0_norm = _normalize_longitude(lambda_0)
+    # Create equivalent PROJ projection
+    # For Lambert Conformal Conic, we use lat_0, lon_0, lat_1, lat_2 parameters
+    proj_string = (f"+proj=lcc +lat_0={phi_0} +lon_0={lambda_0_norm} +lat_1={phi_1} +lat_2={phi_2} "
+                  f"+x_0=0 +y_0=0 +R={radius} +units=m +no_defs +type=crs")
+    proj_proj = pyproj.Proj(proj_string)
+
+    # Test points from the existing test
+    center_lat = 39.671
+    center_lon = -25.421997
+    test_points = [
+        (center_lat, center_lon),              # Center point
+        (39.675304, -25.400146),               # Near the center
+        (42.18604, -15.30127),                 # Point from the test (x=456, y=64)
+        (64.943695, 30.711975),                # Point from the test (x=1642, y=1573)
+        # Additional test points for broader coverage
+        (0, 0),                                # Origin
+        (phi_0, lambda_0_norm),                # Projection origin
+        (45, 0),                               # Mid-latitude point
+        (-45, -45),                            # Southern hemisphere
+        (10, 50),                              # Europe
+        (40, -100),                            # North America
+        (50, -170),                            # Pacific
+        (-30, 170),                            # South Pacific
+    ]
+
+    for lat, lon in test_points:
+        # Forward transformation using our implementation
+        custom_x, custom_y = custom_proj.forward(latitude=lat, longitude=lon)
+
+        # Forward transformation using PROJ
+        # Note: PROJ expects (lon, lat) order, not (lat, lon)
+        proj_x, proj_y = proj_proj(lon, lat)
+        tolerance = 0.1 # 0.1 meters for a 6.3 million meter radius is a reasonable precision
+        assert abs(custom_x - proj_x) < tolerance, f"X mismatch for ({lat}, {lon}): custom={custom_x}, proj={proj_x}"
+        assert abs(custom_y - proj_y) < tolerance, f"Y mismatch for ({lat}, {lon}): custom={custom_y}, proj={proj_y}"
+
+        # Test inverse transformation
+        custom_lat, custom_lon = custom_proj.inverse(x=custom_x, y=custom_y)
+        # PROJ expects inverse=True for inverse transform
+        proj_lon, proj_lat = proj_proj(proj_x, proj_y, inverse=True)
+        angular_tolerance = 1e-5  # approximately 0.00001 degrees
+        assert abs(custom_lat - proj_lat) < angular_tolerance, \
+            f"Lat mismatch for ({custom_x}, {custom_y}): custom={custom_lat}, proj={proj_lat}"
+
+        # Handle longitude wraparound for comparison
+        lon_diff = np.mod(abs(custom_lon - proj_lon), 360)
+        assert min(lon_diff, 360 - lon_diff) < angular_tolerance, \
+            f"Lon mismatch for ({custom_x}, {custom_y}): custom={custom_lon}, proj={proj_lon}"

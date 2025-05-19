@@ -22,11 +22,17 @@ dependencies = [
 dev = [
     "pytest>=6.0",
     "psutil",
+    "pyproj",
     "hidefix",
     "h5py",
     "netCDF4",
     "zarr",
     "tensorstore",
+]
+test = [
+    "pytest>=6.0",
+    "psutil",
+    "pyproj",
 ]
 
 [tool.maturin]
