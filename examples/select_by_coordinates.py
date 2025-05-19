@@ -202,8 +202,12 @@ if __name__ == "__main__":
     latitude = 48.864716
     longitude = 2.349014
 
+    # # Example coordinates: Vancouver
+    # latitude = 49.246
+    # longitude =-123.116
+
     # Define a date range
-    start_date = datetime(2025, 4, 16, 12, 0)  # 16-04-2025'T'12:00
+    start_date = datetime(2025, 4, 25, 12, 0)  # 25-04-2025'T'12:00
     end_date = datetime(2025, 5, 18, 12, 0)    # 18-05-2025'T'12:00
 
     # Variable to fetch
@@ -223,6 +227,9 @@ if __name__ == "__main__":
         'meteofrance_arome_france0025': 'Météo-France AROME (France)',
         'meteofrance_arome_france_hd': 'Météo-France AROME HD (France)',
         'meteofrance_arome_france_hd_15min': 'Météo-France AROME HD 15min (France)',
+        'gem_global': 'CMC GEM GDPS (Global)',
+        'gem_regional': 'CMC GEM RDPS (Regional)',
+        'gem_hrdps_continental': 'CMC GEM HRDPS (Continental)',
     }
 
     # Collect data from each domain

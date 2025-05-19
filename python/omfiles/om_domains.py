@@ -2,7 +2,13 @@ from typing import List
 
 import numpy as np
 
-from omfiles.grids import AbstractGrid, RegularLatLonGrid
+from omfiles.grids import (
+    AbstractGrid,
+    ProjectionGrid,
+    RegularLatLonGrid,
+    RotatedLatLonProjection,
+    StereographicProjection,
+)
 from omfiles.utils import EPOCH
 
 
@@ -231,7 +237,82 @@ _meteofrance_arome_france_hd_grid = RegularLatLonGrid(
     lon_step_size=0.01
 )
 
+# GEM Global grid: nx: 2400, ny: 1201 points
+# https://github.com/open-meteo/open-meteo/blob/522917b1d6e72a7e6b7d4ae7dfb49b0c556a6992/Sources/App/Gem/GemDomain.swift#L139
+_gem_global_grid = RegularLatLonGrid(
+    lat_start=-90,
+    lat_steps=1201,
+    lat_step_size=0.15,
+    lon_start=-180,
+    lon_steps=2400,
+    lon_step_size=0.15
+)
+
+# GEM Regional grid: Uses Stereographic projection
+# https://github.com/open-meteo/open-meteo/blob/522917b1d6e72a7e6b7d4ae7dfb49b0c556a6992/Sources/App/Gem/GemDomain.swift#L141
+_gem_regional_projection = StereographicProjection(
+    latitude=90,
+    longitude=249,
+    radius=6371229
+)
+_gem_regional_grid = ProjectionGrid.from_bounds(
+    nx=935,
+    ny=824,
+    lat_range=(18.14503, 45.405453),
+    lon_range=(217.10745, 349.8256),
+    projection=_gem_regional_projection
+)
+
+# GEM HRDPS Continental grid: Uses RotatedLatLon projection
+# https://github.com/open-meteo/open-meteo/blob/522917b1d6e72a7e6b7d4ae7dfb49b0c556a6992/Sources/App/Gem/GemDomain.swift#L143
+_gem_hrdps_projection = RotatedLatLonProjection(
+    lat_origin=-36.0885,
+    lon_origin=245.305
+)
+_gem_hrdps_grid = ProjectionGrid.from_bounds(
+    nx=2540,
+    ny=1290,
+    lat_range=(39.626034, 47.876457),
+    lon_range=(-133.62952, -40.708557),
+    projection=_gem_hrdps_projection
+)
+
+# GEM Global Ensemble grid: nx: 720, ny: 361 points
+# https://github.com/open-meteo/open-meteo/blob/522917b1d6e72a7e6b7d4ae7dfb49b0c556a6992/Sources/App/Gem/GemDomain.swift#L145
+_gem_global_ensemble_grid = RegularLatLonGrid(
+    lat_start=-90,
+    lat_steps=361,
+    lat_step_size=0.5,
+    lon_start=-180,
+    lon_steps=720,
+    lon_step_size=0.5
+)
+
 DOMAINS: dict[str, OmDomain] = {
+    'cmc_gem_gdps': OmDomain(
+        name='cmc_gem_gdps',
+        grid=_gem_global_grid,
+        file_length=110,  # From GemDomain.omFileLength for gem_global case
+        temporal_resolution_seconds=3600*3  # 3-hourly data
+    ),
+    'cmc_gem_rdps': OmDomain(
+        name='cmc_gem_rdps',
+        grid=_gem_regional_grid,
+        file_length=78+36,  # From GemDomain.omFileLength for gem_regional case
+        temporal_resolution_seconds=3600  # Hourly data
+    ),
+    'cmc_gem_hrdps': OmDomain(
+        name='cmc_gem_hrdps',
+        grid=_gem_hrdps_grid,
+        file_length=48+36,  # From GemDomain.omFileLength for gem_hrdps_continental case
+        temporal_resolution_seconds=3600  # Hourly data
+    ),
+    'cmc_gem_geps': OmDomain(
+        name='cmc_gem_geps',
+        grid=_gem_global_ensemble_grid,
+        file_length=384//3+48//3,  # From GemDomain.omFileLength for gem_global_ensemble case
+        temporal_resolution_seconds=3600*3  # 3-hourly data
+    ),
     'dwd_icon': OmDomain(
         name='dwd_icon',
         grid=_dwd_icon_grid,
@@ -330,3 +411,9 @@ DOMAINS: dict[str, OmDomain] = {
     )
     # Additional domains can be added here
 }
+
+# Domain aliases to match the names in GemDomain.swift
+DOMAINS['gem_global'] = DOMAINS['cmc_gem_gdps']
+DOMAINS['gem_regional'] = DOMAINS['cmc_gem_rdps']
+DOMAINS['gem_hrdps_continental'] = DOMAINS['cmc_gem_hrdps']
+DOMAINS['gem_global_ensemble'] = DOMAINS['cmc_gem_geps']

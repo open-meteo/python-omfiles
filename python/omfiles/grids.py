@@ -213,6 +213,118 @@ class AbstractProjection(ABC):
         """
         pass
 
+class RotatedLatLonProjection(AbstractProjection):
+    """
+    Rotated lat/lon projection implementation.
+
+    This implements the transformation between regular lat/lon coordinates and
+    rotated lat/lon coordinates where the pole is shifted to a specified location.
+    Based on: https://github.com/open-meteo/open-meteo/blob/main/Sources/App/Domains/RotatedLatLon.swift
+    """
+
+    def __init__(self, lat_origin: float, lon_origin: float):
+        """
+        Initialize a rotated lat/lon projection.
+
+        Parameters:
+        -----------
+        lat_origin : float
+            Latitude of origin in degrees
+        lon_origin : float
+            Longitude of origin in degrees
+        """
+        # θ: Rotation around y-axis
+        self.theta = np.radians(90.0 + lat_origin)
+        # ϕ: Rotation around z-axis
+        self.phi = np.radians(lon_origin)
+
+    def forward(self, latitude: CoordType, longitude: CoordType) -> ReturnUnionType:
+        """
+        Transform from regular lat/lon to rotated lat/lon coordinates.
+
+        Parameters:
+        -----------
+        latitude : float or array
+            Latitude in degrees
+        longitude : float or array
+            Longitude in degrees
+
+        Returns:
+        --------
+        tuple
+            (rotated_lat, rotated_lon) in degrees
+        """
+        scalar_input = np.isscalar(latitude) and np.isscalar(longitude)
+
+        lat_arr = np.asarray(latitude, dtype=np.float32)
+        lon_arr = np.asarray(longitude, dtype=np.float32)
+
+        # Convert to radians
+        lat_rad = np.radians(lat_arr)
+        lon_rad = np.radians(lon_arr)
+
+        # Convert to cartesian coordinates
+        x = np.cos(lon_rad) * np.cos(lat_rad)
+        y = np.sin(lon_rad) * np.cos(lat_rad)
+        z = np.sin(lat_rad)
+
+        # Apply rotation
+        x2 = np.cos(self.theta) * np.cos(self.phi) * x + np.cos(self.theta) * np.sin(self.phi) * y + np.sin(self.theta) * z
+        y2 = -np.sin(self.phi) * x + np.cos(self.phi) * y
+        z2 = -np.sin(self.theta) * np.cos(self.phi) * x - np.sin(self.theta) * np.sin(self.phi) * y + np.cos(self.theta) * z
+
+        # Convert back to spherical coordinates
+        rot_lon = np.degrees(np.arctan2(y2, x2))
+        rot_lat = np.degrees(np.arcsin(z2))
+
+        if scalar_input:
+            return float(rot_lon.item()), float(rot_lat.item())
+
+        return rot_lon, rot_lat
+
+    def inverse(self, x: CoordType, y: CoordType) -> ReturnUnionType:
+        """
+        Transform from rotated lat/lon back to regular lat/lon coordinates.
+
+        Parameters:
+        -----------
+        x : float or array
+            Rotated longitude in degrees
+        y : float or array
+            Rotated latitude in degrees
+
+        Returns:
+        --------
+        tuple
+            (latitude, longitude) in degrees
+        """
+        scalar_input = np.isscalar(x) and np.isscalar(y)
+
+        rot_lon = np.radians(np.asarray(x, dtype=np.float32))
+        rot_lat = np.radians(np.asarray(y, dtype=np.float32))
+
+        theta_neg = -self.theta
+        phi_neg = -self.phi
+
+        # Quick solution without conversion in cartesian space
+        lat_rad = np.arcsin(
+            np.cos(theta_neg) * np.sin(rot_lat) - np.cos(rot_lon) * np.sin(theta_neg) * np.cos(rot_lat)
+        )
+
+        lon_rad = np.arctan2(
+            np.sin(rot_lon),
+            np.tan(rot_lat) * np.sin(theta_neg) + np.cos(rot_lon) * np.cos(theta_neg)
+        ) - phi_neg
+
+        lat2 = np.degrees(lat_rad)
+        lon2 = np.degrees(lon_rad)
+
+        if scalar_input:
+            return float(lat2.item()), float(lon2.item())
+
+        return lat2, lon2
+
+
 class StereographicProjection(AbstractProjection):
     """
     Stereographic projection implementation.
@@ -290,38 +402,23 @@ class StereographicProjection(AbstractProjection):
         tuple
             (latitude, longitude) in degrees
         """
-        # Convert inputs to numpy arrays for uniform handling
         x_arr = np.asarray(x, dtype=np.float32)
         y_arr = np.asarray(y, dtype=np.float32)
 
-        # Calculate distance from origin
         p = np.sqrt(x_arr*x_arr + y_arr*y_arr)
 
         # Initialize output arrays
         phi = np.zeros_like(p)
         lambda_ = np.zeros_like(p)
 
-        # Handle the origin case
-        origin = (p == 0)
-        phi[origin] = np.arcsin(self.sin_phi_1)
-        lambda_[origin] = self.lambda_0
+        c = 2 * np.arctan2(p, 2*self.R)
+        phi = np.arcsin(np.cos(c) * self.sin_phi_1 + (y_arr * np.sin(c) * self.cos_phi_1) / p)
+        lambda_ = self.lambda_0 + np.arctan2(
+            x_arr * np.sin(c),
+            p * self.cos_phi_1 * np.cos(c) - y_arr * self.sin_phi_1 * np.sin(c)
+        )
 
-        # Handle non-origin points
-        non_origin = ~origin
-        if np.any(non_origin):
-            c = 2 * np.arctan2(p[non_origin], 2*self.R)
-            phi[non_origin] = np.arcsin(np.cos(c) * self.sin_phi_1 +
-                           (y_arr[non_origin] * np.sin(c) * self.cos_phi_1) / p[non_origin])
-            lambda_[non_origin] = self.lambda_0 + np.arctan2(
-                x_arr[non_origin] * np.sin(c),
-                p[non_origin] * self.cos_phi_1 * np.cos(c) - y_arr[non_origin] * self.sin_phi_1 * np.sin(c)
-            )
-
-        # Convert to degrees
-        lat = np.degrees(phi)
-        lon = np.degrees(lambda_)
-
-        return lat, lon
+        return np.degrees(phi), np.degrees(lambda_)
 
 P = TypeVar('P', bound=AbstractProjection)
 
@@ -450,29 +547,9 @@ class ProjectionGrid(AbstractGrid, Generic[P]):
         return "projection"
 
     @cached_property
-    def latitude(self) -> np.ndarray:
+    def _coordinates(self) -> Tuple[np.ndarray, np.ndarray]:
         """
-        Lazily compute and cache the latitude coordinate array.
-        """
-        # Create meshgrid of coordinates
-        y_indices, x_indices = np.meshgrid(
-            np.arange(self.ny),
-            np.arange(self.nx),
-            indexing='ij'
-        )
-
-        # Convert to projected coordinates
-        x_coords = x_indices * self.dx + self.origin[0]
-        y_coords = y_indices * self.dy + self.origin[1]
-
-        # Convert to lat/lon using vectorized inverse method
-        lat, _ = cast(tuple[ArrayType, ArrayType], self.projection.inverse(x_coords, y_coords))
-        return lat
-
-    @cached_property
-    def longitude(self) -> np.ndarray:
-        """
-        Lazily compute and cache the longitude coordinate array.
+        Lazily compute and cache both latitude and longitude arrays.
         """
         # Create meshgrid of coordinates
         y_indices, x_indices = np.meshgrid(
@@ -486,8 +563,22 @@ class ProjectionGrid(AbstractGrid, Generic[P]):
         y_coords = y_indices * self.dy + self.origin[1]
 
         # Convert to lat/lon using vectorized inverse method
-        _, lon =  cast(tuple[ArrayType, ArrayType], self.projection.inverse(x_coords, y_coords))
-        return lon
+        lat, lon = cast(tuple[ArrayType, ArrayType], self.projection.inverse(x_coords, y_coords))
+        return lat, lon
+
+    @property
+    def latitude(self) -> np.ndarray: # type: ignore
+        """
+        Get the latitude coordinate array.
+        """
+        return self._coordinates[0]
+
+    @property
+    def longitude(self) -> np.ndarray: # type: ignore
+        """
+        Get the longitude coordinate array.
+        """
+        return self._coordinates[1]
 
     @property
     def shape(self) -> Tuple[int, int]:

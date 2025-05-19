@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from omfiles.grids import ProjectionGrid, StereographicProjection
+from omfiles.grids import ProjectionGrid, RotatedLatLonProjection, StereographicProjection
 from omfiles.om_domains import RegularLatLonGrid
 
 # Fixtures for grids
@@ -25,6 +25,21 @@ def stereographic_projection():
         lat_range=(18.14503, 45.405453),
         lon_range=(217.10745, 349.8256),
         projection=projection
+    )
+
+@pytest.fixture
+def hrdps_projection():
+    return RotatedLatLonProjection(lat_origin=-36.0885, lon_origin=245.305)
+
+@pytest.fixture
+def hrdps_grid(hrdps_projection):
+    from omfiles.grids import ProjectionGrid
+    return ProjectionGrid.from_bounds(
+        nx=2540,
+        ny=1290,
+        lat_range=(39.626034, 47.876457),
+        lon_range=(-133.62952, -40.708557),
+        projection=hrdps_projection
     )
 
 def test_regular_grid_findPointXy_inside(local_regular_lat_lon_grid):
@@ -114,3 +129,26 @@ def test_latitude_longitude_arrays(stereographic_projection):
     # Check shapes match the grid
     assert lats.shape == (824, 935)
     assert lons.shape == (824, 935)
+
+def test_hrdps_grid(hrdps_grid):
+    """Test the HRDPS Continental grid with a modified approach"""
+    test_points = [
+        # lat, lon, expected_x, expected_y
+        (39.626034, -133.62952, 0, 0),          # Bottom-left
+        (27.284597, -66.96642, 2539, 0),        # Bottom-right
+        (38.96126, -73.63256, 2032, 283),       # Middle point
+        (47.876457, -40.708557, 2539, 1289),    # Top-right
+    ]
+
+    for lat, lon, expected_x, expected_y in test_points:
+        # Test finding grid point
+        pos = hrdps_grid.findPointXy(lat=lat, lon=lon)
+        assert pos is not None, f"Could not find point for {lat}, {lon}"
+
+        x, y = pos
+        assert x == expected_x, f"X mismatch: got {x}, expected {expected_x}"
+        assert y == expected_y, f"Y mismatch: got {y}, expected {expected_y}"
+
+        lat2, lon2 = hrdps_grid.getCoordinates(x, y)
+        assert abs(lat2 - lat) < 0.001, f"latitude mismatch: got {lat2}, expected {lat}"
+        assert abs(lon2 - lon) < 0.001, f"longitude mismatch: got {lon2}, expected {lon}"
