@@ -5,7 +5,7 @@ from typing import Generic, Optional, Tuple, TypeVar, Union, cast
 import numpy as np
 import numpy.typing as npt
 
-from omfiles.utils import _modulo_positive
+from omfiles.utils import _modulo_positive, _normalize_longitude
 
 
 class AbstractGrid(ABC):
@@ -554,7 +554,7 @@ class LambertConformalConicProjection(AbstractProjection):
             Radius of Earth in meters (default: 6370997)
         """
         # Normalize lambda_0 to [-180, 180] range
-        lambda_0_normalized = ((lambda_0 + 180.0) % 360.0) - 180.0
+        lambda_0_normalized = _normalize_longitude(lambda_0)
         self.lambda_0 = np.radians(lambda_0_normalized)
 
         phi_0_rad = np.radians(phi_0)
@@ -857,7 +857,7 @@ class ProjectionGrid(AbstractGrid, Generic[P]):
         ycord = float(y) * self.dy + self.origin[1]
         lat, lon = cast(tuple[float, float], self.projection.inverse(xcord, ycord))
         # Normalize longitude to -180 to 180 range
-        lon = ((lon + 180.0) % 360.0) - 180.0
+        lon = _normalize_longitude(lon)
         return (lat, lon)
 
     def get_true_north_direction(self) -> np.ndarray:
