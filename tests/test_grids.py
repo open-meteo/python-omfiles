@@ -1,6 +1,11 @@
 import numpy as np
 import pytest
-from omfiles.grids import ProjectionGrid, RotatedLatLonProjection, StereographicProjection
+from omfiles.grids import (
+    LambertAzimuthalEqualAreaProjection,
+    ProjectionGrid,
+    RotatedLatLonProjection,
+    StereographicProjection,
+)
 from omfiles.om_domains import RegularLatLonGrid
 
 # Fixtures for grids
@@ -152,3 +157,39 @@ def test_hrdps_grid(hrdps_grid):
         lat2, lon2 = hrdps_grid.getCoordinates(x, y)
         assert abs(lat2 - lat) < 0.001, f"latitude mismatch: got {lat2}, expected {lat}"
         assert abs(lon2 - lon) < 0.001, f"longitude mismatch: got {lon2}, expected {lon}"
+
+
+def test_lambert_azimuthal_equal_area_projection():
+    """
+    Test the Lambert Azimuthal Equal-Area projection.
+    https://github.com/open-meteo/open-meteo/blob/522917b1d6e72a7e6b7d4ae7dfb49b0c556a6992/Tests/AppTests/DataTests.swift#L189
+    """
+    proj = LambertAzimuthalEqualAreaProjection(lambda_0=-2.5, phi_1=54.9, radius=6371229)
+    grid = ProjectionGrid(
+        projection=proj,
+        nx=1042,
+        ny=970,
+        origin=(-1158000, -1036000),
+        dx=2000,
+        dy=2000
+    )
+
+    test_lon = 10.620785
+    test_lat = 57.745566
+    x, y = proj.forward(latitude=test_lat, longitude=test_lon)
+    assert abs(x - 773650.5058) < 0.0001 # TODO: There are numerical differences with the Swift test case
+    assert abs(y - 389820.1483) < 0.0001 # TODO: There are numerical differences with the Swift test case
+
+    lat, lon = proj.inverse(x=773650.5, y=389820.06)
+    assert abs(lon - test_lon) < 0.0001
+    assert abs(lat - test_lat) < 0.0001
+
+    point_xy = grid.findPointXy(lat=test_lat, lon=test_lon)
+    assert point_xy is not None, "Point not found in grid"
+    x_idx, y_idx = point_xy
+    assert x_idx == 966, f"Expected x index to be 966, got {x_idx}"
+    assert y_idx == 713, f"Expected y index to be 713, got {y_idx}"
+
+    lat2, lon2 = grid.getCoordinates(x_idx, y_idx)
+    assert abs(lon2 - 10.6271515) < 0.0001, f"Expected longitude to be 10.6271515, got {lon2}"
+    assert abs(lat2 - 57.746563) < 0.0001, f"Expected latitude to be 57.746563, got {lat2}"

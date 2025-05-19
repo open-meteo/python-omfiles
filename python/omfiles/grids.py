@@ -420,6 +420,112 @@ class StereographicProjection(AbstractProjection):
 
         return np.degrees(phi), np.degrees(lambda_)
 
+class LambertAzimuthalEqualAreaProjection(AbstractProjection):
+    """
+    Lambert Azimuthal Equal-Area projection implementation.
+
+    This implements the equations for the Lambert Azimuthal Equal-Area projection
+    which preserves area but not angles or distances.
+    https://mathworld.wolfram.com/LambertAzimuthalEqual-AreaProjection.html
+    """
+
+    def __init__(self, lambda_0: float, phi_1: float, radius: float = 6371229.0):
+        """
+        Initialize a Lambert Azimuthal Equal-Area projection.
+
+        Parameters:
+        -----------
+        lambda_0 : float
+            Central longitude in degrees
+        phi_1 : float
+            Standard parallel in degrees
+        radius : float
+            Radius of Earth in meters (default: 6371229.0)
+        """
+        self.lambda_0 = np.radians(lambda_0)
+        self.phi_1 = np.radians(phi_1)
+        self.R = radius
+
+    def forward(self, latitude: CoordType, longitude: CoordType) -> ReturnUnionType:
+        """
+        Transform from lat/lon coordinates to projected x/y coordinates.
+
+        Parameters:
+        -----------
+        latitude : float or array
+            Latitude in degrees
+        longitude : float or array
+            Longitude in degrees
+
+        Returns:
+        --------
+        tuple
+            (x, y) coordinates in the projection
+        """
+        scalar_input = np.isscalar(latitude) and np.isscalar(longitude)
+
+        lat_arr = np.asarray(latitude, dtype=np.float64)
+        lon_arr = np.asarray(longitude, dtype=np.float64)
+
+        lambda_ = np.radians(lon_arr)
+        phi = np.radians(lat_arr)
+
+        k = np.sqrt(2 / (1 + np.sin(self.phi_1) * np.sin(phi) +
+                        np.cos(self.phi_1) * np.cos(phi) * np.cos(lambda_ - self.lambda_0)))
+
+        x = self.R * k * np.cos(phi) * np.sin(lambda_ - self.lambda_0)
+        y = self.R * k * (np.cos(self.phi_1) * np.sin(phi) -
+                        np.sin(self.phi_1) * np.cos(phi) * np.cos(lambda_ - self.lambda_0))
+
+        if scalar_input:
+            return float(x.item()), float(y.item())
+
+        return x, y
+
+    def inverse(self, x: CoordType, y: CoordType) -> ReturnUnionType:
+        """
+        Transform from projected x/y coordinates back to lat/lon.
+
+        Parameters:
+        -----------
+        x : float or array
+            X coordinate in the projection
+        y : float or array
+            Y coordinate in the projection
+
+        Returns:
+        --------
+        tuple
+            (latitude, longitude) in degrees
+        """
+        scalar_input = np.isscalar(x) and np.isscalar(y)
+
+        x_arr = np.asarray(x, dtype=np.float64)
+        y_arr = np.asarray(y, dtype=np.float64)
+
+        x_norm = x_arr / self.R
+        y_norm = y_arr / self.R
+        p = np.sqrt(x_norm * x_norm + y_norm * y_norm)
+
+        # Handle the case where p is zero (projection center)
+        zero_p = (p == 0)
+        p = np.where(zero_p, np.finfo(np.float32).eps, p)  # Avoid division by zero
+
+        c = 2 * np.arcsin(0.5 * p)
+        phi = np.arcsin(np.cos(c) * np.sin(self.phi_1) +
+                      (y_norm * np.sin(c) * np.cos(self.phi_1)) / p)
+        lambda_ = self.lambda_0 + np.arctan2(
+            x_norm * np.sin(c),
+            p * np.cos(self.phi_1) * np.cos(c) - y_norm * np.sin(self.phi_1) * np.sin(c)
+        )
+        lat = np.degrees(phi)
+        lon = np.degrees(lambda_)
+
+        if scalar_input:
+            return float(lat.item()), float(lon.item())
+
+        return lat, lon
+
 P = TypeVar('P', bound=AbstractProjection)
 
 
