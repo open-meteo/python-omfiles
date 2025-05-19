@@ -65,12 +65,10 @@ impl<'py> FromPyObject<'py> for ArrayIndex {
 impl ArrayIndex {
     pub fn to_read_range(&self, shape: &Vec<u64>) -> PyResult<Vec<Range<u64>>> {
         // Input validation
-        if self.0.len() != shape.len() {
-            return Err(PyErr::new::<pyo3::exceptions::PyIndexError, _>(format!(
-                "Array dimensions do not match. Got: {:}, expected: {:}",
-                shape.len(),
-                self.0.len()
-            )));
+        if self.0.len() > shape.len() {
+            return Err(PyErr::new::<pyo3::exceptions::PyIndexError, _>(
+                "Too many indices for array",
+            ));
         }
 
         let mut ranges = Vec::new();
