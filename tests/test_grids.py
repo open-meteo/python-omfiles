@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 from omfiles.grids import (
     LambertAzimuthalEqualAreaProjection,
+    LambertConformalConicProjection,
     ProjectionGrid,
     RotatedLatLonProjection,
     StereographicProjection,
@@ -177,19 +178,196 @@ def test_lambert_azimuthal_equal_area_projection():
     test_lon = 10.620785
     test_lat = 57.745566
     x, y = proj.forward(latitude=test_lat, longitude=test_lon)
-    assert abs(x - 773650.5058) < 0.0001 # TODO: There are numerical differences with the Swift test case
-    assert abs(y - 389820.1483) < 0.0001 # TODO: There are numerical differences with the Swift test case
+    assert abs(x - 773650.5058) < 0.0001 # TODO: There are small numerical differences with the Swift test case
+    assert abs(y - 389820.1483) < 0.0001 # TODO: There are small numerical differences with the Swift test case
 
-    lat, lon = proj.inverse(x=773650.5, y=389820.06)
-    assert abs(lon - test_lon) < 0.0001
-    assert abs(lat - test_lat) < 0.0001
+    lat, lon = proj.inverse(x=x, y=y)
+    assert abs(lon - test_lon) < 0.00001
+    assert abs(lat - test_lat) < 0.00001
 
     point_xy = grid.findPointXy(lat=test_lat, lon=test_lon)
     assert point_xy is not None, "Point not found in grid"
     x_idx, y_idx = point_xy
-    assert x_idx == 966, f"Expected x index to be 966, got {x_idx}"
-    assert y_idx == 713, f"Expected y index to be 713, got {y_idx}"
+    assert x_idx == 966
+    assert y_idx == 713
 
     lat2, lon2 = grid.getCoordinates(x_idx, y_idx)
-    assert abs(lon2 - 10.6271515) < 0.0001, f"Expected longitude to be 10.6271515, got {lon2}"
-    assert abs(lat2 - 57.746563) < 0.0001, f"Expected latitude to be 57.746563, got {lat2}"
+    assert abs(lon2 - 10.6271515) < 0.0001
+    assert abs(lat2 - 57.746563) < 0.0001
+
+
+def test_lambert_conformal():
+    """
+    Based on Based on: https://github.com/open-meteo/open-meteo/blob/522917b1d6e72a7e6b7d4ae7dfb49b0c556a6992/Tests/AppTests/DataTests.swift#L128
+    """
+    proj = LambertConformalConicProjection(lambda_0=-97.5, phi_0=0, phi_1=38.5, phi_2=38.5, radius=6370.997)
+    x, y = proj.forward(latitude=47, longitude=-8)
+    assert abs(x - 5833.8667) < 0.0001
+    assert abs(y - 8632.7338) < 0.0001
+    lat, lon = proj.inverse(x=x, y=y)
+    assert abs(lat - 47) < 0.0001
+    assert abs(lon - (-8)) < 0.0001
+
+    grid = ProjectionGrid.from_bounds(
+        nx=1799,
+        ny=1059,
+        lat_range=(21.138, 47.8424),
+        lon_range=(-122.72, -60.918),
+        projection=proj
+    )
+
+    point_xy = grid.findPointXy(lat=34, lon=-118)
+    assert point_xy is not None
+    x_idx, y_idx = point_xy
+    flat_idx = y_idx * grid.nx + x_idx
+    assert flat_idx == 777441
+
+    lat2, lon2 = grid.getCoordinates(x_idx, y_idx)
+    assert abs(lat2 - 34) < 0.01
+    assert abs(lon2 - (-118)) < 0.1
+
+    # Test reference grid points
+    reference_points = [
+        (21.137999999999987, 237.28 - 360, 0),
+        (24.449714395051082, 265.54789437771944 - 360, 10000),
+        (22.73382904757237, 242.93190409785294 - 360, 20000),
+        (24.37172305316154, 271.6307003393202 - 360, 30000),
+        (24.007414634071907, 248.77817290935954 - 360, 40000)
+    ]
+
+    for lat, lon, expected_idx in reference_points:
+        point_xy = grid.findPointXy(lat=lat, lon=lon)
+        assert point_xy is not None
+        x_idx, y_idx = point_xy
+        flat_idx = y_idx * grid.nx + x_idx
+        assert flat_idx == expected_idx
+
+        lat2, lon2 = grid.getCoordinates(x_idx, y_idx)
+        assert abs(lat2 - lat) < 0.001
+        assert abs(lon2 - lon) < 0.001
+
+
+def test_nbm_grid():
+    """
+    Test the NBM (National Blend of Models) grid using Lambert Conformal Conic projection.
+    https://vlab.noaa.gov/web/mdl/nbm-grib2-v4.0
+    https://github.com/open-meteo/open-meteo/blob/522917b1d6e72a7e6b7d4ae7dfb49b0c556a6992/Tests/AppTests/DataTests.swift#L94
+    """
+    # Create projection with appropriate parameters
+    proj = LambertConformalConicProjection(
+        lambda_0=265 - 360, phi_0=0, phi_1=25, phi_2=25, radius=6371200
+    )
+
+    # Create grid
+    grid = ProjectionGrid.from_center(
+        projection=proj,
+        nx=2345,
+        ny=1597,
+        center_lat=19.229,
+        center_lon=233.723 - 360,
+        dx=2539.7,
+        dy=2539.7
+    )
+
+    # Test forward projection of grid origin
+    x, y = proj.forward(latitude=19.229, longitude=233.723 - 360)
+    assert abs(x - (-3271192.6)) < 0.1
+    assert abs(y - 2604269.4) < 0.1
+
+    # Test grid point lookup
+    point_xy = grid.findPointXy(lat=19.229, lon=233.723 - 360)
+    assert point_xy is not None
+    assert point_xy[0] == 0
+    assert point_xy[1] == 0
+
+    # Test reference grid points directly from grib files
+    reference_points = [
+        (21.137999999999987, 237.28 - 360, 117411),
+        (24.449714395051082, 265.54789437771944 - 360, 188910),
+        (22.73382904757237, 242.93190409785294 - 360, 180965),
+        (24.37172305316154, 271.6307003393202 - 360, 196187),
+        (24.007414634071907, 248.77817290935954 - 360, 232796)
+    ]
+
+    for lat, lon, expected_idx in reference_points:
+        point_xy = grid.findPointXy(lat=lat, lon=lon)
+        assert point_xy is not None
+        x_idx, y_idx = point_xy
+        flat_idx = y_idx * grid.nx + x_idx
+        assert flat_idx == expected_idx
+
+    # Test grid coordinate lookup for specific indices
+    reference_coords = [
+        (0, 19.228992, -126.27699),
+        (10000, 21.794254, -111.44652),
+        (20000, 22.806227, -96.18898),
+        (30000, 22.222015, -80.87921),
+        (40000, 20.274399, -123.18192)
+    ]
+
+    for idx, expected_lat, expected_lon in reference_coords:
+        y_idx = idx // grid.nx
+        x_idx = idx % grid.nx
+        lat, lon = grid.getCoordinates(x_idx, y_idx)
+        assert abs(lat - expected_lat) < 0.001
+        assert abs(lon - expected_lon) < 0.001
+
+
+def test_lambert_conformal_conic_projection():
+    """
+    Test the Lambert Conformal Conic projection.
+    Based on: https://github.com/open-meteo/open-meteo/blob/522917b1d6e72a7e6b7d4ae7dfb49b0c556a6992/Tests/AppTests/DataTests.swift#L163
+    """
+    proj = LambertConformalConicProjection(lambda_0=352, phi_0=55.5, phi_1=55.5, phi_2=55.5, radius=6371229)
+
+    center_lat = 39.671
+    center_lon = -25.421997
+
+    grid = ProjectionGrid.from_center(
+        nx=1906,
+        ny=1606,
+        center_lat=center_lat,
+        center_lon=center_lon,
+        dx=2000,
+        dy=2000,
+        projection=proj
+    )
+
+    # Test forward projection
+    origin_x, origin_y = proj.forward(latitude=center_lat, longitude=center_lon)
+    assert abs(origin_x - (-1527524.624)) < 0.001
+    assert abs(origin_y - (-1588681.042)) < 0.001
+    lat, lon = proj.inverse(origin_x, origin_y)
+    assert abs(center_lat - lat) < 0.0001
+    assert abs(center_lon - lon) < 0.0001
+
+    # Test another point
+    test_lat = 39.675304
+    test_lon = -25.400146
+    x1, y1 = proj.forward(latitude=test_lat, longitude=test_lon)
+    assert abs(origin_x - x1 - (-1998.358)) < 0.001
+    assert abs(origin_y - y1 - (-0.187)) < 0.001
+    lat, lon = proj.inverse(x1, y1)
+    assert abs(test_lat - lat) < 0.0001
+    assert abs(test_lon - lon) < 0.0001
+
+    # Point at index 1
+    lat, lon = grid.getCoordinates(1, 0)
+    assert abs(lat - test_lat) < 0.001
+    assert abs(lon - test_lon) < 0.001
+    point_idx = grid.findPointXy(lat=test_lat, lon=test_lon)
+    assert point_idx == (1, 0)
+
+    # Coords(i: 122440, x: 456, y: 64, latitude: 42.18604, longitude: -15.30127)
+    lat, lon = grid.getCoordinates(456, 64)
+    assert abs(lat - 42.18604) < 0.001
+    assert abs(lon - (-15.30127)) < 0.001
+    point_idx = grid.findPointXy(lat=lat, lon=lon)
+    assert point_idx == (456, 64)
+
+    # Coords(i: 2999780, x: 1642, y: 1573, latitude: 64.943695, longitude: 30.711975)
+    lat, lon = grid.getCoordinates(1642, 1573)
+    assert abs(lat - 64.943695) < 0.001
+    assert abs(lon - 30.711975) < 0.001
+    point_idx = grid.findPointXy(lat=lat, lon=lon)
+    assert point_idx == (1642, 1573)

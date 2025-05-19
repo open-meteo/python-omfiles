@@ -526,6 +526,130 @@ class LambertAzimuthalEqualAreaProjection(AbstractProjection):
 
         return lat, lon
 
+class LambertConformalConicProjection(AbstractProjection):
+    """
+    Lambert Conformal Conic projection implementation.
+
+    This implements the equations for the Lambert Conformal Conic projection,
+    which preserves angles but not areas or distances.
+    https://mathworld.wolfram.com/LambertConformalConicProjection.html
+    https://pubs.usgs.gov/pp/1395/report.pdf page 104
+    """
+
+    def __init__(self, lambda_0: float, phi_0: float, phi_1: float, phi_2: float, radius: float = 6370997):
+        """
+        Initialize a Lambert Conformal Conic projection.
+
+        Parameters:
+        -----------
+        lambda_0 : float
+            Reference longitude in degrees (LoVInDegrees in grib)
+        phi_0 : float
+            Reference latitude in degrees (LaDInDegrees in grib)
+        phi_1 : float
+            First standard parallel in degrees (Latin1InDegrees in grib)
+        phi_2 : float
+            Second standard parallel in degrees (Latin2InDegrees in grib)
+        radius : float
+            Radius of Earth in meters (default: 6370997)
+        """
+        # Normalize lambda_0 to [-180, 180] range
+        lambda_0_normalized = ((lambda_0 + 180.0) % 360.0) - 180.0
+        self.lambda_0 = np.radians(lambda_0_normalized)
+
+        phi_0_rad = np.radians(phi_0)
+        phi_1_rad = np.radians(phi_1)
+        phi_2_rad = np.radians(phi_2)
+
+        if phi_1 == phi_2:
+            self.n = np.sin(phi_1_rad)
+        else:
+            self.n = (np.log(np.cos(phi_1_rad) / np.cos(phi_2_rad)) /
+                     np.log(np.tan(np.pi/4 + phi_2_rad/2) / np.tan(np.pi/4 + phi_1_rad/2)))
+
+        self.F = ((np.cos(phi_1_rad) * np.power(np.tan(np.pi/4 + phi_1_rad/2), self.n)) /
+                 self.n)
+
+        self.rho_0 = self.F / np.power(np.tan(np.pi/4 + phi_0_rad/2), self.n)
+
+        # Earth radius
+        self.R = radius
+
+    def forward(self, latitude: CoordType, longitude: CoordType) -> ReturnUnionType:
+        """
+        Transform from lat/lon coordinates to projected x/y coordinates.
+
+        Parameters:
+        -----------
+        latitude : float or array
+            Latitude in degrees
+        longitude : float or array
+            Longitude in degrees
+
+        Returns:
+        --------
+        tuple
+            (x, y) coordinates in the projection
+        """
+        scalar_input = np.isscalar(latitude) and np.isscalar(longitude)
+
+        phi = np.radians(np.asarray(latitude, dtype=np.float64))
+        lambda_ = np.radians(np.asarray(longitude, dtype=np.float64))
+
+        # If (λ - λ0) exceeds the range:±: 180°, 360° should be added or subtracted.
+        theta = self.n * (lambda_ - self.lambda_0)
+
+        rho = self.F / np.power(np.tan(np.pi/4 + phi/2), self.n)
+        x = self.R * rho * np.sin(theta)
+        y = self.R * (self.rho_0 - rho * np.cos(theta))
+
+        if scalar_input:
+            return float(x.item()), float(y.item())
+
+        return x, y
+
+    def inverse(self, x: CoordType, y: CoordType) -> ReturnUnionType:
+        """
+        Transform from projected x/y coordinates back to lat/lon.
+
+        Parameters:
+        -----------
+        x : float or array
+            X coordinate in the projection
+        y : float or array
+            Y coordinate in the projection
+
+        Returns:
+        --------
+        tuple
+            (latitude, longitude) in degrees
+        """
+        scalar_input = np.isscalar(x) and np.isscalar(y)
+
+        x_scaled = np.asarray(x, dtype=np.float64) / self.R
+        y_scaled = np.asarray(y, dtype=np.float64) / self.R
+
+        theta = np.where(self.n >= 0,
+                         np.arctan2(x_scaled, self.rho_0 - y_scaled),
+                         np.arctan2(-x_scaled, y_scaled - self.rho_0))
+
+        sign = np.where(self.n > 0, 1, -1)
+        rho = sign * np.sqrt(np.square(x_scaled) + np.square(self.rho_0 - y_scaled))
+
+        phi = 2 * np.arctan(np.power(self.F / rho, 1/self.n)) - np.pi/2
+        lambda_ = self.lambda_0 + theta / self.n
+
+        lat = np.degrees(phi)
+        lon = np.degrees(lambda_)
+
+        lon = np.where(lon > 180, lon - 360, lon)
+
+        if scalar_input:
+            return float(lat.item()), float(lon.item())
+
+        return lat, lon
+
+
 P = TypeVar('P', bound=AbstractProjection)
 
 
@@ -644,9 +768,7 @@ class ProjectionGrid(AbstractGrid, Generic[P]):
             New grid instance
         """
         center = cast(tuple[float, float], projection.forward(center_lat, center_lon))
-        origin_x = center[0] - dx * (nx // 2)
-        origin_y = center[1] - dy * (ny // 2)
-        return cls(projection, nx, ny, (origin_x, origin_y), dx, dy)
+        return cls(projection, nx, ny, center, dx, dy)
 
     @property
     def grid_type(self) -> str:
