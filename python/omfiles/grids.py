@@ -683,9 +683,9 @@ class ProjectionGrid(AbstractGrid, Generic[P]):
         origin : Tuple[float, float]
             Origin coordinates (x, y) of the grid in projection space
         dx : float
-            Grid spacing in x direction in meters
+            Grid spacing in x direction
         dy : float
-            Grid spacing in y direction in meters
+            Grid spacing in y direction
         """
         self.projection = projection
         self.nx = nx
@@ -945,3 +945,67 @@ class ProjectionGrid(AbstractGrid, Generic[P]):
             (y_indices.flatten(), x_indices.flatten()),
             (self.ny, self.nx)
         )
+
+
+class ProjProjection(AbstractProjection):
+    """A projection that wraps a proj projection"""
+
+    def __init__(self, proj_string: str):
+        """Initialize with a proj string or EPSG code
+
+        Parameters
+        ----------
+        proj_string : str
+            The proj string (e.g. "+proj=lcc +lat_0=50...") or
+            EPSG code (e.g. "EPSG:4326")
+        """
+        import pyproj
+        # Create transformer from lat/lon to projection coordinates
+        self.crs_proj = pyproj.CRS(proj_string)
+        self.crs_latlon = pyproj.CRS("EPSG:4326")  # WGS84
+        self.forward_transformer = pyproj.Transformer.from_crs(
+            self.crs_latlon,
+            self.crs_proj,
+            always_xy=True  # This ensures lon/lat -> x/y order
+        )
+        self.inverse_transformer = pyproj.Transformer.from_crs(
+            self.crs_proj,
+            self.crs_latlon,
+            always_xy=True
+        )
+
+    def forward(self, latitude: CoordType, longitude: CoordType) -> ReturnUnionType:
+        """Transform from latitude/longitude to projection coordinates
+
+        Parameters
+        ----------
+        latitude : float
+            Latitude in degrees
+        longitude : float
+            Longitude in degrees
+
+        Returns
+        -------
+        tuple[float, float]
+            The (x, y) coordinates in the projection
+        """
+        x, y = self.forward_transformer.transform(longitude, latitude)
+        return x, y
+
+    def inverse(self, x: CoordType, y: CoordType) -> ReturnUnionType:
+        """Transform from projection coordinates to latitude/longitude
+
+        Parameters
+        ----------
+        x : float
+            X coordinate in the projection
+        y : float
+            Y coordinate in the projection
+
+        Returns
+        -------
+        tuple[float, float]
+            The (latitude, longitude) coordinates in degrees
+        """
+        lon, lat = self.inverse_transformer.transform(x, y)
+        return lat, lon
