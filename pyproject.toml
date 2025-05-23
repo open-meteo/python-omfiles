@@ -20,7 +20,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=6.0",
+    "pytest>=6.1",
     "pytest-asyncio",
     "psutil",
     "hidefix",
@@ -30,7 +30,7 @@ dev = [
     "tensorstore",
 ]
 test = [
-    "pytest>=6.0",
+    "pytest>=6.1",
     "pytest-asyncio",
     "psutil",
 ]
