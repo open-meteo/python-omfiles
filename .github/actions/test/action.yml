@@ -25,6 +25,7 @@ runs:
     - uses: actions/setup-python@v5
       with:
         python-version: ${{ inputs.python-version }}
+        cache: "pip"
 
     - name: Download wheels
       uses: actions/download-artifact@v4
