@@ -21,12 +21,18 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest>=6.0",
+    "pytest-asyncio",
     "psutil",
     "hidefix",
     "h5py",
     "netCDF4",
     "zarr",
     "tensorstore",
+]
+test = [
+    "pytest>=6.0",
+    "pytest-asyncio",
+    "psutil",
 ]
 
 [tool.maturin]
