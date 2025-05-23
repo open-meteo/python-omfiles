@@ -1,20 +1,19 @@
-name: Publish
+name: Release Please
 
 on:
-  workflow_dispatch:
-    inputs:
-      publish_to_pypi:
-        description: "Publish to PyPI"
-        required: true
-        default: "false"
-        type: choice
-        options:
-          - "false"
-          - "true"
+  workflow_run:
+    workflows: ["Build and Test"]
+    types:
+      - completed
+
+permissions:
+  contents: write # to create release commit (googleapis/release-please-action)
+  pull-requests: write # to create release PR (googleapis/release-please-action)
+  issues: write # to create labels (googleapis/release-please-action)
 
 jobs:
-  publish:
-    if: ${{ startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch' }}
+  release-please:
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' }}
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -22,8 +21,19 @@ jobs:
       attestations: write
       actions: read
     steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          release-type: python
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        if: ${{ steps.release.outputs.release_created }}
+
       - name: Download artifacts from CI
         uses: dawidd6/action-download-artifact@v9
+        if: ${{ steps.release.outputs.release_created }}
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           workflow: build-test.yml
@@ -33,11 +43,13 @@ jobs:
 
       # Create dist directory
       - name: Create dist directory
+        if: ${{ steps.release.outputs.release_created }}
         run: mkdir -p dist
         shell: bash
 
       # Move all wheels to dist directory
       - name: Collect wheels
+        if: ${{ steps.release.outputs.release_created }}
         run: |
           find artifact-download -name "*.whl" -o -name "*.tar.gz" | xargs -I{} cp {} dist/
           echo "Package files in dist directory:"
@@ -45,31 +57,15 @@ jobs:
         shell: bash
 
       - name: Generate artifact attestation
+        if: ${{ steps.release.outputs.release_created }}
         uses: actions/attest-build-provenance@v1
         with:
           subject-path: "dist/*"
 
-      # Publish to TestPyPI
-      - name: Publish to TestPyPI
-        uses: PyO3/maturin-action@v1
-        env:
-          MATURIN_REPOSITORY: testpypi
-        with:
-          command: upload
-          args: --non-interactive --skip-existing dist/*
-
-      # Only publish to PyPI if the publish_to_pypi input is true
+      # Publish to PyPI
       - name: Publish to PyPI
-        if: ${{ github.event.inputs.publish_to_pypi == 'true' }}
+        if: ${{ steps.release.outputs.release_created }}
         uses: PyO3/maturin-action@v1
         with:
           command: upload
           args: --non-interactive --skip-existing dist/*
-
-    # # Create a GitHub release when a tag is created
-    # - name: Create GitHub Release
-    #   if: ${{ inputs.publish_to_pypi }}
-    #   uses: softprops/action-gh-release@v1
-    #   with:
-    #     generate_release_notes: true
-    #     files: dist/*
