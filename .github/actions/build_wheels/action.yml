@@ -38,10 +38,18 @@ runs:
         restore-keys: |
           ${{ runner.os }}-build-${{ inputs.platform-name }}-
 
+    # Only for non-musl: enable pip cache
     - uses: actions/setup-python@v5
+      if: ${{ inputs.is-musl != 'true' }}
       with:
         python-version: ${{ inputs.python-version }}
-        cache: ${{ inputs.is-musl != 'true' && 'pip' || '' }}
+        cache: pip
+
+    # Only for musl: do NOT enable pip cache
+    - uses: actions/setup-python@v5
+      if: ${{ inputs.is-musl == 'true' }}
+      with:
+        python-version: ${{ inputs.python-version }}
 
     # Install python dependencies to run cargo tests
     - name: Install required python dependencies
