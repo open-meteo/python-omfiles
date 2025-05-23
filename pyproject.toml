@@ -12,7 +12,7 @@ classifiers = [
 ]
 dynamic = ["version"]
 dependencies = [
-    "numpy>=1.20.0",
+    "numpy>=1.21.0",
     "fsspec>=2023.1.0",
     "s3fs>=2023.1.0",
     "xarray>=2023.1.0",
@@ -22,11 +22,17 @@ dependencies = [
 dev = [
     "pytest>=6.0",
     "psutil",
+    "pyproj",
     "hidefix",
     "h5py",
     "netCDF4",
     "zarr",
     "tensorstore",
+]
+test = [
+    "pytest>=6.0",
+    "psutil",
+    "pyproj",
 ]
 
 [tool.maturin]
