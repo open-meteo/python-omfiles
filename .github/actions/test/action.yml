@@ -22,10 +22,16 @@ runs:
   using: "composite"
   steps:
     - uses: actions/checkout@v4
-    - uses: actions/setup-python@v5
+    - name: Install uv
+      uses: astral-sh/setup-uv@v5
+      with:
+        version: "0.7.13"
+        enable-cache: ${{ inputs.is-musl != 'true' && 'true' || 'false' }}
+
+    - name: "Set up Python"
+      uses: actions/setup-python@v5
       with:
         python-version: ${{ inputs.python-version }}
-        cache: ${{ inputs.is-musl != 'true' && 'pip' || '' }}
 
     - name: Download wheels
       uses: actions/download-artifact@v4
@@ -36,12 +42,12 @@ runs:
     # Regular tests (non-musl platforms)
     - name: Run regular tests
       if: ${{ inputs.test-type == 'standard' && inputs.is-musl != 'true' }}
+      shell: bash
       run: |
         WHEEL_PATH=$(ls dist/*.whl)
-        pip install --group dev
-        python -m pip install --force-reinstall "$WHEEL_PATH"
-        pytest tests/
-      shell: bash
+        uv venv
+        uv pip install --force-reinstall "$WHEEL_PATH"
+        uv run pytest tests/
 
     # Musl tests
     - name: Run musl tests
@@ -54,18 +60,17 @@ runs:
           apk add python3 py3-pip py3-psutil gcc python3-dev musl-dev linux-headers
           python -m venv .venv
           source .venv/bin/activate
-          pip install --upgrade pip
+          pip install uv
           WHEEL_PATH=$(ls dist/*.whl)
-          pip install --group dev
-          pip install --force-reinstall "$WHEEL_PATH"
-          pytest tests/
+          uv pip install --force-reinstall "$WHEEL_PATH"
+          uv run pytest tests/
 
     # Minimum dependencies test
     - name: Run tests with minimum dependencies
       if: ${{ inputs.test-type == 'min_deps' }}
+      shell: bash
       run: |
         WHEEL_PATH=$(ls dist/*.whl)
-        pip install --group min_deps
-        python -m pip install --force-reinstall "$WHEEL_PATH"
-        pytest tests/ -v
-      shell: bash
+        uv venv
+        uv pip install --force-reinstall "$WHEEL_PATH" --resolution lowest
+        uv run pytest tests/ -v

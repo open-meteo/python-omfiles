@@ -24,15 +24,6 @@ dev = [
     "pytest-asyncio",
     "psutil",
 ]
-min_deps = [
-    "pytest==6.1",
-    "numpy==1.20.0",
-    "fsspec==2023.1.0",
-    "s3fs==2023.1.0",
-    "xarray==2023.1.0",
-    "pytest-asyncio",
-    "psutil",
-]
 bench = [
     "hidefix",
     "h5py",
