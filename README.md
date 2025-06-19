@@ -129,6 +129,8 @@ writer.close(root_var)
 ## Development
 
 ```bash
+# install the required dependencies in .venv directory
+uv sync
 # to run the tests
 uv run pytest tests/
 # to build the wheels
