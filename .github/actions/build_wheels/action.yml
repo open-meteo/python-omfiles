@@ -38,15 +38,26 @@ runs:
         restore-keys: |
           ${{ runner.os }}-build-${{ inputs.platform-name }}-
 
+    - name: Install uv
+      uses: astral-sh/setup-uv@v5
+      with:
+        version: "0.7.13"
+        enable-cache: ${{ inputs.is-musl != 'true' && 'true' || 'false' }}
+
     - uses: actions/setup-python@v5
       with:
         python-version: ${{ inputs.python-version }}
         cache: ${{ inputs.is-musl != 'true' && 'pip' || '' }}
 
-    # Install python dependencies to run cargo tests
+    # Install required python dependencies. This needs to be done before
+    # running cargo test, because pyo3-numpy requires numpy to be installed
+    # Doing this with uv is hard currently, the following seems to be the best workaround
+    # https://github.com/astral-sh/uv/issues/8085#issuecomment-2406665798
     - name: Install required python dependencies
       if: ${{ inputs.is-musl != 'true' }}
-      run: pip install numpy fsspec s3fs xarray
+      run: |
+        export UV_PROJECT_ENVIRONMENT="${pythonLocation}"
+        uv sync --no-install-project
       shell: bash
 
     - name: Run cargo tests
