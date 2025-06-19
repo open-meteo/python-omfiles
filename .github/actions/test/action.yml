@@ -38,7 +38,8 @@ runs:
       if: ${{ inputs.test-type == 'standard' && inputs.is-musl != 'true' }}
       run: |
         WHEEL_PATH=$(ls dist/*.whl)
-        python -m pip install --force-reinstall "$WHEEL_PATH[test]"
+        python -m pip install --force-reinstall "$WHEEL_PATH"
+        pip install --group dev
         pytest tests/
       shell: bash
 
@@ -55,7 +56,8 @@ runs:
           source .venv/bin/activate
           pip install --upgrade pip
           WHEEL_PATH=$(ls dist/*.whl)
-          pip install --force-reinstall "$WHEEL_PATH[test]"
+          pip install --force-reinstall "$WHEEL_PATH"
+          pip install --group dev
           pytest tests/
 
     # Minimum dependencies test
@@ -63,7 +65,7 @@ runs:
       if: ${{ inputs.test-type == 'min_deps' }}
       run: |
         WHEEL_PATH=$(ls dist/*.whl)
-        python -m pip install --force-reinstall "$WHEEL_PATH[test]" \
+        python -m pip install --force-reinstall "$WHEEL_PATH" \
           "pytest==6.1" \
           "numpy==1.20.0" \
           "fsspec==2023.1.0" \
