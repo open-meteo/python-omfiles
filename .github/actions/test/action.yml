@@ -22,6 +22,7 @@ runs:
   using: "composite"
   steps:
     - uses: actions/checkout@v4
+
     - name: Install uv
       uses: astral-sh/setup-uv@v5
       with:
@@ -46,8 +47,9 @@ runs:
       run: |
         WHEEL_PATH=$(ls dist/*.whl)
         uv venv
+        uv sync --no-install-project --group=dev
         uv pip install --force-reinstall "$WHEEL_PATH"
-        uv run --verbose pytest tests/
+        uv run --no-sync pytest tests/
 
     # Musl tests
     - name: Run musl tests
@@ -57,11 +59,12 @@ runs:
         image: ghcr.io/astral-sh/uv:0.7.13-alpine
         options: -v ${{ github.workspace }}:/io -w /io
         run: |
-          apk add py3-psutil gcc python3-dev musl-dev linux-headers
+          apk add python3 py3-pip py3-psutil gcc python3-dev musl-dev linux-headers
           WHEEL_PATH=$(ls dist/*.whl)
           uv venv
+          uv sync --no-install-project --group=dev
           uv pip install --force-reinstall "$WHEEL_PATH"
-          uv run --verbose pytest tests/
+          uv run --no-sync pytest tests/
 
     # Minimum dependencies test
     - name: Run tests with minimum dependencies
@@ -70,5 +73,6 @@ runs:
       run: |
         WHEEL_PATH=$(ls dist/*.whl)
         uv venv
-        uv pip install --force-reinstall "$WHEEL_PATH" --resolution lowest
-        uv run pytest tests/ -v
+        uv sync --no-install-project --group=dev
+        uv pip install --force-reinstall "$WHEEL_PATH"
+        uv run --no-sync pytest tests/
