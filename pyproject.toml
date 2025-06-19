@@ -18,21 +18,18 @@ dependencies = [
     "xarray>=2023.1.0",
 ]
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
     "pytest>=6.1",
     "pytest-asyncio",
     "psutil",
+]
+bench = [
     "hidefix",
     "h5py",
     "netCDF4",
     "zarr",
     "tensorstore",
-]
-test = [
-    "pytest>=6.1",
-    "pytest-asyncio",
-    "psutil",
 ]
 
 [tool.maturin]
