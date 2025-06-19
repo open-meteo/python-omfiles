@@ -47,23 +47,21 @@ runs:
         WHEEL_PATH=$(ls dist/*.whl)
         uv venv
         uv pip install --force-reinstall "$WHEEL_PATH"
-        uv run pytest tests/
+        uv run --verbose pytest tests/
 
     # Musl tests
     - name: Run musl tests
       if: ${{ inputs.test-type == 'standard' && inputs.is-musl == 'true' }}
       uses: addnab/docker-run-action@v3
       with:
-        image: alpine:latest
+        image: ghcr.io/astral-sh/uv:0.7.13-alpine
         options: -v ${{ github.workspace }}:/io -w /io
         run: |
-          apk add python3 py3-pip py3-psutil gcc python3-dev musl-dev linux-headers
-          python -m venv .venv
-          source .venv/bin/activate
-          pip install uv
+          apk add py3-psutil gcc python3-dev musl-dev linux-headers
           WHEEL_PATH=$(ls dist/*.whl)
+          uv venv
           uv pip install --force-reinstall "$WHEEL_PATH"
-          uv run pytest tests/
+          uv run --verbose pytest tests/
 
     # Minimum dependencies test
     - name: Run tests with minimum dependencies
