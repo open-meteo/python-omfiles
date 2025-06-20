@@ -7,16 +7,16 @@ from zarr.abc.store import Store
 from zarr.storage import LocalStore, MemoryStore, StorePath
 
 delta_config = {
-    'float32': '<f4',
-    'float64': '<f8',
-    'int8': '<i1',
-    'uint8': '<u1',
-    'int16': '<i2',
-    'uint16': '<u2',
-    'int32': '<i4',
-    'uint32': '<u4',
-    'int64': '<i8',
-    'uint64': '<u8'
+    "float32": "<f4",
+    "float64": "<f8",
+    "int8": "<i1",
+    "uint8": "<u1",
+    "int16": "<i2",
+    "uint16": "<u2",
+    "int32": "<i4",
+    "uint32": "<u4",
+    "int64": "<i8",
+    "uint64": "<u8",
 }
 
 
@@ -27,6 +27,7 @@ def store(request):
     elif request.param == "local":
         import shutil
         import tempfile
+
         temp_dir = tempfile.mkdtemp()
         store = LocalStore(temp_dir)
         yield store
@@ -34,16 +35,9 @@ def store(request):
     else:
         raise ValueError(f"Unknown store type: {request.param}")
 
-test_dtypes = [
-    np.int8,
-    np.uint8,
-    np.int16,
-    np.uint16,
-    np.int32,
-    np.uint32,
-    np.int64,
-    np.uint64
-]
+
+test_dtypes = [np.int8, np.uint8, np.int16, np.uint16, np.int32, np.uint32, np.int64, np.uint64]
+
 
 @pytest.mark.parametrize("store", ["local", "memory"], indirect=["store"])
 @pytest.mark.parametrize("dtype", test_dtypes)
@@ -65,9 +59,10 @@ async def test_pfordelta_roundtrip(store: Store, dtype: np.dtype) -> None:
             [25, 26, 27, 28, 29, 30, 31, 32, 33, 34],
             [25, 26, 27, 28, 29, 30, 31, 32, 33, 34],
         ],
-        dtype=np.dtype(dtype))
+        dtype=np.dtype(dtype),
+    )
 
-    chunk_shape = (1, 10) # NOTE: chunks are no clean divisor of data.shape
+    chunk_shape = (1, 10)  # NOTE: chunks are no clean divisor of data.shape
 
     delta_filter = Delta(dtype=delta_config[dtype.__name__])
     # Create array with our codec
@@ -80,7 +75,7 @@ async def test_pfordelta_roundtrip(store: Store, dtype: np.dtype) -> None:
         filters=[delta_filter],
         # Codec is used as a byte-byte-compressor here, therefore dtype is set like this.
         # We should rather use it as a serializer, i.e. ByteArrayCompressor
-        compressors=PforCodec()
+        compressors=PforCodec(),
     )
 
     bytes_before = z.nbytes_stored()
@@ -92,7 +87,6 @@ async def test_pfordelta_roundtrip(store: Store, dtype: np.dtype) -> None:
     bytes_after = z.nbytes_stored()
     assert bytes_after > bytes_before
 
-
     # Verify data matches
     np.testing.assert_array_equal(z[:], data)
 
@@ -102,7 +96,10 @@ async def test_pfordelta_roundtrip(store: Store, dtype: np.dtype) -> None:
     # For detailed analysis, we could trace the actual compression ratio
     # In a real scenario, you might want to capture metrics about the compression
 
-    print(f"Successfully round-tripped data. Original size: {original_size} bytes, Compressed size: {bytes_after - bytes_before} bytes")
+    print(
+        f"Successfully round-tripped data. Original size: {original_size} bytes, Compressed size: {bytes_after - bytes_before} bytes"
+    )
+
 
 @pytest.mark.parametrize("store", ["local", "memory"], indirect=["store"])
 @pytest.mark.parametrize("dtype", test_dtypes)
@@ -124,7 +121,8 @@ async def test_pfor_serializer_roundtrip(store: Store, dtype: np.dtype) -> None:
             [25, 26, 27, 28, 29, 30, 31, 32, 33, 34],
             [25, 26, 27, 28, 29, 30, 31, 32, 33, 34],
         ],
-        dtype=np.dtype(dtype))
+        dtype=np.dtype(dtype),
+    )
 
     chunk_shape = (2, 5)  # Different chunk shape for variety
 
@@ -137,14 +135,14 @@ async def test_pfor_serializer_roundtrip(store: Store, dtype: np.dtype) -> None:
         fill_value=0,
         serializer=PforSerializer(),  # Use PforSerializer as the array-to-bytes codec
         filters=[],  # No filters needed, can use empty list
-        compressors=[]  # No additional compression
+        compressors=[],  # No additional compression
     )
 
     bytes_before = z.nbytes_stored()
     assert not await store.is_empty("")
 
     # Write the test data
-    z[:] = data
+    z[:] = np.ascontiguousarray(data)
     bytes_after = z.nbytes_stored()
     assert bytes_after > bytes_before
 

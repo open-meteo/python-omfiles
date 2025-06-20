@@ -1109,9 +1109,15 @@ bench = [
 ]
 dev = [
     { name = "maturin" },
+    { name = "numcodecs", version = "0.12.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "numcodecs", version = "0.13.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.10.*'" },
+    { name = "numcodecs", version = "0.16.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "psutil" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
+    { name = "zarr", version = "2.18.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "zarr", version = "2.18.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.10.*'" },
+    { name = "zarr", version = "3.0.8", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
 ]
 
 [package.metadata]
@@ -1132,9 +1138,11 @@ bench = [
 ]
 dev = [
     { name = "maturin", specifier = ">=1.7,<2.0" },
+    { name = "numcodecs" },
     { name = "psutil" },
     { name = "pytest", specifier = ">=6.1" },
     { name = "pytest-asyncio" },
+    { name = "zarr" },
 ]
 
 [[package]]

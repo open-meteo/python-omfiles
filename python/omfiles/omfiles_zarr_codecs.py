@@ -27,8 +27,8 @@ class TurboPfor(numcodecs.abc.Codec):
         """
         Create a codec instance from a configuration dict.
         """
-        dtype = config.get('dtype', 'int16')
-        chunk_elements = config.get('chunk_elements')
+        dtype = config.get("dtype", "int16")
+        chunk_elements = config.get("chunk_elements")
         return cls(dtype=dtype, chunk_elements=chunk_elements)
 
     @property
@@ -49,11 +49,14 @@ class TurboPfor(numcodecs.abc.Codec):
 
         return self._impl.decode_array(buf, np.dtype(self.dtype), self.chunk_elements)
 
+
 numcodecs.register_codec(TurboPfor)
+
 
 @dataclass(frozen=True)
 class PforSerializer(ArrayBytesCodec, Metadata):
     """Array-to-bytes codec for PFor-Delta 2D compression."""
+
     name: str = "omfiles.pfor_serializer"
     config: dict[str, JSON] = field(default_factory=dict)
 
@@ -68,8 +71,9 @@ class PforSerializer(ArrayBytesCodec, Metadata):
 
     async def _encode_single(self, chunk_data: NDBuffer, chunk_spec: ArraySpec) -> Buffer:
         """Encode a single array chunk to bytes."""
-        chunk_ndarray = chunk_data.as_ndarray_like()
-        out = await asyncio.to_thread(self._impl.encode_array, chunk_ndarray, chunk_spec.dtype)
+        out = await asyncio.to_thread(
+            self._impl.encode_array, np.ascontiguousarray(chunk_data.as_numpy_array()), chunk_spec.dtype
+        )
         return chunk_spec.prototype.buffer.from_bytes(out)
 
     async def _decode_single(self, chunk_data: Buffer, chunk_spec: ArraySpec) -> NDBuffer:
@@ -77,7 +81,6 @@ class PforSerializer(ArrayBytesCodec, Metadata):
         chunk_bytes = chunk_data.to_bytes()
         out = await asyncio.to_thread(self._impl.decode_array, chunk_bytes, chunk_spec.dtype, np.prod(chunk_spec.shape))
         return chunk_spec.prototype.nd_buffer.from_ndarray_like(out.reshape(chunk_spec.shape))
-
 
     def compute_encoded_size(self, input_byte_length: int, chunk_spec: ArraySpec) -> int:
         # PFor compression is variable-size
@@ -101,6 +104,7 @@ class PforSerializer(ArrayBytesCodec, Metadata):
 @dataclass(frozen=True)
 class PforCodec(BytesBytesCodec, Metadata):
     """Bytes-to-bytes codec for PFor-Delta 2D compression."""
+
     name: str = "omfiles.pfor"
     config: dict[str, JSON] = field(default_factory=dict)
 
@@ -115,11 +119,7 @@ class PforCodec(BytesBytesCodec, Metadata):
 
     async def _encode_single(self, chunk_data: Buffer, chunk_spec: ArraySpec) -> Buffer:
         """Encode a single bytes chunk."""
-        out = await asyncio.to_thread(
-            self._impl.encode_array,
-            chunk_data.as_array_like(),
-            np.dtype('int8')
-        )
+        out = await asyncio.to_thread(self._impl.encode_array, chunk_data.as_array_like(), np.dtype("uint8"))
         return chunk_spec.prototype.buffer.from_bytes(out)
 
     async def _decode_single(self, chunk_data: Buffer, chunk_spec: ArraySpec) -> Buffer:
@@ -127,8 +127,8 @@ class PforCodec(BytesBytesCodec, Metadata):
         out = await asyncio.to_thread(
             self._impl.decode_array,
             chunk_data.to_bytes(),
-            np.dtype('int8'),
-            np.prod(chunk_spec.shape) * chunk_spec.dtype.itemsize
+            np.dtype("uint8"),
+            np.prod(chunk_spec.shape) * chunk_spec.dtype.itemsize,
         )
         return chunk_spec.prototype.buffer.from_bytes(out)
 
