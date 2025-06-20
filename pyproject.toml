@@ -23,7 +23,11 @@ dev = [
     "pytest>=6.1",
     "pytest-asyncio",
     "psutil",
-    "maturin>=1.7,<2.0"
+    "numcodecs",
+    "zarr",
+    "tabulate",
+    "pcodec",
+    "maturin>=1.7,<2.0",
 ]
 bench = [
     "hidefix",
@@ -58,3 +62,7 @@ extend-select = ["I"]
 
 [project.entry-points."xarray.backends"]
 om = "omfiles.xarray_backend:OmXarrayEntrypoint"
+
+[project.entry-points."zarr.codecs"]
+"omfiles.pfor" = "omfiles.omfiles_zarr_codecs:PforCodec"
+"omfiles.pfor_serializer" = "omfiles.omfiles_zarr_codecs:PforSerializer"
