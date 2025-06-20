@@ -32,10 +32,10 @@ class LatLonViewer:
 
         # Add navigation buttons
         button_next_ax = plt.axes((0.81, 0.05, 0.1, 0.075))
-        self.next_button = Button(button_next_ax, 'Next')
+        self.next_button = Button(button_next_ax, "Next")
         self.next_button.on_clicked(self._forward_to_next)
         button_prev_ax = plt.axes((0.7, 0.05, 0.1, 0.075))
-        self.prev_button = Button(button_prev_ax, 'Previous')
+        self.prev_button = Button(button_prev_ax, "Previous")
         self.prev_button.on_clicked(self._backward_to_prev)
 
         # Initialize other attributes that will be set later
@@ -55,11 +55,7 @@ class LatLonViewer:
 
         # Open the file with caching to improve performance for repeated access
         file_obj = fs.open(
-            self.s3_file,
-            mode="rb",
-            cache_type="mmap",
-            block_size=1024*1024,
-            cache_options={"location": "cache"}
+            self.s3_file, mode="rb", cache_type="mmap", block_size=1024 * 1024, cache_options={"location": "cache"}
         )
 
         # Create OM file reader
@@ -76,7 +72,9 @@ class LatLonViewer:
 
         if data_shape[0] != len(self.lat) or data_shape[1] != len(self.lon):
             self.close()
-            raise ValueError(f"Data shape {data_shape} does not match lat/lon grid shape ({len(self.lat)}, {len(self.lon)})")
+            raise ValueError(
+                f"Data shape {data_shape} does not match lat/lon grid shape ({len(self.lat)}, {len(self.lon)})"
+            )
 
         # Store data shape and initialize coordinate arrays
         self.data_shape: List[int] = data_shape
@@ -88,7 +86,7 @@ class LatLonViewer:
 
         # Get data for the current timestamp
         print(f"Reading data for timestamp {self.current_timestamp}...")
-        data = self.reader[:, :, self.current_timestamp:self.current_timestamp+1]
+        data = self.reader[:, :, self.current_timestamp : self.current_timestamp + 1]
         if data.ndim == 3:
             data = data[:, :, 0]  # Remove the time dimension
 
@@ -96,23 +94,23 @@ class LatLonViewer:
         lon_grid, lat_grid = np.meshgrid(self.lon, self.lat)
 
         # Plot the data
-        self.contour = self.ax.contourf(lon_grid, lat_grid, data, cmap='RdBu_r', levels=20)
+        self.contour = self.ax.contourf(lon_grid, lat_grid, data, cmap="RdBu_r", levels=20)
 
         # Add or update colorbar
         if self.colorbar is None:
             self.colorbar = self.fig.colorbar(self.contour, ax=self.ax)
-            self.colorbar.set_label('Temperature (°C)')
+            self.colorbar.set_label("Temperature (°C)")
         else:
             self.colorbar.update_normal(self.contour)
 
         # Add labels and title
-        self.ax.set_xlabel('Longitude (°)')
-        self.ax.set_ylabel('Latitude (°)')
+        self.ax.set_xlabel("Longitude (°)")
+        self.ax.set_ylabel("Latitude (°)")
         current_time = self.timestamps[self.current_timestamp]
-        self.ax.set_title(f'Temperature at 2m - {current_time}')
+        self.ax.set_title(f"Temperature at 2m - {current_time}")
 
         # Add grid lines
-        self.ax.grid(linestyle='--', alpha=0.5)
+        self.ax.grid(linestyle="--", alpha=0.5)
 
         # Redraw the canvas
         self.fig.canvas.draw_idle()
@@ -144,10 +142,10 @@ class LatLonViewer:
     def close(self) -> None:
         """Close the reader and file objects."""
         # Use hasattr to check if attribute exists before accessing
-        if hasattr(self, 'reader') and self.reader is not None:
+        if hasattr(self, "reader") and self.reader is not None:
             self.reader.close()
 
-        if hasattr(self, 'file_obj') and self.file_obj is not None:
+        if hasattr(self, "file_obj") and self.file_obj is not None:
             self.file_obj.close()
 
 
@@ -187,14 +185,12 @@ class SupportedDomain(Enum):
         else:
             raise ValueError(f"Unsupported domain {self}")
 
+
 class SupportedVariable(Enum):
     temperature_2m = "temperature_2m"
 
 
-def find_chunk_for_timestamp(
-    target_time: datetime.datetime,
-    domain: SupportedDomain
-) -> Tuple[int, np.ndarray]:
+def find_chunk_for_timestamp(target_time: datetime.datetime, domain: SupportedDomain) -> Tuple[int, np.ndarray]:
     """
     Find the chunk number that contains a specific timestamp.
 
@@ -227,9 +223,12 @@ def find_chunk_for_timestamp(
     chunk_start = np.datetime64(epoch + datetime.timedelta(0, chunk * om_file_length * dt_seconds))
     chunk_end = np.datetime64(epoch + datetime.timedelta(0, (chunk + 1) * om_file_length * dt_seconds))
     print(f"Chunk {chunk} covers the timerange from {chunk_start} to {chunk_end}")
-    dt_range = np.arange(chunk_start, chunk_end, np.timedelta64(datetime.timedelta(0, dt_seconds)), dtype='datetime64[s]')
+    dt_range = np.arange(
+        chunk_start, chunk_end, np.timedelta64(datetime.timedelta(0, dt_seconds)), dtype="datetime64[s]"
+    )
 
     return chunk, dt_range
+
 
 def view_latlon_data_interactive(
     domain: SupportedDomain,
@@ -256,7 +255,5 @@ def view_latlon_data_interactive(
 
 if __name__ == "__main__":
     view_latlon_data_interactive(
-        domain = SupportedDomain.dwd_icon_d2,
-        variable = SupportedVariable.temperature_2m,
-        timestamp = datetime.datetime.now()
+        domain=SupportedDomain.dwd_icon_d2, variable=SupportedVariable.temperature_2m, timestamp=datetime.datetime.now()
     )
