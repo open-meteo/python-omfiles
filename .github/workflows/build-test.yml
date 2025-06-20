@@ -13,6 +13,16 @@ permissions:
   contents: read
 
 jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: astral-sh/ruff-action@v3
+      - run: |
+          ruff check
+          ruff format --check
+
   build:
     name: Build - ${{ matrix.platform.name }}
     runs-on: ${{ matrix.platform.runner }}
