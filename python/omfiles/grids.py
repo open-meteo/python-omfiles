@@ -113,10 +113,7 @@ class RegularLatLonGrid(AbstractGrid):
         Lazily compute and cache the latitude coordinate array.
         """
         return np.linspace(
-            self._lat_start,
-            self._lat_start + self._lat_step_size * self._lat_steps,
-            self._lat_steps,
-            endpoint=False
+            self._lat_start, self._lat_start + self._lat_step_size * self._lat_steps, self._lat_steps, endpoint=False
         )
 
     @cached_property
@@ -125,10 +122,7 @@ class RegularLatLonGrid(AbstractGrid):
         Lazily compute and cache the longitude coordinate array.
         """
         return np.linspace(
-            self._lon_start,
-            self._lon_start + self._lon_step_size * self._lon_steps,
-            self._lon_steps,
-            endpoint=False
+            self._lon_start, self._lon_start + self._lon_step_size * self._lon_steps, self._lon_steps, endpoint=False
         )
 
     @property
@@ -185,11 +179,13 @@ class RegularLatLonGrid(AbstractGrid):
 
         return (lat, lon)
 
+
 # Type aliases for clarity
 FloatType = Union[float, np.floating]
 ArrayType = npt.NDArray[np.floating]
 CoordType = Union[float, ArrayType]
 ReturnUnionType = Union[tuple[ArrayType, ArrayType], tuple[float, float]]
+
 
 # Abstract base class instead of Protocol
 class AbstractProjection(ABC):
@@ -212,6 +208,7 @@ class AbstractProjection(ABC):
         Handles both scalar and array inputs transparently.
         """
         pass
+
 
 class RotatedLatLonProjection(AbstractProjection):
     """
@@ -269,9 +266,17 @@ class RotatedLatLonProjection(AbstractProjection):
         z = np.sin(lat_rad)
 
         # Apply rotation
-        x2 = np.cos(self.theta) * np.cos(self.phi) * x + np.cos(self.theta) * np.sin(self.phi) * y + np.sin(self.theta) * z
+        x2 = (
+            np.cos(self.theta) * np.cos(self.phi) * x
+            + np.cos(self.theta) * np.sin(self.phi) * y
+            + np.sin(self.theta) * z
+        )
         y2 = -np.sin(self.phi) * x + np.cos(self.phi) * y
-        z2 = -np.sin(self.theta) * np.cos(self.phi) * x - np.sin(self.theta) * np.sin(self.phi) * y + np.cos(self.theta) * z
+        z2 = (
+            -np.sin(self.theta) * np.cos(self.phi) * x
+            - np.sin(self.theta) * np.sin(self.phi) * y
+            + np.cos(self.theta) * z
+        )
 
         # Convert back to spherical coordinates
         rot_lon = np.degrees(np.arctan2(y2, x2))
@@ -307,14 +312,12 @@ class RotatedLatLonProjection(AbstractProjection):
         phi_neg = -self.phi
 
         # Quick solution without conversion in cartesian space
-        lat_rad = np.arcsin(
-            np.cos(theta_neg) * np.sin(rot_lat) - np.cos(rot_lon) * np.sin(theta_neg) * np.cos(rot_lat)
-        )
+        lat_rad = np.arcsin(np.cos(theta_neg) * np.sin(rot_lat) - np.cos(rot_lon) * np.sin(theta_neg) * np.cos(rot_lat))
 
-        lon_rad = np.arctan2(
-            np.sin(rot_lon),
-            np.tan(rot_lat) * np.sin(theta_neg) + np.cos(rot_lon) * np.cos(theta_neg)
-        ) - phi_neg
+        lon_rad = (
+            np.arctan2(np.sin(rot_lon), np.tan(rot_lat) * np.sin(theta_neg) + np.cos(rot_lon) * np.cos(theta_neg))
+            - phi_neg
+        )
 
         lat2 = np.degrees(lat_rad)
         lon2 = np.degrees(lon_rad)
@@ -375,11 +378,13 @@ class StereographicProjection(AbstractProjection):
 
         phi = np.radians(lat_arr)
         lambda_ = np.radians(lon_arr)
-        k = 2 * self.R / (1 + self.sin_phi_1 * np.sin(phi) +
-                         self.cos_phi_1 * np.cos(phi) * np.cos(lambda_ - self.lambda_0))
+        k = (
+            2
+            * self.R
+            / (1 + self.sin_phi_1 * np.sin(phi) + self.cos_phi_1 * np.cos(phi) * np.cos(lambda_ - self.lambda_0))
+        )
         x = k * np.cos(phi) * np.sin(lambda_ - self.lambda_0)
-        y = k * (self.cos_phi_1 * np.sin(phi) -
-               self.sin_phi_1 * np.cos(phi) * np.cos(lambda_ - self.lambda_0))
+        y = k * (self.cos_phi_1 * np.sin(phi) - self.sin_phi_1 * np.cos(phi) * np.cos(lambda_ - self.lambda_0))
 
         if scalar_input:
             return float(x.item()), float(y.item())
@@ -405,20 +410,20 @@ class StereographicProjection(AbstractProjection):
         x_arr = np.asarray(x, dtype=np.float32)
         y_arr = np.asarray(y, dtype=np.float32)
 
-        p = np.sqrt(x_arr*x_arr + y_arr*y_arr)
+        p = np.sqrt(x_arr * x_arr + y_arr * y_arr)
 
         # Initialize output arrays
         phi = np.zeros_like(p)
         lambda_ = np.zeros_like(p)
 
-        c = 2 * np.arctan2(p, 2*self.R)
+        c = 2 * np.arctan2(p, 2 * self.R)
         phi = np.arcsin(np.cos(c) * self.sin_phi_1 + (y_arr * np.sin(c) * self.cos_phi_1) / p)
         lambda_ = self.lambda_0 + np.arctan2(
-            x_arr * np.sin(c),
-            p * self.cos_phi_1 * np.cos(c) - y_arr * self.sin_phi_1 * np.sin(c)
+            x_arr * np.sin(c), p * self.cos_phi_1 * np.cos(c) - y_arr * self.sin_phi_1 * np.sin(c)
         )
 
         return np.degrees(phi), np.degrees(lambda_)
+
 
 class LambertAzimuthalEqualAreaProjection(AbstractProjection):
     """
@@ -470,12 +475,21 @@ class LambertAzimuthalEqualAreaProjection(AbstractProjection):
         lambda_ = np.radians(lon_arr)
         phi = np.radians(lat_arr)
 
-        k = np.sqrt(2 / (1 + np.sin(self.phi_1) * np.sin(phi) +
-                        np.cos(self.phi_1) * np.cos(phi) * np.cos(lambda_ - self.lambda_0)))
+        k = np.sqrt(
+            2
+            / (
+                1
+                + np.sin(self.phi_1) * np.sin(phi)
+                + np.cos(self.phi_1) * np.cos(phi) * np.cos(lambda_ - self.lambda_0)
+            )
+        )
 
         x = self.R * k * np.cos(phi) * np.sin(lambda_ - self.lambda_0)
-        y = self.R * k * (np.cos(self.phi_1) * np.sin(phi) -
-                        np.sin(self.phi_1) * np.cos(phi) * np.cos(lambda_ - self.lambda_0))
+        y = (
+            self.R
+            * k
+            * (np.cos(self.phi_1) * np.sin(phi) - np.sin(self.phi_1) * np.cos(phi) * np.cos(lambda_ - self.lambda_0))
+        )
 
         if scalar_input:
             return float(x.item()), float(y.item())
@@ -508,15 +522,13 @@ class LambertAzimuthalEqualAreaProjection(AbstractProjection):
         p = np.sqrt(x_norm * x_norm + y_norm * y_norm)
 
         # Handle the case where p is zero (projection center)
-        zero_p = (p == 0)
+        zero_p = p == 0
         p = np.where(zero_p, np.finfo(np.float32).eps, p)  # Avoid division by zero
 
         c = 2 * np.arcsin(0.5 * p)
-        phi = np.arcsin(np.cos(c) * np.sin(self.phi_1) +
-                      (y_norm * np.sin(c) * np.cos(self.phi_1)) / p)
+        phi = np.arcsin(np.cos(c) * np.sin(self.phi_1) + (y_norm * np.sin(c) * np.cos(self.phi_1)) / p)
         lambda_ = self.lambda_0 + np.arctan2(
-            x_norm * np.sin(c),
-            p * np.cos(self.phi_1) * np.cos(c) - y_norm * np.sin(self.phi_1) * np.sin(c)
+            x_norm * np.sin(c), p * np.cos(self.phi_1) * np.cos(c) - y_norm * np.sin(self.phi_1) * np.sin(c)
         )
         lat = np.degrees(phi)
         lon = np.degrees(lambda_)
@@ -525,6 +537,7 @@ class LambertAzimuthalEqualAreaProjection(AbstractProjection):
             return float(lat.item()), float(lon.item())
 
         return lat, lon
+
 
 class LambertConformalConicProjection(AbstractProjection):
     """
@@ -564,13 +577,13 @@ class LambertConformalConicProjection(AbstractProjection):
         if phi_1 == phi_2:
             self.n = np.sin(phi_1_rad)
         else:
-            self.n = (np.log(np.cos(phi_1_rad) / np.cos(phi_2_rad)) /
-                     np.log(np.tan(np.pi/4 + phi_2_rad/2) / np.tan(np.pi/4 + phi_1_rad/2)))
+            self.n = np.log(np.cos(phi_1_rad) / np.cos(phi_2_rad)) / np.log(
+                np.tan(np.pi / 4 + phi_2_rad / 2) / np.tan(np.pi / 4 + phi_1_rad / 2)
+            )
 
-        self.F = ((np.cos(phi_1_rad) * np.power(np.tan(np.pi/4 + phi_1_rad/2), self.n)) /
-                 self.n)
+        self.F = (np.cos(phi_1_rad) * np.power(np.tan(np.pi / 4 + phi_1_rad / 2), self.n)) / self.n
 
-        self.rho_0 = self.F / np.power(np.tan(np.pi/4 + phi_0_rad/2), self.n)
+        self.rho_0 = self.F / np.power(np.tan(np.pi / 4 + phi_0_rad / 2), self.n)
 
         # Earth radius
         self.R = radius
@@ -599,7 +612,7 @@ class LambertConformalConicProjection(AbstractProjection):
         # If (λ - λ0) exceeds the range:±: 180°, 360° should be added or subtracted.
         theta = self.n * (lambda_ - self.lambda_0)
 
-        rho = self.F / np.power(np.tan(np.pi/4 + phi/2), self.n)
+        rho = self.F / np.power(np.tan(np.pi / 4 + phi / 2), self.n)
         x = self.R * rho * np.sin(theta)
         y = self.R * (self.rho_0 - rho * np.cos(theta))
 
@@ -629,14 +642,14 @@ class LambertConformalConicProjection(AbstractProjection):
         x_scaled = np.asarray(x, dtype=np.float64) / self.R
         y_scaled = np.asarray(y, dtype=np.float64) / self.R
 
-        theta = np.where(self.n >= 0,
-                         np.arctan2(x_scaled, self.rho_0 - y_scaled),
-                         np.arctan2(-x_scaled, y_scaled - self.rho_0))
+        theta = np.where(
+            self.n >= 0, np.arctan2(x_scaled, self.rho_0 - y_scaled), np.arctan2(-x_scaled, y_scaled - self.rho_0)
+        )
 
         sign = np.where(self.n > 0, 1, -1)
         rho = sign * np.sqrt(np.square(x_scaled) + np.square(self.rho_0 - y_scaled))
 
-        phi = 2 * np.arctan(np.power(self.F / rho, 1/self.n)) - np.pi/2
+        phi = 2 * np.arctan(np.power(self.F / rho, 1 / self.n)) - np.pi / 2
         lambda_ = self.lambda_0 + theta / self.n
 
         lat = np.degrees(phi)
@@ -650,7 +663,7 @@ class LambertConformalConicProjection(AbstractProjection):
         return lat, lon
 
 
-P = TypeVar('P', bound=AbstractProjection)
+P = TypeVar("P", bound=AbstractProjection)
 
 
 class ProjectionGrid(AbstractGrid, Generic[P]):
@@ -660,15 +673,7 @@ class ProjectionGrid(AbstractGrid, Generic[P]):
     This represents a grid in a projected coordinate system.
     """
 
-    def __init__(
-        self,
-        projection: P,
-        nx: int,
-        ny: int,
-        origin: Tuple[float, float],
-        dx: float,
-        dy: float
-    ):
+    def __init__(self, projection: P, nx: int, ny: int, origin: Tuple[float, float], dx: float, dy: float):
         """
         Initialize a projection grid with all parameters.
 
@@ -696,13 +701,8 @@ class ProjectionGrid(AbstractGrid, Generic[P]):
 
     @classmethod
     def from_bounds(
-        cls,
-        nx: int,
-        ny: int,
-        lat_range: Tuple[float, float],
-        lon_range: Tuple[float, float],
-        projection: P
-    ) -> 'ProjectionGrid[P]':
+        cls, nx: int, ny: int, lat_range: Tuple[float, float], lon_range: Tuple[float, float], projection: P
+    ) -> "ProjectionGrid[P]":
         """
         Create a projection grid from geographic bounds.
 
@@ -727,21 +727,14 @@ class ProjectionGrid(AbstractGrid, Generic[P]):
         sw = projection.forward(lat_range[0], lon_range[0])
         ne = projection.forward(lat_range[1], lon_range[1])
         origin = cast(tuple[float, float], sw)
-        dx = (ne[0] - sw[0]) / (nx-1)
-        dy = (ne[1] - sw[1]) / (ny-1)
+        dx = (ne[0] - sw[0]) / (nx - 1)
+        dy = (ne[1] - sw[1]) / (ny - 1)
         return cls(projection, nx, ny, origin, float(dx), float(dy))
 
     @classmethod
     def from_center(
-        cls,
-        nx: int,
-        ny: int,
-        center_lat: float,
-        center_lon: float,
-        dx: float,
-        dy: float,
-        projection: P
-    ) -> 'ProjectionGrid[P]':
+        cls, nx: int, ny: int, center_lat: float, center_lon: float, dx: float, dy: float, projection: P
+    ) -> "ProjectionGrid[P]":
         """
         Create a projection grid centered at a geographic location.
 
@@ -780,11 +773,7 @@ class ProjectionGrid(AbstractGrid, Generic[P]):
         Lazily compute and cache both latitude and longitude arrays.
         """
         # Create meshgrid of coordinates
-        y_indices, x_indices = np.meshgrid(
-            np.arange(self.ny),
-            np.arange(self.nx),
-            indexing='ij'
-        )
+        y_indices, x_indices = np.meshgrid(np.arange(self.ny), np.arange(self.nx), indexing="ij")
 
         # Convert to projected coordinates
         x_coords = x_indices * self.dx + self.origin[0]
@@ -795,14 +784,14 @@ class ProjectionGrid(AbstractGrid, Generic[P]):
         return lat, lon
 
     @property
-    def latitude(self) -> np.ndarray: # type: ignore
+    def latitude(self) -> np.ndarray:  # type: ignore
         """
         Get the latitude coordinate array.
         """
         return self._coordinates[0]
 
     @property
-    def longitude(self) -> np.ndarray: # type: ignore
+    def longitude(self) -> np.ndarray:  # type: ignore
         """
         Get the longitude coordinate array.
         """
@@ -874,27 +863,14 @@ class ProjectionGrid(AbstractGrid, Generic[P]):
         north_pole_y = (pos[1] - self.origin[1]) / self.dy
 
         # Create grid of x, y coordinates
-        y_indices, x_indices = np.meshgrid(
-            np.arange(self.ny),
-            np.arange(self.nx),
-            indexing='ij'
-        )
+        y_indices, x_indices = np.meshgrid(np.arange(self.ny), np.arange(self.nx), indexing="ij")
 
         # Vectorized calculation of angles
-        true_north = np.degrees(np.arctan2(
-            north_pole_x - x_indices,
-            north_pole_y - y_indices
-        ))
+        true_north = np.degrees(np.arctan2(north_pole_x - x_indices, north_pole_y - y_indices))
 
         return true_north
 
-    def find_box(
-        self,
-        lat_min: float,
-        lat_max: float,
-        lon_min: float,
-        lon_max: float
-    ) -> np.ndarray:
+    def find_box(self, lat_min: float, lat_max: float, lon_min: float, lon_max: float) -> np.ndarray:
         """
         Find indices of grid points within a geographic bounding box.
 
@@ -934,17 +910,10 @@ class ProjectionGrid(AbstractGrid, Generic[P]):
         y_max = max(nw[1], ne[1]) + 1
 
         # Create meshgrid of indices
-        y_indices, x_indices = np.meshgrid(
-            np.arange(y_min, y_max),
-            np.arange(x_min, x_max),
-            indexing='ij'
-        )
+        y_indices, x_indices = np.meshgrid(np.arange(y_min, y_max), np.arange(x_min, x_max), indexing="ij")
 
         # Convert to flat indices
-        return np.ravel_multi_index(
-            (y_indices.flatten(), x_indices.flatten()),
-            (self.ny, self.nx)
-        )
+        return np.ravel_multi_index((y_indices.flatten(), x_indices.flatten()), (self.ny, self.nx))
 
 
 class ProjProjection(AbstractProjection):
@@ -960,19 +929,16 @@ class ProjProjection(AbstractProjection):
             EPSG code (e.g. "EPSG:4326")
         """
         import pyproj
+
         # Create transformer from lat/lon to projection coordinates
         self.crs_proj = pyproj.CRS(proj_string)
         self.crs_latlon = pyproj.CRS("EPSG:4326")  # WGS84
         self.forward_transformer = pyproj.Transformer.from_crs(
             self.crs_latlon,
             self.crs_proj,
-            always_xy=True  # This ensures lon/lat -> x/y order
+            always_xy=True,  # This ensures lon/lat -> x/y order
         )
-        self.inverse_transformer = pyproj.Transformer.from_crs(
-            self.crs_proj,
-            self.crs_latlon,
-            always_xy=True
-        )
+        self.inverse_transformer = pyproj.Transformer.from_crs(self.crs_proj, self.crs_latlon, always_xy=True)
 
     def forward(self, latitude: CoordType, longitude: CoordType) -> ReturnUnionType:
         """Transform from latitude/longitude to projection coordinates

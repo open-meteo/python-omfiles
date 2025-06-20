@@ -24,6 +24,7 @@ def test_dwd_icon_d2_grid_points():
         assert abs(lat - 52.52) < 0.05
         assert abs(lon - 13.40) < 0.05
 
+
 def test_ecmwf_grid():
     """Test the ECMWF IFS grid specifically."""
     ecmwf_grid = DOMAINS["ecmwf_ifs025"].grid
@@ -45,18 +46,19 @@ def test_ecmwf_grid():
     point2 = ecmwf_grid.findPointXy(0.0, -179.0)
     assert point1 == point2
 
+
 def test_time_to_chunk_index():
     """Test conversion from timestamp to chunk index."""
     domain = DOMAINS["dwd_icon_d2"]
 
     # Create test timestamp (2023-01-01 12:00:00 UTC)
-    timestamp = np.datetime64('2023-01-01T12:00:00')
+    timestamp = np.datetime64("2023-01-01T12:00:00")
 
     # Calculate expected chunk index
     # Seconds since epoch = (2023-01-01 12:00:00 - 1970-01-01 00:00:00) seconds
     # chunk_index = seconds_since_epoch / (file_length * temporal_resolution_seconds)
-    epoch = np.datetime64('1970-01-01T00:00:00')
-    seconds_since_epoch = (timestamp - epoch) / np.timedelta64(1, 's')
+    epoch = np.datetime64("1970-01-01T00:00:00")
+    seconds_since_epoch = (timestamp - epoch) / np.timedelta64(1, "s")
     expected_chunk = int(seconds_since_epoch / (domain.file_length * domain.temporal_resolution_seconds))
 
     # Test the time_to_chunk_index function
@@ -77,4 +79,4 @@ def test_get_chunk_time_range():
 
     # Check that time points are evenly spaced
     time_diff = time_range[1] - time_range[0]
-    assert time_diff == np.timedelta64(domain.temporal_resolution_seconds, 's')
+    assert time_diff == np.timedelta64(domain.temporal_resolution_seconds, "s")

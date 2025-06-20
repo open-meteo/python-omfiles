@@ -45,8 +45,9 @@ FS = CachingFileSystem(
     block_size=256,
     cache_storage="cache",
     check_files=False,
-    cache_mapper=BasenameCacheMapper(directory_levels=3)
+    cache_mapper=BasenameCacheMapper(directory_levels=3),
 )
+
 
 def load_chunk_data(
     chunk_index: int,
@@ -55,7 +56,7 @@ def load_chunk_data(
     grid_coords: Tuple[int, int],
     fs: fsspec.AbstractFileSystem,
     start_date: np.datetime64,
-    end_date: np.datetime64
+    end_date: np.datetime64,
 ):
     """
     Load data for a specific chunk and grid coordinates.
@@ -90,7 +91,7 @@ def load_chunk_data(
     chunk_times = domain.get_chunk_time_range(chunk_index)
     time_mask = (chunk_times >= start_date) & (chunk_times <= end_date)
     if not np.any(time_mask):
-        return np.array([], dtype='datetime64[s]'), np.array([], dtype=float)
+        return np.array([], dtype="datetime64[s]"), np.array([], dtype=float)
 
     # Create reader and read data of interest
     with OmFilePyReader.from_fsspec(fs, s3_path) as reader:
@@ -99,7 +100,7 @@ def load_chunk_data(
         data = reader[y, x, time_slice]
         return chunk_times[time_mask], data
 
-    raise ValueError("Unreachable") # Make Pyright happy...
+    raise ValueError("Unreachable")  # Make Pyright happy...
 
 
 def get_data_for_coordinates(
@@ -107,8 +108,8 @@ def get_data_for_coordinates(
     lon: float,
     start_date: datetime,
     end_date: datetime,
-    domain_name: str = 'ecmwf_ifs025',
-    variable_name: str = 'temperature_2m',
+    domain_name: str = "ecmwf_ifs025",
+    variable_name: str = "temperature_2m",
 ) -> Dataset:
     """
     Fetch weather data for specific coordinates across a date range, merging multiple files as needed.
@@ -160,15 +161,7 @@ def get_data_for_coordinates(
     all_data = []
 
     for chunk_idx in chunk_indices:
-        times, data = load_chunk_data(
-            chunk_idx,
-            domain_name,
-            variable_name,
-            (x, y),
-            FS,
-            start_timestamp,
-            end_timestamp
-            )
+        times, data = load_chunk_data(chunk_idx, domain_name, variable_name, (x, y), FS, start_timestamp, end_timestamp)
         if len(times) > 0:
             all_times.append(times)
             all_data.append(data)
@@ -193,9 +186,10 @@ def get_data_for_coordinates(
         attrs={
             "domain": domain_name,
             "grid_indices": grid_point,
-        }
+        },
     )
     return ds
+
 
 if __name__ == "__main__":
     # Example coordinates: Paris
@@ -208,28 +202,28 @@ if __name__ == "__main__":
 
     # Define a date range
     start_date = datetime(2025, 4, 25, 12, 0)  # 25-04-2025'T'12:00
-    end_date = datetime(2025, 5, 18, 12, 0)    # 18-05-2025'T'12:00
+    end_date = datetime(2025, 5, 18, 12, 0)  # 18-05-2025'T'12:00
 
     # Variable to fetch
-    variable = 'temperature_2m'
+    variable = "temperature_2m"
 
     print(f"Fetching {variable} data for coordinates: {latitude}N, {longitude}E")
     print(f"Date range: {start_date} to {end_date}")
 
     # Domain display names for nicer legends
     domains_and_display_names = {
-        'dwd_icon': 'DWD ICON (Global)',
-        'dwd_icon_eu': 'DWD ICON (Europe)',
-        'dwd_icon_d2': 'DWD ICON D2 (Central Europe)',
-        'ecmwf_ifs025': 'ECMWF IFS (Global)',
-        'meteofrance_arpege_europe': 'Météo-France ARPEGE (Europe)',
-        'meteofrance_arpege_world025': 'Météo-France ARPEGE (Global)',
-        'meteofrance_arome_france0025': 'Météo-France AROME (France)',
-        'meteofrance_arome_france_hd': 'Météo-France AROME HD (France)',
-        'meteofrance_arome_france_hd_15min': 'Météo-France AROME HD 15min (France)',
-        'gem_global': 'CMC GEM GDPS (Global)',
-        'gem_regional': 'CMC GEM RDPS (Regional)',
-        'gem_hrdps_continental': 'CMC GEM HRDPS (Continental)',
+        "dwd_icon": "DWD ICON (Global)",
+        "dwd_icon_eu": "DWD ICON (Europe)",
+        "dwd_icon_d2": "DWD ICON D2 (Central Europe)",
+        "ecmwf_ifs025": "ECMWF IFS (Global)",
+        "meteofrance_arpege_europe": "Météo-France ARPEGE (Europe)",
+        "meteofrance_arpege_world025": "Météo-France ARPEGE (Global)",
+        "meteofrance_arome_france0025": "Météo-France AROME (France)",
+        "meteofrance_arome_france_hd": "Météo-France AROME HD (France)",
+        "meteofrance_arome_france_hd_15min": "Météo-France AROME HD 15min (France)",
+        "gem_global": "CMC GEM GDPS (Global)",
+        "gem_regional": "CMC GEM RDPS (Regional)",
+        "gem_hrdps_continental": "CMC GEM HRDPS (Continental)",
     }
 
     # Collect data from each domain
@@ -246,7 +240,7 @@ if __name__ == "__main__":
                 start_date=start_date,
                 end_date=end_date,
                 domain_name=domain_name,
-                variable_name=variable
+                variable_name=variable,
             )
             domain_data[domain_name] = ds
             successful_domains.append(domain_name)
@@ -262,7 +256,7 @@ if __name__ == "__main__":
         exit(1)
 
     # Domain colors for consistent line colors
-    colors = plt.get_cmap('tab10')(np.linspace(0, 1, len(successful_domains)))
+    colors = plt.get_cmap("tab10")(np.linspace(0, 1, len(successful_domains)))
 
     plt.figure(figsize=(12, 6))
 
@@ -275,9 +269,9 @@ if __name__ == "__main__":
     # Enhance the plot
     plt.title(f"{variable.replace('_', ' ').title()} at {latitude:.2f}N, {longitude:.2f}E")
     plt.xlabel("Time")
-    plt.ylabel("Temperature (°C)" if variable == 'temperature_2m' else variable)
+    plt.ylabel("Temperature (°C)" if variable == "temperature_2m" else variable)
     plt.grid(True, alpha=0.3)
-    plt.legend(loc='best')
+    plt.legend(loc="best")
     plt.tight_layout()
 
     # Save and show the figure

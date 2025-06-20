@@ -14,42 +14,39 @@ from omfiles.utils import _normalize_longitude
 
 # Fixtures for grids
 
+
 @pytest.fixture
 def local_regular_lat_lon_grid():
     return RegularLatLonGrid(
-        lat_start=0.0,
-        lat_steps=10,
-        lat_step_size=1.0,
-        lon_start=0.0,
-        lon_steps=20,
-        lon_step_size=1.0
+        lat_start=0.0, lat_steps=10, lat_step_size=1.0, lon_start=0.0, lon_steps=20, lon_step_size=1.0
     )
+
 
 @pytest.fixture
 def stereographic_projection():
     projection = StereographicProjection(90.0, 249.0, 6371229.0)
     return ProjectionGrid.from_bounds(
-        nx=935,
-        ny=824,
-        lat_range=(18.14503, 45.405453),
-        lon_range=(217.10745, 349.8256),
-        projection=projection
+        nx=935, ny=824, lat_range=(18.14503, 45.405453), lon_range=(217.10745, 349.8256), projection=projection
     )
+
 
 @pytest.fixture
 def hrdps_projection():
     return RotatedLatLonProjection(lat_origin=-36.0885, lon_origin=245.305)
 
+
 @pytest.fixture
 def hrdps_grid(hrdps_projection):
     from omfiles.grids import ProjectionGrid
+
     return ProjectionGrid.from_bounds(
         nx=2540,
         ny=1290,
         lat_range=(39.626034, 47.876457),
         lon_range=(-133.62952, -40.708557),
-        projection=hrdps_projection
+        projection=hrdps_projection,
     )
+
 
 def test_regular_grid_findPointXy_inside(local_regular_lat_lon_grid):
     # Test exact grid points
@@ -73,12 +70,7 @@ def test_regular_grid_findPointXy_outside(local_regular_lat_lon_grid):
 def test_global_grid_wrapping():
     # Create a global grid (360° longitude, 180° latitude coverage)
     global_grid = RegularLatLonGrid(
-        lat_start=-90.0,
-        lat_steps=180,
-        lat_step_size=1.0,
-        lon_start=-180.0,
-        lon_steps=360,
-        lon_step_size=1.0
+        lat_start=-90.0, lat_steps=180, lat_step_size=1.0, lon_start=-180.0, lon_steps=360, lon_step_size=1.0
     )
 
     # Test wrapping around the longitude
@@ -88,6 +80,7 @@ def test_global_grid_wrapping():
 
     # Test a point beyond the normal range
     assert global_grid.findPointXy(0.0, 540.0) == (0, 90)
+
 
 def test_grid_coordinates(local_regular_lat_lon_grid):
     # Test exact grid points
@@ -111,7 +104,7 @@ def test_cached_property_computation(local_regular_lat_lon_grid):
 
 
 def test_stereographic(stereographic_projection):
-    #https://github.com/open-meteo/open-meteo/blob/522917b1d6e72a7e6b7d4ae7dfb49b0c556a6992/Tests/AppTests/DataTests.swift#L248
+    # https://github.com/open-meteo/open-meteo/blob/522917b1d6e72a7e6b7d4ae7dfb49b0c556a6992/Tests/AppTests/DataTests.swift#L248
     pos_x, pos_y = stereographic_projection.findPointXy(lat=64.79836, lon=241.40111)
 
     assert pos_x == 420
@@ -122,13 +115,16 @@ def test_stereographic(stereographic_projection):
     assert abs(lat - 64.79836) < 1e-4
     assert np.mod(abs(lon - 241.40111), 360) < 1e-4
 
+
 def test_grid_properties(stereographic_projection):
     assert stereographic_projection.shape == (824, 935)
     assert stereographic_projection.grid_type == "projection"
 
+
 def test_out_of_bounds(stereographic_projection):
     far_point = stereographic_projection.findPointXy(30.0, 120.0)
     assert far_point is None
+
 
 def test_latitude_longitude_arrays(stereographic_projection):
     # Get latitude and longitude arrays
@@ -139,14 +135,15 @@ def test_latitude_longitude_arrays(stereographic_projection):
     assert lats.shape == (824, 935)
     assert lons.shape == (824, 935)
 
+
 def test_hrdps_grid(hrdps_grid):
     """Test the HRDPS Continental grid with a modified approach"""
     test_points = [
         # lat, lon, expected_x, expected_y
-        (39.626034, -133.62952, 0, 0),          # Bottom-left
-        (27.284597, -66.96642, 2539, 0),        # Bottom-right
-        (38.96126, -73.63256, 2032, 283),       # Middle point
-        (47.876457, -40.708557, 2539, 1289),    # Top-right
+        (39.626034, -133.62952, 0, 0),  # Bottom-left
+        (27.284597, -66.96642, 2539, 0),  # Bottom-right
+        (38.96126, -73.63256, 2032, 283),  # Middle point
+        (47.876457, -40.708557, 2539, 1289),  # Top-right
     ]
 
     for lat, lon, expected_x, expected_y in test_points:
@@ -169,20 +166,13 @@ def test_lambert_azimuthal_equal_area_projection():
     https://github.com/open-meteo/open-meteo/blob/522917b1d6e72a7e6b7d4ae7dfb49b0c556a6992/Tests/AppTests/DataTests.swift#L189
     """
     proj = LambertAzimuthalEqualAreaProjection(lambda_0=-2.5, phi_1=54.9, radius=6371229)
-    grid = ProjectionGrid(
-        projection=proj,
-        nx=1042,
-        ny=970,
-        origin=(-1158000, -1036000),
-        dx=2000,
-        dy=2000
-    )
+    grid = ProjectionGrid(projection=proj, nx=1042, ny=970, origin=(-1158000, -1036000), dx=2000, dy=2000)
 
     test_lon = 10.620785
     test_lat = 57.745566
     x, y = proj.forward(latitude=test_lat, longitude=test_lon)
-    assert abs(x - 773650.5058) < 0.0001 # TODO: There are small numerical differences with the Swift test case
-    assert abs(y - 389820.1483) < 0.0001 # TODO: There are small numerical differences with the Swift test case
+    assert abs(x - 773650.5058) < 0.0001  # TODO: There are small numerical differences with the Swift test case
+    assert abs(y - 389820.1483) < 0.0001  # TODO: There are small numerical differences with the Swift test case
 
     lat, lon = proj.inverse(x=x, y=y)
     assert abs(lon - test_lon) < 0.00001
@@ -212,11 +202,7 @@ def test_lambert_conformal():
     assert abs(lon - (-8)) < 0.0001
 
     grid = ProjectionGrid.from_bounds(
-        nx=1799,
-        ny=1059,
-        lat_range=(21.138, 47.8424),
-        lon_range=(-122.72, -60.918),
-        projection=proj
+        nx=1799, ny=1059, lat_range=(21.138, 47.8424), lon_range=(-122.72, -60.918), projection=proj
     )
 
     point_xy = grid.findPointXy(lat=34, lon=-118)
@@ -235,7 +221,7 @@ def test_lambert_conformal():
         (24.449714395051082, 265.54789437771944 - 360, 10000),
         (22.73382904757237, 242.93190409785294 - 360, 20000),
         (24.37172305316154, 271.6307003393202 - 360, 30000),
-        (24.007414634071907, 248.77817290935954 - 360, 40000)
+        (24.007414634071907, 248.77817290935954 - 360, 40000),
     ]
 
     for lat, lon, expected_idx in reference_points:
@@ -257,19 +243,11 @@ def test_nbm_grid():
     https://github.com/open-meteo/open-meteo/blob/522917b1d6e72a7e6b7d4ae7dfb49b0c556a6992/Tests/AppTests/DataTests.swift#L94
     """
     # Create projection with appropriate parameters
-    proj = LambertConformalConicProjection(
-        lambda_0=265 - 360, phi_0=0, phi_1=25, phi_2=25, radius=6371200
-    )
+    proj = LambertConformalConicProjection(lambda_0=265 - 360, phi_0=0, phi_1=25, phi_2=25, radius=6371200)
 
     # Create grid
     grid = ProjectionGrid.from_center(
-        projection=proj,
-        nx=2345,
-        ny=1597,
-        center_lat=19.229,
-        center_lon=233.723 - 360,
-        dx=2539.7,
-        dy=2539.7
+        projection=proj, nx=2345, ny=1597, center_lat=19.229, center_lon=233.723 - 360, dx=2539.7, dy=2539.7
     )
 
     # Test forward projection of grid origin
@@ -289,7 +267,7 @@ def test_nbm_grid():
         (24.449714395051082, 265.54789437771944 - 360, 188910),
         (22.73382904757237, 242.93190409785294 - 360, 180965),
         (24.37172305316154, 271.6307003393202 - 360, 196187),
-        (24.007414634071907, 248.77817290935954 - 360, 232796)
+        (24.007414634071907, 248.77817290935954 - 360, 232796),
     ]
 
     for lat, lon, expected_idx in reference_points:
@@ -305,7 +283,7 @@ def test_nbm_grid():
         (10000, 21.794254, -111.44652),
         (20000, 22.806227, -96.18898),
         (30000, 22.222015, -80.87921),
-        (40000, 20.274399, -123.18192)
+        (40000, 20.274399, -123.18192),
     ]
 
     for idx, expected_lat, expected_lon in reference_coords:
@@ -327,13 +305,7 @@ def test_lambert_conformal_conic_projection():
     center_lon = -25.421997
 
     grid = ProjectionGrid.from_center(
-        nx=1906,
-        ny=1606,
-        center_lat=center_lat,
-        center_lon=center_lon,
-        dx=2000,
-        dy=2000,
-        projection=proj
+        nx=1906, ny=1606, center_lat=center_lat, center_lon=center_lon, dx=2000, dy=2000, projection=proj
     )
 
     # Test forward projection
@@ -383,19 +355,21 @@ def test_rotated_latlon_against_proj():
     custom_proj = RotatedLatLonProjection(lat_origin=lat_origin, lon_origin=lon_origin)
 
     # Create equivalent PROJ projection
-    proj_string = (f"+proj=ob_tran +o_proj=longlat +o_lat_p={-lat_origin} "
-                    f"+o_lon_p=0.0 +lon_0={lon_origin} +datum=WGS84 +no_defs +type=crs")
+    proj_string = (
+        f"+proj=ob_tran +o_proj=longlat +o_lat_p={-lat_origin} "
+        f"+o_lon_p=0.0 +lon_0={lon_origin} +datum=WGS84 +no_defs +type=crs"
+    )
     proj_proj = pyproj.Proj(proj_string)
 
     # Test points covering different regions
     test_points = [
-        (0, 0),       # Origin
-        (45, 45),     # Mid-latitude point
-        (-45, -45),   # Mid-latitude point (southern hemisphere)
-        (10, 50),     # Europe
-        (40, -100),   # North America
-        (50, -170),   # Pacific
-        (-30, 170),   # South Pacific
+        (0, 0),  # Origin
+        (45, 45),  # Mid-latitude point
+        (-45, -45),  # Mid-latitude point (southern hemisphere)
+        (10, 50),  # Europe
+        (40, -100),  # North America
+        (50, -170),  # Pacific
+        (-30, 170),  # South Pacific
     ]
 
     for lat, lon in test_points:
@@ -423,8 +397,12 @@ def test_rotated_latlon_against_proj():
         proj_lon, proj_lat = proj_proj(np.radians(proj_x), np.radians(proj_y), inverse=True)
 
         # Compare results
-        assert abs(custom_lat - proj_lat) < 1e-5, f"Lat mismatch for ({custom_x}, {custom_y}): custom={custom_lat}, proj={proj_lat}"
-        assert abs(np.mod(custom_lon - proj_lon + 180, 360) - 180) < 1e-5, f"Lon mismatch for ({custom_x}, {custom_y}): custom={custom_lon}, proj={proj_lon}"
+        assert abs(custom_lat - proj_lat) < 1e-5, (
+            f"Lat mismatch for ({custom_x}, {custom_y}): custom={custom_lat}, proj={proj_lat}"
+        )
+        assert abs(np.mod(custom_lon - proj_lon + 180, 360) - 180) < 1e-5, (
+            f"Lon mismatch for ({custom_x}, {custom_y}): custom={custom_lon}, proj={proj_lon}"
+        )
 
 
 def test_stereographic_against_proj():
@@ -435,18 +413,17 @@ def test_stereographic_against_proj():
     custom_proj = StereographicProjection(latitude=latitude, longitude=longitude, radius=radius)
 
     # Create equivalent PROJ projection
-    proj_string = (f"+proj=stere +lat_0={latitude} +lon_0={longitude} +k=1 "
-                  f"+x_0=0 +y_0=0 +R={radius} +units=m +no_defs")
+    proj_string = f"+proj=stere +lat_0={latitude} +lon_0={longitude} +k=1 +x_0=0 +y_0=0 +R={radius} +units=m +no_defs"
     proj_proj = pyproj.Proj(proj_string)
 
     # Test points - staying away from singular points (poles)
     test_points = [
-        (0, 0),      # Equator
-        (45, 45),    # Mid-latitude
+        (0, 0),  # Equator
+        (45, 45),  # Mid-latitude
         (60, -120),  # Northern regions
-        (45, 249),   # Along the central meridian
-        (70, 249),   # Along the central meridian
-        (80, 249),   # Along the central meridian
+        (45, 249),  # Along the central meridian
+        (70, 249),  # Along the central meridian
+        (80, 249),  # Along the central meridian
     ]
 
     for lat, lon in test_points:
@@ -472,31 +449,31 @@ def test_stereographic_against_proj():
         custom_lon = _normalize_longitude(custom_lon)
         assert abs(custom_lon - proj_lon) < 1e-4, f"Lon mismatch: custom={custom_lon}, proj={proj_lon}"
 
+
 def test_lambert_azimuthal_equal_area_against_proj():
     # Create our custom projection
     lambda_0 = -2.5  # Central longitude in degrees
-    phi_1 = 54.9     # Standard parallel/latitude in degrees
+    phi_1 = 54.9  # Standard parallel/latitude in degrees
     radius = 6371229.0  # Earth radius in meters
     custom_proj = LambertAzimuthalEqualAreaProjection(lambda_0=lambda_0, phi_1=phi_1, radius=radius)
 
     # Create equivalent PROJ projection
     # For Lambert Azimuthal Equal Area, we use lat_0 for the standard parallel and lon_0 for central longitude
-    proj_string = (f"+proj=laea +lat_0={phi_1} +lon_0={lambda_0} +x_0=0 +y_0=0 "
-                  f"+R={radius} +units=m +no_defs +type=crs")
+    proj_string = f"+proj=laea +lat_0={phi_1} +lon_0={lambda_0} +x_0=0 +y_0=0 +R={radius} +units=m +no_defs +type=crs"
     proj_proj = pyproj.Proj(proj_string)
 
     # Test points covering different regions
     test_points = [
-        (0, 0),       # Origin
-        (54.9, -2.5), # Projection center (should map to 0,0)
-        (45, 45),     # Mid-latitude point
-        (-45, -45),   # Mid-latitude point (southern hemisphere)
-        (10, 50),     # Europe
-        (40, -100),   # North America
-        (50, -170),   # Pacific
-        (-30, 170),   # South Pacific
+        (0, 0),  # Origin
+        (54.9, -2.5),  # Projection center (should map to 0,0)
+        (45, 45),  # Mid-latitude point
+        (-45, -45),  # Mid-latitude point (southern hemisphere)
+        (10, 50),  # Europe
+        (40, -100),  # North America
+        (50, -170),  # Pacific
+        (-30, 170),  # South Pacific
         # Test point from the existing test
-        (57.745566, 10.620785)
+        (57.745566, 10.620785),
     ]
 
     for lat, lon in test_points:
@@ -522,21 +499,24 @@ def test_lambert_azimuthal_equal_area_against_proj():
             # Compare results with appropriate tolerance
             # For inverse transformations, angular differences can be larger
             angular_tolerance = 1e-5  # roughly 0.00001 degrees
-            assert abs(custom_lat - proj_lat) < angular_tolerance, \
+            assert abs(custom_lat - proj_lat) < angular_tolerance, (
                 f"Lat mismatch for ({custom_x}, {custom_y}): custom={custom_lat}, proj={proj_lat}"
+            )
 
             # Handle longitude wraparound for comparison
             lon_diff = np.mod(abs(custom_lon - proj_lon), 360)
-            assert min(lon_diff, 360 - lon_diff) < angular_tolerance, \
+            assert min(lon_diff, 360 - lon_diff) < angular_tolerance, (
                 f"Lon mismatch for ({custom_x}, {custom_y}): custom={custom_lon}, proj={proj_lon}"
+            )
+
 
 def test_lambert_conformal_conic_against_proj():
     # Create our custom projection with parameters from the existing test
-    lambda_0 = 352       # Reference longitude in degrees
-    phi_0 = 55.5         # Reference latitude in degrees
-    phi_1 = 55.5         # First standard parallel in degrees
-    phi_2 = 55.5         # Second standard parallel in degrees
-    radius = 6371229.0   # Earth radius in meters
+    lambda_0 = 352  # Reference longitude in degrees
+    phi_0 = 55.5  # Reference latitude in degrees
+    phi_1 = 55.5  # First standard parallel in degrees
+    phi_2 = 55.5  # Second standard parallel in degrees
+    radius = 6371229.0  # Earth radius in meters
 
     custom_proj = LambertConformalConicProjection(
         lambda_0=lambda_0, phi_0=phi_0, phi_1=phi_1, phi_2=phi_2, radius=radius
@@ -545,27 +525,29 @@ def test_lambert_conformal_conic_against_proj():
     lambda_0_norm = _normalize_longitude(lambda_0)
     # Create equivalent PROJ projection
     # For Lambert Conformal Conic, we use lat_0, lon_0, lat_1, lat_2 parameters
-    proj_string = (f"+proj=lcc +lat_0={phi_0} +lon_0={lambda_0_norm} +lat_1={phi_1} +lat_2={phi_2} "
-                  f"+x_0=0 +y_0=0 +R={radius} +units=m +no_defs +type=crs")
+    proj_string = (
+        f"+proj=lcc +lat_0={phi_0} +lon_0={lambda_0_norm} +lat_1={phi_1} +lat_2={phi_2} "
+        f"+x_0=0 +y_0=0 +R={radius} +units=m +no_defs +type=crs"
+    )
     proj_proj = pyproj.Proj(proj_string)
 
     # Test points from the existing test
     center_lat = 39.671
     center_lon = -25.421997
     test_points = [
-        (center_lat, center_lon),              # Center point
-        (39.675304, -25.400146),               # Near the center
-        (42.18604, -15.30127),                 # Point from the test (x=456, y=64)
-        (64.943695, 30.711975),                # Point from the test (x=1642, y=1573)
+        (center_lat, center_lon),  # Center point
+        (39.675304, -25.400146),  # Near the center
+        (42.18604, -15.30127),  # Point from the test (x=456, y=64)
+        (64.943695, 30.711975),  # Point from the test (x=1642, y=1573)
         # Additional test points for broader coverage
-        (0, 0),                                # Origin
-        (phi_0, lambda_0_norm),                # Projection origin
-        (45, 0),                               # Mid-latitude point
-        (-45, -45),                            # Southern hemisphere
-        (10, 50),                              # Europe
-        (40, -100),                            # North America
-        (50, -170),                            # Pacific
-        (-30, 170),                            # South Pacific
+        (0, 0),  # Origin
+        (phi_0, lambda_0_norm),  # Projection origin
+        (45, 0),  # Mid-latitude point
+        (-45, -45),  # Southern hemisphere
+        (10, 50),  # Europe
+        (40, -100),  # North America
+        (50, -170),  # Pacific
+        (-30, 170),  # South Pacific
     ]
 
     for lat, lon in test_points:
@@ -575,7 +557,7 @@ def test_lambert_conformal_conic_against_proj():
         # Forward transformation using PROJ
         # Note: PROJ expects (lon, lat) order, not (lat, lon)
         proj_x, proj_y = proj_proj(lon, lat)
-        tolerance = 0.1 # 0.1 meters for a 6.3 million meter radius is a reasonable precision
+        tolerance = 0.1  # 0.1 meters for a 6.3 million meter radius is a reasonable precision
         assert abs(custom_x - proj_x) < tolerance, f"X mismatch for ({lat}, {lon}): custom={custom_x}, proj={proj_x}"
         assert abs(custom_y - proj_y) < tolerance, f"Y mismatch for ({lat}, {lon}): custom={custom_y}, proj={proj_y}"
 
@@ -584,13 +566,16 @@ def test_lambert_conformal_conic_against_proj():
         # PROJ expects inverse=True for inverse transform
         proj_lon, proj_lat = proj_proj(proj_x, proj_y, inverse=True)
         angular_tolerance = 1e-5  # approximately 0.00001 degrees
-        assert abs(custom_lat - proj_lat) < angular_tolerance, \
+        assert abs(custom_lat - proj_lat) < angular_tolerance, (
             f"Lat mismatch for ({custom_x}, {custom_y}): custom={custom_lat}, proj={proj_lat}"
+        )
 
         # Handle longitude wraparound for comparison
         lon_diff = np.mod(abs(custom_lon - proj_lon), 360)
-        assert min(lon_diff, 360 - lon_diff) < angular_tolerance, \
+        assert min(lon_diff, 360 - lon_diff) < angular_tolerance, (
             f"Lon mismatch for ({custom_x}, {custom_y}): custom={custom_lon}, proj={proj_lon}"
+        )
+
 
 def test_regular_lat_lon_grid_against_proj():
     """Test that RegularLatLonGrid operations match proj equivalent operations"""
@@ -601,26 +586,26 @@ def test_regular_lat_lon_grid_against_proj():
         lat_step_size=1.0,
         lon_start=-180,
         lon_steps=360,  # -180 to 180
-        lon_step_size=1.0
+        lon_step_size=1.0,
     )
 
     # Create proj objects for WGS84 lat/lon
-    proj_wgs84 = pyproj.Proj(proj='latlong', datum='WGS84')
+    proj_wgs84 = pyproj.Proj(proj="latlong", datum="WGS84")
 
     # Test points covering different scenarios
     test_points: list[tuple[float, float]] = [
-        (0, 0),           # Origin
-        (45, 45),         # NE quadrant
-        (-45, -45),       # SW quadrant
-        (45, -45),        # SE quadrant
-        (-45, 45),        # NW quadrant
-        (89, 0),          # Near North pole
-        (-89, 0),         # Near South pole
-        (0, 179),         # Near date line (east)
-        (0, -179),        # Near date line (west)
-        (10, 20),         # Random point
-        (-33, 151),       # Sydney
-        (37, -122),       # San Francisco
+        (0, 0),  # Origin
+        (45, 45),  # NE quadrant
+        (-45, -45),  # SW quadrant
+        (45, -45),  # SE quadrant
+        (-45, 45),  # NW quadrant
+        (89, 0),  # Near North pole
+        (-89, 0),  # Near South pole
+        (0, 179),  # Near date line (east)
+        (0, -179),  # Near date line (west)
+        (10, 20),  # Random point
+        (-33, 151),  # Sydney
+        (37, -122),  # San Francisco
     ]
 
     for lat, lon in test_points:
@@ -651,11 +636,11 @@ def test_regular_lat_lon_grid_against_proj():
 
     # Test longitude wrapping behavior
     wrap_test_points = [
-        (0, 185),       # Should wrap to (0, -175)
-        (0, -185),      # Should wrap to (0, 175)
-        (0, 361),       # Should wrap to (0, 1)
-        (0, -361),      # Should wrap to (0, -1)
-        (45, 540),      # Should wrap to (45, -180)
+        (0, 185),  # Should wrap to (0, -175)
+        (0, -185),  # Should wrap to (0, 175)
+        (0, 361),  # Should wrap to (0, 1)
+        (0, -361),  # Should wrap to (0, -1)
+        (45, 540),  # Should wrap to (45, -180)
     ]
 
     for lat, lon in wrap_test_points:
@@ -672,28 +657,21 @@ def test_regular_lat_lon_grid_against_proj():
 def test_proj_projection():
     """Test that ProjProjection correctly wraps proj transformations"""
     # Test with a Lambert Conformal Conic projection
-    proj_string = (
-        "+proj=lcc +lat_0=55.5 +lon_0=352 +lat_1=55.5 +lat_2=55.5 "
-        "+x_0=0 +y_0=0 +R=6371229 +units=m +no_defs"
-    )
+    proj_string = "+proj=lcc +lat_0=55.5 +lon_0=352 +lat_1=55.5 +lat_2=55.5 +x_0=0 +y_0=0 +R=6371229 +units=m +no_defs"
 
     # Create our projection wrapper
     proj = ProjProjection(proj_string)
 
     # Create a grid using this projection
     grid = ProjectionGrid.from_bounds(
-        nx=100,
-        ny=100,
-        lat_range=(39.67, 64.94),
-        lon_range=(-25.42, 30.71),
-        projection=proj
+        nx=100, ny=100, lat_range=(39.67, 64.94), lon_range=(-25.42, 30.71), projection=proj
     )
 
     # Test points
     test_points = [
-        (39.671, -25.421997),    # Lower left
+        (39.671, -25.421997),  # Lower left
         (64.943695, 30.711975),  # Upper right
-        (50.0, 0.0),             # Middle-ish
+        (50.0, 0.0),  # Middle-ish
     ]
 
     # Create the raw proj transformer for comparison
@@ -724,48 +702,36 @@ def test_proj_projection():
         assert abs(result_lat - lat) < grid.dy, f"Grid lat error: {result_lat} vs {lat}"
         assert abs(result_lon - lon) < grid.dx, f"Grid lon error: {result_lon} vs {lon}"
 
+
 def test_grid_equivalence():
     """Test that a proj-based grid matches the original implementation"""
     # Create original LambertConformalConic projection
-    original_proj = LambertConformalConicProjection(
-        lambda_0=352,
-        phi_0=55.5,
-        phi_1=55.5,
-        phi_2=55.5,
-        radius=6371229.0
-    )
+    original_proj = LambertConformalConicProjection(lambda_0=352, phi_0=55.5, phi_1=55.5, phi_2=55.5, radius=6371229.0)
 
     # Create equivalent proj-based projection
     proj_proj = ProjProjection(
-        "+proj=lcc +lat_0=55.5 +lon_0=352 +lat_1=55.5 +lat_2=55.5 "
-        "+x_0=0 +y_0=0 +R=6371229 +units=m +no_defs"
+        "+proj=lcc +lat_0=55.5 +lon_0=352 +lat_1=55.5 +lat_2=55.5 +x_0=0 +y_0=0 +R=6371229 +units=m +no_defs"
     )
 
     # Create grids with both projections
     grid_bounds = {
-        'nx': 100,
-        'ny': 100,
-        'lat_range': (39.67, 64.94),
-        'lon_range': (-25.42, 30.71),
+        "nx": 100,
+        "ny": 100,
+        "lat_range": (39.67, 64.94),
+        "lon_range": (-25.42, 30.71),
     }
 
-    original_grid = ProjectionGrid.from_bounds(
-        projection=original_proj,
-        **grid_bounds
-    )
+    original_grid = ProjectionGrid.from_bounds(projection=original_proj, **grid_bounds)
 
-    proj_grid = ProjectionGrid.from_bounds(
-        projection=proj_proj,
-        **grid_bounds
-    )
+    proj_grid = ProjectionGrid.from_bounds(projection=proj_proj, **grid_bounds)
 
     # Test points
     test_points = [
-        (39.671, -25.421997),    # Lower left
+        (39.671, -25.421997),  # Lower left
         (64.943695, 30.711975),  # Upper right
-        (50.0, 0.0),             # Middle-ish
-        (45.0, -10.0),           # Random point
-        (60.0, 20.0),            # Random point
+        (50.0, 0.0),  # Middle-ish
+        (45.0, -10.0),  # Random point
+        (60.0, 20.0),  # Random point
     ]
 
     for lat, lon in test_points:
@@ -782,47 +748,31 @@ def test_grid_equivalence():
         proj_grid_xy = proj_grid.findPointXy(lat=lat, lon=lon)
 
         # Grid coordinates should match exactly
-        assert abs(orig_grid_xy[0] - proj_grid_xy[0]) < 1e-8, \
-            f"Grid X mismatch: {orig_grid_xy[0]} vs {proj_grid_xy[0]}"
-        assert abs(orig_grid_xy[1] - proj_grid_xy[1]) < 1e-8, \
-            f"Grid Y mismatch: {orig_grid_xy[1]} vs {proj_grid_xy[1]}"
+        assert abs(orig_grid_xy[0] - proj_grid_xy[0]) < 1e-8, f"Grid X mismatch: {orig_grid_xy[0]} vs {proj_grid_xy[0]}"
+        assert abs(orig_grid_xy[1] - proj_grid_xy[1]) < 1e-8, f"Grid Y mismatch: {orig_grid_xy[1]} vs {proj_grid_xy[1]}"
 
 
 def test_grid_equivalence_regular_latlon():
     """Test that a proj-based regular lat-lon grid matches the original implementation"""
     # Create a regular lat-lon grid using RegularLatLonGrid
     original_grid = RegularLatLonGrid(
-        lat_start=10.0,
-        lat_steps=100,
-        lat_step_size=0.5,
-        lon_start=-30.0,
-        lon_steps=120,
-        lon_step_size=0.5
+        lat_start=10.0, lat_steps=100, lat_step_size=0.5, lon_start=-30.0, lon_steps=120, lon_step_size=0.5
     )
 
     # Create equivalent proj-based regular lat-lon projection
-    proj_proj = ProjProjection(
-        "+proj=longlat +datum=WGS84 +no_defs"
-    )
+    proj_proj = ProjProjection("+proj=longlat +datum=WGS84 +no_defs")
 
     # Create equivalent grid with the proj projection
-    proj_grid = ProjectionGrid(
-        projection=proj_proj,
-        nx=120,
-        ny=100,
-        origin=(-30.0, 10.0),
-        dx=0.5,
-        dy=0.5
-    )
+    proj_grid = ProjectionGrid(projection=proj_proj, nx=120, ny=100, origin=(-30.0, 10.0), dx=0.5, dy=0.5)
 
     # Test points covering various areas within the grid
     test_points = [
-        (10.0, -30.0),       # Lower left corner
-        (59.5, 29.5),        # Upper right corner
-        (35.0, 0.0),         # Middle-ish
-        (20.0, -15.0),       # Random point
-        (50.0, 20.0),        # Random point
-        (15.25, -25.75),     # Point between grid cells
+        (10.0, -30.0),  # Lower left corner
+        (59.5, 29.5),  # Upper right corner
+        (35.0, 0.0),  # Middle-ish
+        (20.0, -15.0),  # Random point
+        (50.0, 20.0),  # Random point
+        (15.25, -25.75),  # Point between grid cells
     ]
 
     for lat, lon in test_points:
@@ -831,15 +781,16 @@ def test_grid_equivalence_regular_latlon():
         proj_grid_xy = proj_grid.findPointXy(lat=lat, lon=lon)
 
         # Both should find the point or both should not find it
-        assert (orig_grid_xy is None) == (proj_grid_xy is None), \
-            f"Inconsistent point finding for ({lat}, {lon})"
+        assert (orig_grid_xy is None) == (proj_grid_xy is None), f"Inconsistent point finding for ({lat}, {lon})"
 
         # If point is found, coordinates should match exactly
         if orig_grid_xy is not None:
-            assert abs(orig_grid_xy[0] - proj_grid_xy[0]) < 1e-8, \
+            assert abs(orig_grid_xy[0] - proj_grid_xy[0]) < 1e-8, (
                 f"Grid X mismatch: {orig_grid_xy[0]} vs {proj_grid_xy[0]}"
-            assert abs(orig_grid_xy[1] - proj_grid_xy[1]) < 1e-8, \
+            )
+            assert abs(orig_grid_xy[1] - proj_grid_xy[1]) < 1e-8, (
                 f"Grid Y mismatch: {orig_grid_xy[1]} vs {proj_grid_xy[1]}"
+            )
 
         # Test the inverse transformation (getCoordinates)
         if orig_grid_xy is not None:
@@ -848,7 +799,5 @@ def test_grid_equivalence_regular_latlon():
             proj_lat, proj_lon = proj_grid.getCoordinates(x, y)
 
             # Results should match exactly
-            assert abs(orig_lat - proj_lat) < 1e-8, \
-                f"Latitude mismatch: {orig_lat} vs {proj_lat}"
-            assert abs(orig_lon - proj_lon) < 1e-8, \
-                f"Longitude mismatch: {orig_lon} vs {proj_lon}"
+            assert abs(orig_lat - proj_lat) < 1e-8, f"Latitude mismatch: {orig_lat} vs {proj_lat}"
+            assert abs(orig_lon - proj_lon) < 1e-8, f"Longitude mismatch: {orig_lon} vs {proj_lon}"
