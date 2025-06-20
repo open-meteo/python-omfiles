@@ -5,21 +5,21 @@ from omfiles.omfiles_zarr_codecs import PforCodec, PforSerializer
 # Codecs are registered via entry points
 
 # --- Writing ---
-file_path = 'data_with_custom_codec.zarr'
+file_path = "data_with_custom_codec.zarr"
 
 print(f"\n--- Writing to {file_path} ---")
 # Create a zarr group at the specified path
-zarr_group = zarr.open_group(file_path, mode='w')
+zarr_group = zarr.open_group(file_path, mode="w")
 
 # Create a dataset within the zarr group with the custom codec
 z_array = zarr_group.create_array(
-    'my_data',  # Name within the Zarr group
+    "my_data",  # Name within the Zarr group
     shape=(1000, 1000),
     chunks=(1000, 1000),
-    dtype='int16',  # Match the dtype you specified for the codec
+    dtype="int16",  # Match the dtype you specified for the codec
     compressors=PforCodec(),  # Registered codec instance
     serializer=PforSerializer(),  # Registered serializer instance
-    overwrite=True
+    overwrite=True,
 )
 
 # Write random data
@@ -31,10 +31,10 @@ print(f"Data written. Compressors used: {z_array.compressors}")
 # --- Reading ---
 print(f"\n--- Reading from {file_path} ---")
 # Open the zarr group
-zarr_group_read = zarr.open_group(file_path, mode='r')
+zarr_group_read = zarr.open_group(file_path, mode="r")
 
 # Access the specific array
-z_array_read = zarr_group_read['my_data']
+z_array_read = zarr_group_read["my_data"]
 print(f"Accessed Zarr array. Shape: {z_array_read.shape}, Chunks: {z_array_read.chunks}, Dtype: {z_array_read.dtype}")
 print(f"Compressors from metadata: {z_array_read.compressors}")
 

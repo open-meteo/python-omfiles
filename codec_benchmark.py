@@ -12,25 +12,26 @@ from zarr import create_array
 from zarr.storage import LocalStore
 
 delta_config = {
-    'float32': '<f4',
-    'float64': '<f8',
-    'int8': '<i1',
-    'uint8': '<u1',
-    'int16': '<i2',
-    'uint16': '<u2',
-    'int32': '<i4',
-    'uint32': '<u4',
-    'int64': '<i8',
-    'uint64': '<u8'
+    "float32": "<f4",
+    "float64": "<f8",
+    "int8": "<i1",
+    "uint8": "<u1",
+    "int16": "<i2",
+    "uint16": "<u2",
+    "int32": "<i4",
+    "uint32": "<u4",
+    "int64": "<i8",
+    "uint64": "<u8",
 }
 
+
 # Test data generators
-def generate_int_data(shape, dtype, pattern='sequential'):
-    if pattern == 'sequential':
+def generate_int_data(shape, dtype, pattern="sequential"):
+    if pattern == "sequential":
         base = np.arange(np.prod(shape), dtype=dtype).reshape(shape)
-    elif pattern == 'random':
+    elif pattern == "random":
         base = np.random.randint(0, 1000, size=shape, dtype=dtype)
-    elif pattern == 'incremental':
+    elif pattern == "incremental":
         # Data with small differences between adjacent values
         base = np.zeros(shape, dtype=dtype)
         for i in range(shape[0]):
@@ -39,39 +40,41 @@ def generate_int_data(shape, dtype, pattern='sequential'):
         raise ValueError(f"pattern {pattern} not defined")
     return base
 
-def generate_float_data(shape, dtype, pattern='sequential'):
-    if pattern == 'sequential':
+
+def generate_float_data(shape, dtype, pattern="sequential"):
+    if pattern == "sequential":
         base = np.arange(np.prod(shape), dtype=dtype).reshape(shape)
         base = base / 10.0  # Convert to float with decimals
-    elif pattern == 'random':
+    elif pattern == "random":
         base = np.random.random(shape).astype(dtype) * 1000
-    elif pattern == 'incremental':
+    elif pattern == "incremental":
         # Data with small differences between adjacent values
         base = np.zeros(shape, dtype=dtype)
         for i in range(shape[0]):
-            base[i] = np.arange(shape[1], dtype=dtype) / 10.0 + i/10.0
+            base[i] = np.arange(shape[1], dtype=dtype) / 10.0 + i / 10.0
     else:
         raise ValueError(f"pattern {pattern} not defined")
     return base
 
+
 # Codec configurations
 def get_codecs(dtype_name, chunk_shape):
-    chunk_len = int(np.prod(chunk_shape))
     codecs = {
-        'none': None,
-        'pfordelta': PforCodec(),
-        'pfordelta_serializer': PforSerializer(),
-        'pcodec': PCodec(level = 8, mode_spec="auto"),
-        'blosc': Blosc(cname='zstd', clevel=5),
-        'blosc_lz4': Blosc(cname='lz4', clevel=5),
+        "none": None,
+        "pfordelta": PforCodec(),
+        "pfordelta_serializer": PforSerializer(),
+        "pcodec": PCodec(level=8, mode_spec="auto"),
+        "blosc": Blosc(cname="zstd", clevel=5),
+        "blosc_lz4": Blosc(cname="lz4", clevel=5),
     }
 
     return codecs
 
+
 def benchmark_codec(dtype, data_pattern, data_size, tmp_dir):
     """Benchmark a codec with specific data parameters."""
     dtype_name = dtype.__name__
-    is_float = 'float' in dtype_name
+    is_float = "float" in dtype_name
 
     chunk_shape = (min(data_size[0], 1000), min(data_size[1], 100))
     # chunk_shape = (data_size[0], data_size[1])
@@ -117,12 +120,12 @@ def benchmark_codec(dtype, data_pattern, data_size, tmp_dir):
                 fill_value=0,
                 filters=[],
                 compressors=codec,
-                serializer="auto"
+                serializer="auto",
             )
-        else :
+        else:
             filters = [
                 FixedScaleOffset(offset=0, scale=1, dtype=data.dtype, astype=data.dtype),
-                Delta(dtype=data.dtype, astype=data.dtype)
+                Delta(dtype=data.dtype, astype=data.dtype),
             ]
             z = create_array(
                 store,
@@ -131,7 +134,7 @@ def benchmark_codec(dtype, data_pattern, data_size, tmp_dir):
                 dtype=data.dtype,
                 fill_value=0,
                 filters=filters,
-                serializer=codec
+                serializer=codec,
             )
 
         z[:] = data
@@ -151,23 +154,24 @@ def benchmark_codec(dtype, data_pattern, data_size, tmp_dir):
         # Get compression stats
         original_size = data.nbytes
         compressed_size = z.nbytes_stored()
-        compression_ratio = original_size / compressed_size if compressed_size > 0 else float('inf')
+        compression_ratio = original_size / compressed_size if compressed_size > 0 else float("inf")
 
         result = {
-            'codec': codec_name,
-            'dtype': dtype_name,
-            'pattern': data_pattern,
-            'data_shape': data.shape,
-            'original_size': original_size,
-            'compressed_size': compressed_size,
-            'compression_ratio': compression_ratio,
-            'write_time': write_time,
-            'read_time': read_time
+            "codec": codec_name,
+            "dtype": dtype_name,
+            "pattern": data_pattern,
+            "data_shape": data.shape,
+            "original_size": original_size,
+            "compressed_size": compressed_size,
+            "compression_ratio": compression_ratio,
+            "write_time": write_time,
+            "read_time": read_time,
         }
 
         results.append(result)
 
     return results
+
 
 def main():
     tmp_dir = "zarr_codec_benchmark"
@@ -176,12 +180,12 @@ def main():
 
     dtypes = [np.int16, np.uint16, np.int32, np.uint32, np.int64, np.uint64]
     # dtypes = [np.int32, np.uint32, np.int64, np.uint64, np.float32, np.float64]
-    patterns = ['sequential', 'incremental', 'random']
+    patterns = ["sequential", "incremental", "random"]
     sizes = [
         # (3, 10),
         (100, 1000),
         (1000, 100),
-        (10000, 50)
+        (10000, 50),
     ]
 
     all_results = []
@@ -198,13 +202,15 @@ def main():
                 size_str = f"{size[0]}x{size[1]}"
                 print(f"\n{dtype.__name__} - {pattern} - {size_str}:")
                 rows = []
-                for r in sorted(results, key=lambda x: x['codec']):
-                    rows.append([
-                        r['codec'],
-                        f"{r['compression_ratio']:.2f}x",
-                        f"{r['write_time']:.4f}s",
-                        f"{r['read_time']:.4f}s"
-                    ])
+                for r in sorted(results, key=lambda x: x["codec"]):
+                    rows.append(
+                        [
+                            r["codec"],
+                            f"{r['compression_ratio']:.2f}x",
+                            f"{r['write_time']:.4f}s",
+                            f"{r['read_time']:.4f}s",
+                        ]
+                    )
                 print(tabulate(rows, headers=["Codec", "Comp Ratio", "Write Time", "Read Time"], tablefmt="grid"))
                 print()
 
@@ -217,27 +223,34 @@ def main():
         print(f"\n== {dtype_name} Summary ==")
 
         for pattern in patterns:
-            filtered_results = [r for r in all_results if r['dtype'] == dtype_name and r['pattern'] == pattern]
+            filtered_results = [r for r in all_results if r["dtype"] == dtype_name and r["pattern"] == pattern]
             if filtered_results:
                 print(f"\n{pattern.capitalize()} data:")
                 rows = []
-                for r in sorted(filtered_results, key=lambda x: (x['data_shape'], x['codec'])):
+                for r in sorted(filtered_results, key=lambda x: (x["data_shape"], x["codec"])):
                     size_str = f"{r['data_shape'][0]}x{r['data_shape'][1]}"
-                    rows.append([
-                        r['codec'],
-                        size_str,
-                        f"{r['compression_ratio']:.2f}x",
-                        f"{r['compressed_size']:.2f} bytes",
-                        f"{r['write_time']:.4f}s",
-                        f"{r['read_time']:.4f}s"
-                    ])
-                print(tabulate(rows,
-                      headers=["Codec", "Data Size", "Comp Ratio", "Comp Size", "Write Time", "Read Time"],
-                      tablefmt="grid"))
+                    rows.append(
+                        [
+                            r["codec"],
+                            size_str,
+                            f"{r['compression_ratio']:.2f}x",
+                            f"{r['compressed_size']:.2f} bytes",
+                            f"{r['write_time']:.4f}s",
+                            f"{r['read_time']:.4f}s",
+                        ]
+                    )
+                print(
+                    tabulate(
+                        rows,
+                        headers=["Codec", "Data Size", "Comp Ratio", "Comp Size", "Write Time", "Read Time"],
+                        tablefmt="grid",
+                    )
+                )
 
     # Cleanup
     if os.path.exists(tmp_dir):
         shutil.rmtree(tmp_dir)
+
 
 def main_with_profiling():
     profiler = cProfile.Profile()
@@ -249,11 +262,12 @@ def main_with_profiling():
     profiler.disable()
 
     # Print sorted stats
-    stats = pstats.Stats(profiler).sort_stats('cumtime')
+    stats = pstats.Stats(profiler).sort_stats("cumtime")
     stats.print_stats(50)  # Print top 30 time-consuming functions
 
     # Optionally save to file for more detailed analysis
-    stats.dump_stats('benchmark_profile.prof')
+    stats.dump_stats("benchmark_profile.prof")
+
 
 if __name__ == "__main__":
     # main()
