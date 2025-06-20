@@ -47,8 +47,14 @@ cache-keys = [{file = "pyproject.toml"}, {file = "rust/Cargo.toml"}, {file = "**
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 
+[tool.ruff]
+line-length = 120
+exclude = ["omfiles.pyi"]
+
 [tool.ruff.lint]
 unfixable = ["F401"]
+# Add import sorting rules (I-prefixed rules)
+extend-select = ["I"]
 
 [project.entry-points."xarray.backends"]
 om = "omfiles.xarray_backend:OmXarrayEntrypoint"

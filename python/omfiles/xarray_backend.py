@@ -13,6 +13,7 @@ from .omfiles import OmFilePyReader, OmVariable
 # need some special secret attributes to tell us the dimensions
 DIMENSION_KEY = "_ARRAY_DIMENSIONS"
 
+
 class OmXarrayEntrypoint(BackendEntrypoint):
     def guess_can_open(self, filename_or_obj):
         return isinstance(filename_or_obj, str) and filename_or_obj.endswith(".om")
@@ -66,9 +67,9 @@ class OmDataStore(WritableCFDataStore):
         prefix = "" if path == "" or path is None else path + "/"
 
         return {
-            key[len(prefix):]: variable
+            key[len(prefix) :]: variable
             for key, variable in self.variables_store.items()
-            if key.startswith(prefix) and key != path and "/" not in key[len(prefix):]
+            if key.startswith(prefix) and key != path and "/" not in key[len(prefix) :]
         }
 
     def _is_group(self, variable):
@@ -92,7 +93,7 @@ class OmDataStore(WritableCFDataStore):
             if DIMENSION_KEY in attrs:
                 dim_names = attrs[DIMENSION_KEY]
                 if isinstance(dim_names, str):
-                    dimensions.update(dim_names.split(','))
+                    dimensions.update(dim_names.split(","))
                 elif isinstance(dim_names, list):
                     dimensions.update(dim_names)
 
@@ -118,13 +119,13 @@ class OmDataStore(WritableCFDataStore):
                     dim_names = attrs[DIMENSION_KEY]
                     if isinstance(dim_names, str):
                         # Dimensions are stored as a comma-separated string, split them
-                        dim_names = dim_names.split(',')
+                        dim_names = dim_names.split(",")
                 else:
                     # Default to generic dimension names if not specified
                     dim_names = [f"dim{i}" for i in range(len(shape))]
 
                 # Check if this variable is itself a dimension variable
-                variable_name = k.split('/')[-1]  # Get the actual name without parent path
+                variable_name = k.split("/")[-1]  # Get the actual name without parent path
 
                 # If this variable is a 1D array and its name matches a dimension name, use its own name
                 if len(shape) == 1 and variable_name in self._get_known_dimensions():
