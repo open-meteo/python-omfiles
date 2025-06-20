@@ -80,20 +80,22 @@ class ZarrReader(BaseReader):
 
 
 class TensorStoreZarrReader(BaseReader):
-    ts_reader: ts.TensorStore # type: ignore
+    ts_reader: ts.TensorStore  # type: ignore
 
     def __init__(self, filename: str):
         super().__init__(filename)
         # Open the Zarr file using TensorStore
-        self.ts_reader = ts.open({ # type: ignore
-            'driver': 'zarr',
-            'kvstore': {
-                'driver': 'file',
-                'path': str(self.filename),
-            },
-            'path': 'arr_0',
-            'open': True,
-        }).result()
+        self.ts_reader = ts.open(
+            {  # type: ignore
+                "driver": "zarr",
+                "kvstore": {
+                    "driver": "file",
+                    "path": str(self.filename),
+                },
+                "path": "arr_0",
+                "open": True,
+            }
+        ).result()
 
     def read(self, index: BasicSelection) -> np.ndarray:
         return self.ts_reader[index].read().result()

@@ -208,8 +208,8 @@ mod tests {
         Python::with_gil(|py| {
             // Test basic slicing
             let slice = PySlice::new(py, 1, 5, 1);
-            let single_slice_tuple = pyo3::types::PyTuple::new(py, &[slice.as_ref()]).unwrap();
-            let slice_index = ArrayIndex::extract_bound(single_slice_tuple.as_ref()).unwrap();
+            let single_slice_tuple = pyo3::types::PyTuple::new(py, [&slice]).unwrap();
+            let slice_index = ArrayIndex::extract_bound(&single_slice_tuple).unwrap();
             match &slice_index.0[0] {
                 IndexType::Slice { start, stop, step } => {
                     assert_eq!(*start, Some(1));
@@ -221,8 +221,8 @@ mod tests {
 
             // Test integer indexing
             let int_value = 42i64.into_pyobject(py).unwrap();
-            let single_int_tuple = pyo3::types::PyTuple::new(py, &[int_value.as_ref()]).unwrap();
-            let int_index = ArrayIndex::extract_bound(single_int_tuple.as_ref()).unwrap();
+            let single_int_tuple = pyo3::types::PyTuple::new(py, [&int_value]).unwrap();
+            let int_index = ArrayIndex::extract_bound(&single_int_tuple).unwrap();
             match int_index.0[0] {
                 IndexType::Int(val) => assert_eq!(val, 42),
                 _ => panic!("Expected Int type"),
@@ -230,8 +230,8 @@ mod tests {
 
             // Test None (NewAxis)
             let none_value = py.None();
-            let single_none_tuple = pyo3::types::PyTuple::new(py, &[none_value]).unwrap();
-            let none_index = ArrayIndex::extract_bound(single_none_tuple.as_ref()).unwrap();
+            let single_none_tuple = pyo3::types::PyTuple::new(py, [&none_value]).unwrap();
+            let none_index = ArrayIndex::extract_bound(&single_none_tuple).unwrap();
             match none_index.0[0] {
                 IndexType::NewAxis => (),
                 _ => panic!("Expected NewAxis type"),
@@ -240,14 +240,14 @@ mod tests {
             // Test combination of different types
             let mixed_tuple = pyo3::types::PyTuple::new(
                 py,
-                &[
-                    slice.as_ref(),                            // slice
-                    42i64.into_pyobject(py).unwrap().as_ref(), // integer
-                    py.None().bind(py),                        // NewAxis
+                [
+                    &slice.into_any(),                            // slice
+                    &42i64.into_pyobject(py).unwrap().into_any(), // integer
+                    py.None().bind(py),                           // NewAxis
                 ],
             )
             .unwrap();
-            let mixed_index = ArrayIndex::extract_bound(mixed_tuple.as_ref()).unwrap();
+            let mixed_index = ArrayIndex::extract_bound(&mixed_tuple).unwrap();
 
             // Verify the types in order
             match &mixed_index.0[0] {
@@ -271,8 +271,8 @@ mod tests {
 
             // Test slice with None values (open-ended slices)
             let open_slice = PySlice::full(py);
-            let open_slice_tuple = pyo3::types::PyTuple::new(py, &[open_slice.as_ref()]).unwrap();
-            let open_slice_index = ArrayIndex::extract_bound(open_slice_tuple.as_ref()).unwrap();
+            let open_slice_tuple = pyo3::types::PyTuple::new(py, [&open_slice]).unwrap();
+            let open_slice_index = ArrayIndex::extract_bound(&open_slice_tuple).unwrap();
             match &open_slice_index.0[0] {
                 IndexType::Slice { start, stop, step } => {
                     assert_eq!(*start, None);
@@ -293,8 +293,8 @@ mod tests {
 
             // Test negative integer index
             let neg_idx = (-2i64).into_pyobject(py).unwrap();
-            let neg_tuple = pyo3::types::PyTuple::new(py, &[neg_idx.as_ref()]).unwrap();
-            let index = ArrayIndex::extract_bound(neg_tuple.as_ref()).unwrap();
+            let neg_tuple = pyo3::types::PyTuple::new(py, [&neg_idx]).unwrap();
+            let index = ArrayIndex::extract_bound(&neg_tuple).unwrap();
             let ranges = index
                 .to_read_range(&shape)
                 .expect("Could not convert to read_range!");
@@ -302,8 +302,8 @@ mod tests {
 
             // Test negative slice indices
             let slice = PySlice::new(py, -3, -1, 1);
-            let slice_tuple = pyo3::types::PyTuple::new(py, &[slice.as_ref()]).unwrap();
-            let index = ArrayIndex::extract_bound(slice_tuple.as_ref()).unwrap();
+            let slice_tuple = pyo3::types::PyTuple::new(py, [&slice]).unwrap();
+            let index = ArrayIndex::extract_bound(&slice_tuple).unwrap();
             let ranges = index
                 .to_read_range(&shape)
                 .expect("Could not convert to read_range!");
@@ -319,14 +319,11 @@ mod tests {
         Python::with_gil(|py| {
             let shape = vec![2, 3, 4, 5];
             let ellipsis = pyo3::types::PyEllipsis::get(py).into_any();
+            let integer = 1i64.into_pyobject(py).unwrap().into_any();
 
             // Test ..., 1
-            let tuple = pyo3::types::PyTuple::new(
-                py,
-                &[&ellipsis, 1i64.into_pyobject(py).unwrap().as_ref()],
-            )
-            .unwrap();
-            let index = ArrayIndex::extract_bound(tuple.as_ref()).unwrap();
+            let tuple = pyo3::types::PyTuple::new(py, [&ellipsis, &integer]).unwrap();
+            let index = ArrayIndex::extract_bound(&tuple).unwrap();
             let ranges = index.to_read_range(&shape).unwrap();
             assert_eq!(ranges.len(), 4);
             assert_eq!(ranges[0], Range { start: 0, end: 2 });
@@ -337,14 +334,14 @@ mod tests {
             // Test 1, ..., 2
             let tuple = pyo3::types::PyTuple::new(
                 py,
-                &[
-                    1i64.into_pyobject(py).unwrap().as_ref(),
+                [
+                    &1i64.into_pyobject(py).unwrap().into_any(),
                     &ellipsis,
-                    2i64.into_pyobject(py).unwrap().as_ref(),
+                    &2i64.into_pyobject(py).unwrap().into_any(),
                 ],
             )
             .unwrap();
-            let index = ArrayIndex::extract_bound(tuple.as_ref()).unwrap();
+            let index = ArrayIndex::extract_bound(&tuple).unwrap();
             let ranges = index.to_read_range(&shape).unwrap();
 
             assert_eq!(ranges.len(), 4);
@@ -364,9 +361,9 @@ mod tests {
             let invalid_value = "not_an_index"
                 .into_pyobject(py)
                 .expect("Failed to create object");
-            let invalid_tuple = pyo3::types::PyTuple::new(py, &[invalid_value.as_ref()])
-                .expect("Failed to create tuple");
-            let _should_fail = ArrayIndex::extract_bound(invalid_tuple.as_ref()).unwrap();
+            let invalid_tuple =
+                pyo3::types::PyTuple::new(py, [&invalid_value]).expect("Failed to create tuple");
+            let _should_fail = ArrayIndex::extract_bound(&invalid_tuple).unwrap();
         });
     }
 
@@ -378,8 +375,8 @@ mod tests {
         Python::with_gil(|py| {
             let shape = vec![5];
             let neg_idx = (-6i64).into_pyobject(py).unwrap();
-            let neg_tuple = pyo3::types::PyTuple::new(py, &[neg_idx.as_ref()]).unwrap();
-            let index = ArrayIndex::extract_bound(neg_tuple.as_ref()).unwrap();
+            let neg_tuple = pyo3::types::PyTuple::new(py, [&neg_idx]).unwrap();
+            let index = ArrayIndex::extract_bound(&neg_tuple).unwrap();
             let _should_fail = index.to_read_range(&shape).unwrap();
         });
     }
@@ -392,8 +389,8 @@ mod tests {
         Python::with_gil(|py| {
             let shape = vec![5];
             let neg_idx = (-6i64).into_pyobject(py).unwrap();
-            let neg_tuple = pyo3::types::PyTuple::new(py, &[neg_idx.as_ref()]).unwrap();
-            let index = ArrayIndex::extract_bound(neg_tuple.as_ref()).unwrap();
+            let neg_tuple = pyo3::types::PyTuple::new(py, [&neg_idx]).unwrap();
+            let index = ArrayIndex::extract_bound(&neg_tuple).unwrap();
             let _should_fail = index.to_read_range(&shape).unwrap();
         });
     }

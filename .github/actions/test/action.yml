@@ -22,7 +22,15 @@ runs:
   using: "composite"
   steps:
     - uses: actions/checkout@v4
-    - uses: actions/setup-python@v5
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v5
+      with:
+        version: "0.7.13"
+        enable-cache: ${{ inputs.is-musl != 'true' && 'true' || 'false' }}
+
+    - name: "Set up Python"
+      uses: actions/setup-python@v5
       with:
         python-version: ${{ inputs.python-version }}
 
@@ -35,37 +43,36 @@ runs:
     # Regular tests (non-musl platforms)
     - name: Run regular tests
       if: ${{ inputs.test-type == 'standard' && inputs.is-musl != 'true' }}
+      shell: bash
       run: |
         WHEEL_PATH=$(ls dist/*.whl)
-        python -m pip install --force-reinstall "$WHEEL_PATH[test]"
-        pytest tests/
-      shell: bash
+        uv venv
+        uv sync --no-install-project --group=dev
+        uv pip install --force-reinstall "$WHEEL_PATH"
+        uv run --no-sync pytest tests/
 
     # Musl tests
     - name: Run musl tests
       if: ${{ inputs.test-type == 'standard' && inputs.is-musl == 'true' }}
       uses: addnab/docker-run-action@v3
       with:
-        image: alpine:latest
+        image: ghcr.io/astral-sh/uv:0.7.13-alpine
         options: -v ${{ github.workspace }}:/io -w /io
         run: |
           apk add python3 py3-pip py3-psutil gcc python3-dev musl-dev linux-headers
-          python -m venv .venv
-          source .venv/bin/activate
-          pip install --upgrade pip
           WHEEL_PATH=$(ls dist/*.whl)
-          pip install --force-reinstall "$WHEEL_PATH[test]"
-          pytest tests/
+          uv venv
+          uv sync --no-install-project --group=dev
+          uv pip install --force-reinstall "$WHEEL_PATH"
+          uv run --no-sync pytest tests/
 
     # Minimum dependencies test
     - name: Run tests with minimum dependencies
       if: ${{ inputs.test-type == 'min_deps' }}
+      shell: bash
       run: |
         WHEEL_PATH=$(ls dist/*.whl)
-        python -m pip install --force-reinstall "$WHEEL_PATH[test]" \
-          "numpy==1.21.0" \
-          "fsspec==2023.1.0" \
-          "s3fs==2023.1.0" \
-          "xarray==2023.1.0"
-        pytest tests/ -v
-      shell: bash
+        uv venv
+        uv sync --no-install-project --group=dev
+        uv pip install --force-reinstall "$WHEEL_PATH"
+        uv run --no-sync pytest tests/

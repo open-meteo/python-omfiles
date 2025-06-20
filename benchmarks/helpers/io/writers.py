@@ -47,7 +47,8 @@ class HDF5Writer(BaseWriter):
 class ZarrWriter(BaseWriter):
     def write(self, data: NDArrayLike, chunk_size: Tuple[int, ...]) -> None:
         import numcodecs
-        compressors = numcodecs.Blosc(cname='zstd', clevel=3, shuffle=numcodecs.Blosc.BITSHUFFLE)
+
+        compressors = numcodecs.Blosc(cname="zstd", clevel=3, shuffle=numcodecs.Blosc.BITSHUFFLE)
         # zarr.create_array(str(self.filename), name="arr_0", data=data, chunks=chunk_size, compressors=compressors, zarr_format=2, overwrite=True)
         root = zarr.open(str(self.filename), mode="w", zarr_format=2)
         # Ensure root is a Group and not an Array (for type checker)
