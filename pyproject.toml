@@ -18,27 +18,31 @@ dependencies = [
     "xarray>=2023.1.0",
 ]
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
     "pytest>=6.1",
     "pytest-asyncio",
     "psutil",
+    "maturin>=1.7,<2.0"
+]
+bench = [
     "hidefix",
     "h5py",
     "netCDF4",
     "zarr",
     "tensorstore",
 ]
-test = [
-    "pytest>=6.1",
-    "pytest-asyncio",
-    "psutil",
-]
 
 [tool.maturin]
 python-source = "python"             # Python source code is in the `python` directory
 bindings = "pyo3"                    # pyo3 bindings is actually the default for maturin
 features = ["pyo3/extension-module"] # Define extension module in pyproject.toml instead of Cargo.toml to not mess with `cargo test`
+
+[tool.uv]
+# Rebuild package when any rust files change
+cache-keys = [{file = "pyproject.toml"}, {file = "rust/Cargo.toml"}, {file = "**/*.rs"}]
+# Uncomment to build rust code in development mode
+# config-settings = { build-args = '--profile=dev' }
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

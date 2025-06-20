@@ -129,15 +129,14 @@ writer.close(root_var)
 ## Development
 
 ```bash
-# setup python virtual environment with pyenv
-python -m venv .venv
-source .venv/bin/activate
-# To always activate this environment in this directory run `pyenv local pyo3`
-pip install maturin
-
-maturin develop --extras=dev
-# if you encounter an error:  Both VIRTUAL_ENV and CONDA_PREFIX are set. Please unset one of them
-unset CONDA_PREFIX
+# install the required dependencies in .venv directory
+uv sync
+# to run the tests
+uv run pytest tests/
+# to build the wheels
+uv run build
+# or to trigger maturin directly:
+# maturin develop
 ```
 
 ### Tests
@@ -149,7 +148,7 @@ cargo test
 runs rust tests.
 
 ```bash
-pytest tests/
+uv run pytest tests/
 ```
 
 runs Python tests.
@@ -173,5 +172,5 @@ maturin develop --release
 Then run the benchmarks:
 
 ```bash
-python benchmarks/main.py
+uv run benchmarks/main.py
 ```
