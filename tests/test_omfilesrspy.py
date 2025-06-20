@@ -2,6 +2,7 @@ import tempfile
 
 import numpy as np
 import omfiles
+import pytest
 
 
 def test_write_om_roundtrip(temp_om_file):
@@ -67,12 +68,7 @@ def test_write_hierarchical_file(empty_temp_om_file):
     writer = omfiles.OmFilePyWriter(empty_temp_om_file)
 
     # Write child2 array
-    child2_var = writer.write_array(
-        child2_data,
-        chunks=[1, 1],
-        name="child2",
-        scale_factor=100000.0
-    )
+    child2_var = writer.write_array(child2_data, chunks=[1, 1], name="child2", scale_factor=100000.0)
 
     # Write attributes and get their variables
     meta1_var = writer.write_scalar(42.0, name="metadata1")
@@ -81,20 +77,12 @@ def test_write_hierarchical_file(empty_temp_om_file):
 
     # Write child1 array with attribute children
     child1_var = writer.write_array(
-        child1_data,
-        chunks=[2, 2],
-        name="child1",
-        scale_factor=100000.0,
-        children=[meta1_var, meta2_var, meta3_var]
+        child1_data, chunks=[2, 2], name="child1", scale_factor=100000.0, children=[meta1_var, meta2_var, meta3_var]
     )
 
     # Write root array with children
     root_var = writer.write_array(
-        root_data,
-        chunks=[5, 5],
-        name="root",
-        scale_factor=100000.0,
-        children=[child1_var, child2_var]
+        root_data, chunks=[5, 5], name="root", scale_factor=100000.0, children=[child1_var, child2_var]
     )
 
     # Finalize the file
@@ -137,6 +125,36 @@ def test_write_hierarchical_file(empty_temp_om_file):
     child1_reader.close()
     child2_reader.close()
     metadata_reader.close()
+
+
+@pytest.mark.asyncio
+async def test_read_concurrent(temp_om_file):
+    """Test the concurrent reading functionality of OmFilePyReader."""
+    reader = await omfiles.OmFilePyReaderAsync.from_path(temp_om_file)
+
+    # Test basic concurrent read
+    data = await reader.read_concurrent((slice(0, 5), ...))
+    assert data.shape == (5, 5)
+    assert data.dtype == np.float32
+    np.testing.assert_array_equal(
+        data,
+        [
+            [0.0, 1.0, 2.0, 3.0, 4.0],
+            [5.0, 6.0, 7.0, 8.0, 9.0],
+            [10.0, 11.0, 12.0, 13.0, 14.0],
+            [15.0, 16.0, 17.0, 18.0, 19.0],
+            [20.0, 21.0, 22.0, 23.0, 24.0],
+        ],
+    )
+
+    reader.close()
+    # Test read_concurrent with a closed reader
+    try:
+        _ = await reader.read_concurrent((slice(0, 5), ...))
+        assert False, "Expected ValueError when reading from closed reader"
+    except ValueError as e:
+        assert "closed" in str(e).lower()
+
 
 def test_reader_close(temp_om_file):
     reader = omfiles.OmFilePyReader(temp_om_file)

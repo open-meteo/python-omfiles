@@ -2,7 +2,6 @@ use numpy::{
     ndarray, IntoPyArray, PyArray1, PyArrayDescr, PyArrayDescrMethods, PyArrayDyn, PyArrayMethods,
     PyUntypedArray, PyUntypedArrayMethods,
 };
-use om_file_format_sys::OmDataType_t;
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;

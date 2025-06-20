@@ -1,10 +1,9 @@
 # Python bindings for Open Meteo file format
 
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![PyPI version](https://badge.fury.io/py/omfiles.svg)](https://pypi.org/project/omfiles/)
-[![Build and Test](https://github.com/terraputix/omfilesrspy/actions/workflows/build-test.yml/badge.svg)](https://github.com/terraputix/omfilesrspy/actions/workflows/build-test.yml)
+[![Build and Test](https://github.com/open-meteo/python-omfiles/actions/workflows/build-test.yml/badge.svg)](https://github.com/open-meteo/python-omfiles/actions/workflows/build-test.yml)
 [![Project Status: WIP – Initial development is in progress, but there has not yet been a stable, usable release suitable for the public.](https://www.repostatus.org/badges/latest/wip.svg)](https://www.repostatus.org/#wip)
-[![Publish](https://github.com/terraputix/omfilesrspy/actions/workflows/publish.yml/badge.svg)](https://github.com/terraputix/omfilesrspy/actions/workflows/publish.yml)
 
 ## Installation
 
@@ -130,21 +129,36 @@ writer.close(root_var)
 ## Development
 
 ```bash
-# setup python virtual environment with pyenv
-python -m venv .venv
-source .venv/bin/activate
-# To always activate this environment in this directory run `pyenv local pyo3`
-pip install maturin
-
-maturin develop --extras=dev
-# if you encounter an error:  Both VIRTUAL_ENV and CONDA_PREFIX are set. Please unset one of them
-unset CONDA_PREFIX
+# install the required dependencies in .venv directory
+uv sync
+# to run the tests
+uv run pytest tests/
+# to build the wheels
+uv run build
+# or to trigger maturin directly:
+# maturin develop
 ```
 
 ### Tests
 
 ```bash
-cargo test --no-default-features
+cargo test
+```
+
+runs rust tests.
+
+```bash
+uv run pytest tests/
+```
+
+runs Python tests.
+
+### Python Type Stubs
+
+Can be generated from the rust doc comments via
+
+```bash
+cargo run stub_gen
 ```
 
 ## Benchmarks
@@ -158,5 +172,5 @@ maturin develop --release
 Then run the benchmarks:
 
 ```bash
-python benchmarks/main.py
+uv run benchmarks/main.py
 ```

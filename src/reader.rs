@@ -1,10 +1,13 @@
 use crate::{
     array_index::ArrayIndex, data_type::get_numpy_dtype, errors::convert_omfilesrs_error,
-    fsspec_backend::FsSpecBackend, hierarchy::OmVariable,
+    fsspec_backend::FsSpecBackend, hierarchy::OmVariable, typed_array::OmFileTypedArray,
 };
 use delegate::delegate;
 use num_traits::Zero;
-use numpy::{Element, IntoPyArray, PyArrayDescr, PyArrayMethods, PyUntypedArray};
+use numpy::{
+    ndarray::{self},
+    Element, PyArrayDescr,
+};
 use omfiles_rs::{
     backend::{
         backends::OmFileReaderBackend,
@@ -14,28 +17,68 @@ use omfiles_rs::{
     io::reader::OmFileReader,
 };
 use pyo3::{prelude::*, BoundObject};
+use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
 use std::{
     collections::HashMap,
     fs::File,
+    ops::Range,
     sync::{Arc, RwLock},
 };
 
-#[pyclass]
+/// An OmFilePyReader class for reading .om files.
+///
+/// A reader object can have an arbitrary number of child readers, each representing
+/// a multidimensional variable or a scalar variable (an attribute). Thus, this class
+/// implements a tree-like structure for multi-dimensional data access.
+///
+/// Variables in OM-Files do not have named dimensions! That means you have to know
+/// what the dimensions represent in advance or you need to explicitly encode them as
+/// some kind of attribute.
+///
+/// Most likely we will adopt the xarray convention which is implemented for zarr
+/// which requires multi-dimensional variables to have an attribute called
+/// _ARRAY_DIMENSIONS that contains a list of dimension names.
+/// These dimension names should be encoded somewhere in the .om file hierarchy
+/// as attributes.
+///
+/// Therefore, it might be useful to differentiate in some way between
+/// hdf5-like groups and datasets/n-dim arrays in an om-file.
+///
+/// Group: Can contain datasets/arrays, attributes, and other groups.
+/// Dataset: Data-array, might have associated attributes.
+/// Attribute: A named data value associated with a group or dataset.
+#[gen_stub_pyclass]
+#[pyclass(module = "omfiles.omfiles")]
 pub struct OmFilePyReader {
     /// The reader is stored in an Option to be able to properly close it,
     /// particularly when working with memory-mapped files.
     /// The RwLock is used to allow multiple readers to access the reader
     /// concurrently, but only one writer to close it.
     reader: RwLock<Option<OmFileReader<BackendImpl>>>,
+    /// Get the shape of the data stored in the .om file.
+    ///
+    /// Returns
+    /// -------
+    /// list
+    ///     List containing the dimensions of the data
     #[pyo3(get)]
     shape: Vec<u64>,
 }
 
-unsafe impl Send for OmFilePyReader {}
-unsafe impl Sync for OmFilePyReader {}
-
+#[gen_stub_pymethods]
 #[pymethods]
 impl OmFilePyReader {
+    /// Initialize an OmFilePyReader from a file path or fsspec file object.
+    ///
+    /// Parameters
+    /// ----------
+    /// source : str or fsspec.core.OpenFile
+    ///     Path to the .om file to read or a fsspec file object
+    ///
+    /// Raises
+    /// ------
+    /// ValueError
+    ///     If the file cannot be opened or is invalid
     #[new]
     fn new(source: PyObject) -> PyResult<Self> {
         Python::with_gil(|py| {
@@ -44,18 +87,31 @@ impl OmFilePyReader {
                 Self::from_path(&path)
             } else {
                 let obj = source.bind(py);
-                if obj.hasattr("read")? && obj.hasattr("seek")? && obj.hasattr("fs")? {
+                if obj.hasattr("path")? && obj.hasattr("fs")? {
+                    let fs = obj.getattr("fs")?.unbind();
+                    let path = obj.getattr("path")?.extract::<String>()?;
                     // If source has fsspec-like attributes, treat it as a fsspec file object
-                    Self::from_fsspec(source)
+                    Self::from_fsspec(fs, path)
                 } else {
                     Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
-                        "Input must be either a file path string or a fsspec file object",
+                        "Input must be either a file path string or an fsspec.core.OpenFile object",
                     ))
                 }
             }
         })
     }
 
+    /// Create an OmFilePyReader from a file path.
+    ///
+    /// Parameters
+    /// ----------
+    /// file_path : str
+    ///     Path to the .om file to read
+    ///
+    /// Returns
+    /// -------
+    /// OmFilePyReader
+    ///     OmFilePyReader instance
     #[staticmethod]
     fn from_path(file_path: &str) -> PyResult<Self> {
         let file_handle = File::open(file_path)
@@ -70,21 +126,31 @@ impl OmFilePyReader {
         })
     }
 
+    /// Create an OmFilePyReader from a fsspec fs object.
+    ///
+    /// Parameters
+    /// ----------
+    /// fs_obj : fsspec.spec.AbstractFileSystem
+    ///     A fsspec file system object which needs to have the methods `cat_file` and `size`.
+    /// path : str
+    ///     The path to the file within the file system.
+    ///
+    /// Returns
+    /// -------
+    /// OmFilePyReader
+    ///     A new reader instance
     #[staticmethod]
-    fn from_fsspec(file_obj: PyObject) -> PyResult<Self> {
+    fn from_fsspec(fs_obj: PyObject, path: String) -> PyResult<Self> {
         Python::with_gil(|py| {
-            let bound_object = file_obj.bind(py);
+            let bound_object = fs_obj.bind(py);
 
-            if !bound_object.hasattr("read")?
-                || !bound_object.hasattr("seek")?
-                || !bound_object.hasattr("fs")?
-            {
+            if !bound_object.hasattr("cat_file")? || !bound_object.hasattr("size")? {
                 return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
                         "Input must be a valid fsspec file object with read, seek methods and fs attribute",
                     ));
             }
 
-            let backend = BackendImpl::FsSpec(FsSpecBackend::new(file_obj)?);
+            let backend = BackendImpl::FsSpec(FsSpecBackend::new(fs_obj, path)?);
             let reader = OmFileReader::new(Arc::new(backend)).map_err(convert_omfilesrs_error)?;
             let shape = get_shape_vec(&reader);
 
@@ -95,6 +161,12 @@ impl OmFilePyReader {
         })
     }
 
+    /// Get a mapping of variable names to their file offsets and sizes.
+    ///
+    /// Returns
+    /// -------
+    /// dict
+    ///     Dictionary mapping variable names to their metadata
     fn get_flat_variable_metadata(&self) -> PyResult<HashMap<String, OmVariable>> {
         self.with_reader(|reader| {
             let metadata = reader.get_flat_variable_metadata();
@@ -114,6 +186,17 @@ impl OmFilePyReader {
         })
     }
 
+    /// Initialize a new OmFilePyReader from a child variable.
+    ///
+    /// Parameters
+    /// ----------
+    /// variable : OmVariable
+    ///     Variable metadata to create a new reader from
+    ///
+    /// Returns
+    /// -------
+    /// OmFilePyReader
+    ///     A new reader for the specified variable
     fn init_from_variable(&self, variable: OmVariable) -> PyResult<Self> {
         self.with_reader(|reader| {
             let child_reader = reader
@@ -128,11 +211,36 @@ impl OmFilePyReader {
         })
     }
 
-    // Context manager methods
+    /// Enter a context manager block.
+    ///
+    /// Returns
+    /// -------
+    /// OmFilePyReader
+    ///     Self for use in context manager
+    ///
+    /// Raises
+    /// ------
+    /// ValueError
+    ///     If the reader is already closed
     fn __enter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
         slf
     }
 
+    /// Exit a context manager block, closing the reader.
+    ///
+    /// Parameters
+    /// ----------
+    /// _exc_type : type, optional
+    ///     The exception type, if an exception was raised
+    /// _exc_value : Exception, optional
+    ///     The exception value, if an exception was raised
+    /// _traceback : traceback, optional
+    ///     The traceback, if an exception was raised
+    ///
+    /// Returns
+    /// -------
+    /// bool
+    ///     False (exceptions are not suppressed)
     #[pyo3(signature = (_exc_type=None, _exc_value=None, _traceback=None))]
     fn __exit__(
         &self,
@@ -144,6 +252,12 @@ impl OmFilePyReader {
         Ok(false)
     }
 
+    /// Check if the reader is closed.
+    ///
+    /// Returns
+    /// -------
+    /// bool
+    ///     True if the reader is closed, False otherwise
     #[getter]
     fn closed(&self) -> PyResult<bool> {
         let guard = self.reader.try_read().map_err(|e| {
@@ -153,6 +267,12 @@ impl OmFilePyReader {
         Ok(guard.is_none())
     }
 
+    /// Close the reader and release resources.
+    ///
+    /// This method releases all resources associated with the reader.
+    /// After closing, any operation on the reader will raise a ValueError.
+    ///
+    /// It is safe to call this method multiple times.
     fn close(&self) -> PyResult<()> {
         // Need write access to take the reader
         let mut guard = self.reader.try_write().map_err(|e| {
@@ -178,6 +298,12 @@ impl OmFilePyReader {
         Ok(())
     }
 
+    /// Check if the variable is a scalar.
+    ///
+    /// Returns
+    /// -------
+    /// bool
+    ///     True if the variable is a scalar, False otherwise
     #[getter]
     fn is_scalar(&self) -> PyResult<bool> {
         self.with_reader(|reader| {
@@ -186,57 +312,71 @@ impl OmFilePyReader {
         })
     }
 
+    /// Check if the variable is a group (a variable with data type None).
+    ///
+    /// Returns
+    /// -------
+    /// bool
+    ///     True if the variable is a group, False otherwise
     #[getter]
     fn is_group(&self) -> PyResult<bool> {
         self.with_reader(|reader| Ok(reader.data_type() == DataType::None))
     }
 
+    /// Get the data type of the data stored in the .om file.
+    ///
+    /// Returns
+    /// -------
+    /// numpy.dtype
+    ///     Numpy data type of the data
     #[getter]
     fn dtype<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyArrayDescr>> {
         self.with_reader(|reader| get_numpy_dtype(py, &reader.data_type()))
     }
 
+    /// Get the name of the variable stored in the .om file.
+    ///
+    /// Returns
+    /// -------
+    /// str
+    ///     Name of the variable or an empty string if not available
     #[getter]
     fn name(&self) -> PyResult<String> {
         self.with_reader(|reader| Ok(reader.get_name().unwrap_or("".to_string())))
     }
 
-    #[getter]
-    fn chunk_dimensions(&self) -> PyResult<Vec<u64>> {
-        self.with_reader(|reader| {
-            let dtype = reader.data_type();
-            if dtype == DataType::None {
-                // "groups"
-                return Ok(vec![]);
-            } else if (dtype as u8) < (DataType::Int8Array as u8) {
-                // scalars
-                return Ok(vec![]);
-            }
-            Ok(reader.get_chunk_dimensions().to_vec())
-        })
-    }
-
-    #[getter]
-    fn scale_factor(&self) -> PyResult<f32> {
-        self.with_reader(|reader| Ok(reader.scale_factor()))
-    }
-
-    #[getter]
-    fn add_offset(&self) -> PyResult<f32> {
-        self.with_reader(|reader| Ok(reader.add_offset()))
-    }
-
-    fn get_complete_lut(&self) -> PyResult<Vec<u64>> {
-        let lut =
-            self.with_reader(|reader| reader.get_complete_lut().map_err(convert_omfilesrs_error))?;
-        Ok(lut)
-    }
-
-    fn __getitem__<'py>(
-        &self,
-        py: Python<'py>,
-        ranges: ArrayIndex,
-    ) -> PyResult<Bound<'py, PyUntypedArray>> {
+    /// Read data from the open variable.om file using numpy-style indexing.
+    /// Currently only slices with step 1 are supported.
+    ///
+    /// The returned array will have singleton dimensions removed (squeezed).
+    /// For example, if you index a 3D array with [1,:,2], the result will
+    /// be a 1D array since dimensions 0 and 2 have size 1.
+    ///
+    /// Parameters
+    /// ----------
+    /// ranges : array-like
+    ///     Index expression that can be either a single slice/integer
+    ///     or a tuple of slices/integers for multi-dimensional access.
+    ///     Supports NumPy basic indexing including:
+    ///     - Integers (e.g., a[1,2])
+    ///     - Slices (e.g., a[1:10])
+    ///     - Ellipsis (...)
+    ///     - None/newaxis
+    ///
+    /// Returns
+    /// -------
+    /// ndarray
+    ///     NDArray containing the requested data with squeezed singleton dimensions.
+    ///     The data type of the array matches the data type stored in the file
+    ///     (int8, uint8, int16, uint16, int32, uint32, int64, uint64, float32, or float64).
+    ///
+    /// Raises
+    /// ------
+    /// ValueError
+    ///     If the requested ranges are invalid or if there's an error reading the data
+    fn __getitem__<'py>(&self, ranges: ArrayIndex) -> PyResult<OmFileTypedArray> {
+        let io_size_max = None;
+        let io_size_merge = None;
         let read_ranges = ranges.to_read_range(&self.shape)?;
 
         self.with_reader(|reader| {
@@ -259,16 +399,96 @@ impl OmFilePyReader {
                 DataType::Float => Err(scalar_error),
                 DataType::Double => Err(scalar_error),
                 DataType::String => Err(scalar_error),
-                DataType::Int8Array => read_untyped_array::<i8>(&reader, read_ranges, py),
-                DataType::Uint8Array => read_untyped_array::<u8>(&reader, read_ranges, py),
-                DataType::Int16Array => read_untyped_array::<i16>(&reader, read_ranges, py),
-                DataType::Uint16Array => read_untyped_array::<u16>(&reader, read_ranges, py),
-                DataType::Int32Array => read_untyped_array::<i32>(&reader, read_ranges, py),
-                DataType::Uint32Array => read_untyped_array::<u32>(&reader, read_ranges, py),
-                DataType::Int64Array => read_untyped_array::<i64>(&reader, read_ranges, py),
-                DataType::Uint64Array => read_untyped_array::<u64>(&reader, read_ranges, py),
-                DataType::FloatArray => read_untyped_array::<f32>(&reader, read_ranges, py),
-                DataType::DoubleArray => read_untyped_array::<f64>(&reader, read_ranges, py),
+                DataType::Int8Array => {
+                    let array = read_squeezed_typed_array::<i8>(
+                        &reader,
+                        &read_ranges,
+                        io_size_max,
+                        io_size_merge,
+                    )?;
+                    Ok(OmFileTypedArray::Int8(array))
+                }
+                DataType::Uint8Array => {
+                    let array = read_squeezed_typed_array::<u8>(
+                        &reader,
+                        &read_ranges,
+                        io_size_max,
+                        io_size_merge,
+                    )?;
+                    Ok(OmFileTypedArray::Uint8(array))
+                }
+                DataType::Int16Array => {
+                    let array = read_squeezed_typed_array::<i16>(
+                        &reader,
+                        &read_ranges,
+                        io_size_max,
+                        io_size_merge,
+                    )?;
+                    Ok(OmFileTypedArray::Int16(array))
+                }
+                DataType::Uint16Array => {
+                    let array = read_squeezed_typed_array::<u16>(
+                        &reader,
+                        &read_ranges,
+                        io_size_max,
+                        io_size_merge,
+                    )?;
+                    Ok(OmFileTypedArray::Uint16(array))
+                }
+                DataType::Int32Array => {
+                    let array = read_squeezed_typed_array::<i32>(
+                        &reader,
+                        &read_ranges,
+                        io_size_max,
+                        io_size_merge,
+                    )?;
+                    Ok(OmFileTypedArray::Int32(array))
+                }
+                DataType::Uint32Array => {
+                    let array = read_squeezed_typed_array::<u32>(
+                        &reader,
+                        &read_ranges,
+                        io_size_max,
+                        io_size_merge,
+                    )?;
+                    Ok(OmFileTypedArray::Uint32(array))
+                }
+                DataType::Int64Array => {
+                    let array = read_squeezed_typed_array::<i64>(
+                        &reader,
+                        &read_ranges,
+                        io_size_max,
+                        io_size_merge,
+                    )?;
+                    Ok(OmFileTypedArray::Int64(array))
+                }
+                DataType::Uint64Array => {
+                    let array = read_squeezed_typed_array::<u64>(
+                        &reader,
+                        &read_ranges,
+                        io_size_max,
+                        io_size_merge,
+                    )?;
+                    Ok(OmFileTypedArray::Uint64(array))
+                }
+                DataType::FloatArray => {
+                    let array = read_squeezed_typed_array::<f32>(
+                        &reader,
+                        &read_ranges,
+                        io_size_max,
+                        io_size_merge,
+                    )?;
+                    Ok(OmFileTypedArray::Float(array))
+                }
+                DataType::DoubleArray => {
+                    let array = read_squeezed_typed_array::<f64>(
+                        &reader,
+                        &read_ranges,
+                        io_size_max,
+                        io_size_merge,
+                    )?;
+                    Ok(OmFileTypedArray::Double(array))
+                }
                 DataType::StringArray => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
                     "String Arrays not currently supported",
                 )),
@@ -280,6 +500,17 @@ impl OmFilePyReader {
         })
     }
 
+    /// Get the scalar value of the variable.
+    ///
+    /// Returns
+    /// -------
+    /// object
+    ///     The scalar value as a Python object (str, int, or float)
+    ///
+    /// Raises
+    /// ------
+    /// ValueError
+    ///     If the variable is not a scalar
     fn get_scalar(&self) -> PyResult<PyObject> {
         self.with_reader(|reader| {
             Python::with_gil(|py| match reader.data_type() {
@@ -337,22 +568,22 @@ impl OmFilePyReader {
     }
 }
 
-fn read_untyped_array<'py, T: Element + OmFileArrayDataType + Clone + Zero>(
+fn read_squeezed_typed_array<T: Element + OmFileArrayDataType + Clone + Zero>(
     reader: &OmFileReader<impl OmFileReaderBackend>,
-    read_ranges: Vec<std::ops::Range<u64>>,
-    py: Python<'py>,
-) -> PyResult<Bound<'py, PyUntypedArray>> {
+    read_ranges: &[Range<u64>],
+    io_size_max: Option<u64>,
+    io_size_merge: Option<u64>,
+) -> PyResult<ndarray::ArrayD<T>> {
     let array = reader
-        .read::<T>(&read_ranges, None, None)
-        .map_err(convert_omfilesrs_error)?;
-    // We only add dimensions that are no singleton dimensions to the output shape
-    // This is basically a dimensional squeeze and it is the same behavior as numpy
-    Ok(array.squeeze().into_pyarray(py).as_untyped().to_owned()) // FIXME: avoid cloning?
+        .read::<T>(read_ranges, io_size_max, io_size_merge)
+        .map_err(convert_omfilesrs_error)?
+        .squeeze();
+    Ok(array)
 }
 
 /// Small helper function to get the correct shape of the data. We need to
 /// be careful with scalars and groups!
-fn get_shape_vec(reader: &OmFileReader<BackendImpl>) -> Vec<u64> {
+fn get_shape_vec<Backend>(reader: &OmFileReader<Backend>) -> Vec<u64> {
     let dtype = reader.data_type();
     if dtype == DataType::None {
         // "groups"
@@ -391,7 +622,6 @@ mod tests {
     use super::*;
     use crate::array_index::IndexType;
     use crate::create_test_binary_file;
-    use numpy::{PyArrayDyn, PyArrayMethods, PyUntypedArrayMethods};
 
     #[test]
     fn test_read_simple_v3_data() -> Result<(), Box<dyn std::error::Error>> {
@@ -399,35 +629,33 @@ mod tests {
         let file_path = "test_files/read_test.om";
         pyo3::prepare_freethreaded_python();
 
-        Python::with_gil(|py| {
-            let reader = OmFilePyReader::from_path(file_path).unwrap();
-            let ranges = ArrayIndex(vec![
-                IndexType::Slice {
-                    start: Some(0),
-                    stop: Some(5),
-                    step: None,
-                },
-                IndexType::Slice {
-                    start: Some(0),
-                    stop: Some(5),
-                    step: None,
-                },
-            ]);
-            let data = reader.__getitem__(py, ranges).expect("Could not get item!");
-            let data = data
-                .downcast::<PyArrayDyn<f32>>()
-                .expect("Could not downcast to PyArrayDyn<f32>");
+        let reader = OmFilePyReader::from_path(file_path).unwrap();
+        let ranges = ArrayIndex(vec![
+            IndexType::Slice {
+                start: Some(0),
+                stop: Some(5),
+                step: None,
+            },
+            IndexType::Slice {
+                start: Some(0),
+                stop: Some(5),
+                step: None,
+            },
+        ]);
+        let data = reader.__getitem__(ranges).expect("Could not get item!");
+        let data = match data {
+            OmFileTypedArray::Float(data) => data,
+            _ => panic!("Unexpected data type"),
+        };
 
-            assert_eq!(data.shape(), [5, 5]);
+        assert_eq!(data.shape(), [5, 5]);
 
-            let read_only = data.readonly();
-            let data = read_only.as_slice().expect("Could not convert to slice!");
-            let expected_data = vec![
-                0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0,
-                15.0, 16.0, 17.0, 18.0, 19.0, 20.0, 21.0, 22.0, 23.0, 24.0,
-            ];
-            assert_eq!(data, expected_data);
-        });
+        let data = data.as_slice().expect("Could not convert to slice!");
+        let expected_data = vec![
+            0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0,
+            16.0, 17.0, 18.0, 19.0, 20.0, 21.0, 22.0, 23.0, 24.0,
+        ];
+        assert_eq!(data, expected_data);
 
         Ok(())
     }

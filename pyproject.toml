@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "omfiles"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 classifiers = [
     "Programming Language :: Rust",
     "Programming Language :: Python :: Implementation :: CPython",
@@ -18,20 +18,44 @@ dependencies = [
     "xarray>=2023.1.0",
 ]
 
-[tool.ruff]
-# Disable fix for unused imports (`F401`).
-unfixable = ["F401"]
+[dependency-groups]
+dev = [
+    "pytest>=6.1",
+    "pytest-asyncio",
+    "psutil",
+    "numcodecs",
+    "maturin>=1.7,<2.0",
+]
+bench = [
+    "hidefix",
+    "h5py",
+    "netCDF4",
+    "zarr",
+    "tensorstore",
+]
 
 [tool.maturin]
-python-source = "python" # Python source code is in the `python` directory
-bindings = "pyo3"        # pyo3 bindings is actually the default for maturin
-# features = ["pyo3/extension-module"]
+python-source = "python"             # Python source code is in the `python` directory
+bindings = "pyo3"                    # pyo3 bindings is actually the default for maturin
+features = ["pyo3/extension-module"] # Define extension module in pyproject.toml instead of Cargo.toml to not mess with `cargo test`
+
+[tool.uv]
+# Rebuild package when any rust files change
+cache-keys = [{file = "pyproject.toml"}, {file = "rust/Cargo.toml"}, {file = "**/*.rs"}]
+# Uncomment to build rust code in development mode
+# config-settings = { build-args = '--profile=dev' }
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 
-[project.optional-dependencies]
-dev = ["pytest>=6.0", "psutil", "hidefix", "h5py", "netCDF4", "zarr", "tensorstore", "numcodecs"]
+[tool.ruff]
+line-length = 120
+exclude = ["omfiles.pyi"]
+
+[tool.ruff.lint]
+unfixable = ["F401"]
+# Add import sorting rules (I-prefixed rules)
+extend-select = ["I"]
 
 [project.entry-points."xarray.backends"]
 om = "omfiles.xarray_backend:OmXarrayEntrypoint"

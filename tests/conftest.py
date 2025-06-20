@@ -32,7 +32,9 @@ def temp_om_file():
             os.remove(filename)
         except (PermissionError, OSError) as e:
             import warnings
+
             warnings.warn(f"Failed to remove temporary file {filename}: {e}")
+
 
 @pytest.fixture
 def empty_temp_om_file():
@@ -54,4 +56,5 @@ def empty_temp_om_file():
             os.remove(filename)
         except (PermissionError, OSError) as e:
             import warnings
+
             warnings.warn(f"Failed to remove temporary file {filename}: {e}")
