@@ -135,6 +135,8 @@ uv sync
 uv run pytest tests/
 # to build the wheels
 uv run build
+# or to trigger maturin directly:
+# maturin develop
 ```
 
 ### Tests
