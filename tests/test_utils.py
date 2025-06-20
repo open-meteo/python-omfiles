@@ -11,7 +11,9 @@ import psutil
 from omfiles import OmFilePyWriter
 
 
-def create_test_om_file(filename: str = "test_file.om", shape=(5, 5), dtype: npt.DTypeLike =np.float32) -> tuple[str, np.ndarray]:
+def create_test_om_file(
+    filename: str = "test_file.om", shape=(5, 5), dtype: npt.DTypeLike = np.float32
+) -> tuple[str, np.ndarray]:
     test_data = np.arange(np.prod(shape), dtype=dtype).reshape(shape)
 
     writer = OmFilePyWriter(filename)
@@ -30,11 +32,13 @@ def filter_numpy_size_warning(func):
     We will just filter it out for now...
     https://github.com/pydata/xarray/issues/7259
     """
+
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", message="numpy.ndarray size changed", category=RuntimeWarning)
             return func(*args, **kwargs)
+
     return wrapper
 
 

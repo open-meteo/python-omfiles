@@ -1,4 +1,3 @@
-import fsspec
 import numpy as np
 import omfiles
 import pytest
@@ -14,22 +13,27 @@ from .test_utils import filter_numpy_size_warning
 def s3_test_file():
     yield "openmeteo/data/dwd_icon_d2/temperature_2m/chunk_3960.om"
 
-@pytest.fixture
-def s3_backend(s3_test_file):
-    fs = S3FileSystem(anon=True, default_block_size=256, default_cache_type="none")
-    file = fs.open(s3_test_file, mode="rb")
-    yield file
 
 @pytest.fixture
-def s3_backend_with_cache(s3_test_file):
+def s3_backend():
     fs = S3FileSystem(anon=True, default_block_size=256, default_cache_type="none")
-    fs = CachingFileSystem(fs=fs)
-    yield fs.open(s3_test_file, mode="rb")
+    yield fs
+
 
 @pytest.fixture
-def local_file(temp_om_file):
+def s3_backend_with_cache():
+    s3_fs = S3FileSystem(anon=True, default_block_size=256, default_cache_type="none")
+    fs = CachingFileSystem(
+        fs=s3_fs, cache_check=3600, block_size=256, cache_storage="cache", check_files=False, same_names=True
+    )
+    yield fs
+
+
+@pytest.fixture
+def local_fs():
     fs = LocalFileSystem()
-    yield fs.open(temp_om_file, mode="rb")
+    yield fs
+
 
 @pytest.fixture
 async def s3_backend_async():
@@ -37,8 +41,8 @@ async def s3_backend_async():
     yield fs
 
 
-def test_local_read(local_file):
-    reader = omfiles.OmFilePyReader(local_file)
+def test_local_read(local_fs, temp_om_file):
+    reader = omfiles.OmFilePyReader.from_fsspec(local_fs, temp_om_file)
     data = reader[0:5, 0:5]
 
     np.testing.assert_array_equal(
@@ -53,18 +57,18 @@ def test_local_read(local_file):
     )
 
 
-def test_s3_read(s3_backend):
-    reader = omfiles.OmFilePyReader(s3_backend)
+def test_s3_read(s3_backend, s3_test_file):
+    reader = omfiles.OmFilePyReader.from_fsspec(s3_backend, s3_test_file)
     data = reader[57812:60000, 0:100]
     expected = [18.0, 17.7, 17.65, 17.45, 17.15, 17.6, 18.7, 20.75, 21.7, 22.65]
     np.testing.assert_array_almost_equal(data[0, :10], expected)
 
 
-def test_s3_read_with_cache(s3_backend_with_cache):
-    reader = omfiles.OmFilePyReader(s3_backend_with_cache)
-    data = reader[57812:57813, 0:100]
+def test_s3_read_with_cache(s3_backend_with_cache, s3_test_file):
+    reader = omfiles.OmFilePyReader.from_fsspec(s3_backend_with_cache, s3_test_file)
+    data = reader[57812:60000, 0:100]
     expected = [18.0, 17.7, 17.65, 17.45, 17.15, 17.6, 18.7, 20.75, 21.7, 22.65]
-    np.testing.assert_array_almost_equal(data[:10], expected)
+    np.testing.assert_array_almost_equal(data[0, :10], expected)
 
 
 @pytest.mark.asyncio
@@ -82,12 +86,10 @@ def test_s3_xarray(s3_backend_with_cache):
     assert any(ds.variables.keys())
 
 
-def test_fsspec_reader_close(temp_om_file):
+def test_fsspec_reader_close(local_fs, temp_om_file):
     """Test that closing a reader with fsspec file object works correctly."""
-    fs = fsspec.filesystem("file")
-
     # Test explicit closure
-    with fs.open(temp_om_file, "rb") as f:
+    with local_fs.open(temp_om_file, "rb") as f:
         reader = omfiles.OmFilePyReader(f)
 
         # Check properties before closing
@@ -111,7 +113,7 @@ def test_fsspec_reader_close(temp_om_file):
             pass
 
     # Test context manager
-    with fs.open(temp_om_file, "rb") as f:
+    with local_fs.open(temp_om_file, "rb") as f:
         with omfiles.OmFilePyReader(f) as reader:
             ctx_data = reader[0:4, 0:4]
             np.testing.assert_array_equal(ctx_data, data)
@@ -129,11 +131,11 @@ def test_fsspec_reader_close(temp_om_file):
     np.testing.assert_array_equal(data, expected)
 
 
-def test_fsspec_file_actually_closes(local_file):
+def test_fsspec_file_actually_closes(local_fs, temp_om_file):
     """Test that the underlying fsspec file is actually closed."""
 
     # Create, verify and close reader
-    reader = omfiles.OmFilePyReader(local_file)
+    reader = omfiles.OmFilePyReader.from_fsspec(local_fs, temp_om_file)
     assert reader.shape == [5, 5]
     dtype = reader.dtype
     assert dtype == np.float32

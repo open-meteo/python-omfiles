@@ -2,6 +2,9 @@
 name = "python-omfiles"
 version = "0.0.2"
 edition = "2021"
+description = "Python bindings for the rust omfiles library"
+license = "GPL-2.0-only"
+repository = "https://github.com/open-meteo/python-omfiles"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [lib]
@@ -14,17 +17,14 @@ path = "src/bin/stub_gen.rs"
 doc = true
 
 [dependencies]
-pyo3 = { version = "0.24", features = ["abi3-py39", "experimental-async"] }
-numpy = "0.24"
+pyo3 = { version = "0.25", features = ["abi3-py39", "experimental-async"] }
+numpy = "0.25"
 num-traits = "0.2"
 delegate = "0.13"
 omfiles-rs = { git = "https://github.com/open-meteo/rust-omfiles", rev = "a102901bda2a1d599a38b08bfa9fc686f4c033d8" }
-pyo3-async-runtimes = { version = "0.24", features = ["async-std-runtime"] }
+pyo3-async-runtimes = { version = "0.25", features = ["async-std-runtime"] }
 thiserror = "2.0.12"
 async-lock = "3.4.0"
-# pyo3-stub-gen = "0.7.0"
-pyo3-stub-gen = { git = "https://github.com/terraputix/pyo3-stub-gen", branch = "temporary-fix-for-abi3-datetime", features = [
-    "abi3",
-] }
+pyo3-stub-gen = "0.9.0"
 
 [features]
