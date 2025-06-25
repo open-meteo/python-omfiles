@@ -1,10 +1,11 @@
 from abc import ABC, abstractmethod
 from functools import cached_property
-from typing import Generic, Optional, Tuple, TypeVar, Union, cast
+from typing import Generic, Optional, Tuple, TypeVar, cast
 
 import numpy as np
 import numpy.typing as npt
 
+from omfiles.types import ArrayType, CoordType, ReturnUnionType
 from omfiles.utils import _modulo_positive, _normalize_longitude
 
 
@@ -178,13 +179,6 @@ class RegularLatLonGrid(AbstractGrid):
         lon = self._lon_start + float(x) * self._lon_step_size
 
         return (lat, lon)
-
-
-# Type aliases for clarity
-FloatType = Union[float, np.floating]
-ArrayType = npt.NDArray[np.floating]
-CoordType = Union[float, ArrayType]
-ReturnUnionType = Union[tuple[ArrayType, ArrayType], tuple[float, float]]
 
 
 # Abstract base class instead of Protocol
@@ -844,9 +838,10 @@ class ProjectionGrid(AbstractGrid, Generic[P]):
         """
         xcord = float(x) * self.dx + self.origin[0]
         ycord = float(y) * self.dy + self.origin[1]
-        lat, lon = cast(tuple[float, float], self.projection.inverse(xcord, ycord))
+        lat, lon = self.projection.inverse(xcord, ycord)
         # Normalize longitude to -180 to 180 range
         lon = _normalize_longitude(lon)
+        lat, lon = cast(tuple[float, float], (lat, lon))
         return (lat, lon)
 
     def get_true_north_direction(self) -> np.ndarray:

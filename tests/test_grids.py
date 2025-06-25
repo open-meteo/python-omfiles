@@ -1,3 +1,5 @@
+from typing import cast
+
 import numpy as np
 import pyproj
 import pytest
@@ -442,6 +444,7 @@ def test_stereographic_against_proj():
 
         # Test inverse transformation
         custom_lat, custom_lon = custom_proj.inverse(x=custom_x, y=custom_y)
+
         proj_lon, proj_lat = proj_proj(proj_x, proj_y, inverse=True)
 
         # Compare results
@@ -645,16 +648,20 @@ def test_regular_lat_lon_grid_against_proj():
 
     for lat, lon in wrap_test_points:
         # Find grid coordinates for the wrapped point
-        grid_x, grid_y = grid.findPointXy(lat=lat, lon=lon)
+        result = grid.findPointXy(lat, lon)
+        assert result is not None, "Point not found in grid"
+        grid_x, grid_y = result
 
         # Find grid coordinates for the normalized longitude
-        norm_lon = _normalize_longitude(lon)
-        norm_grid_x, norm_grid_y = grid.findPointXy(lat=lat, lon=norm_lon)
+        norm_lon = cast(float, _normalize_longitude(lon))
+        result = grid.findPointXy(lat=lat, lon=norm_lon)
+        assert result is not None, "Point not found in grid"
+        norm_grid_x, norm_grid_y = result
         assert grid_x == norm_grid_x, f"Grid X mismatch for wrapped lon: {lon} vs {norm_lon}"
         assert grid_y == norm_grid_y, f"Grid Y mismatch for wrapped lon: {lon} vs {norm_lon}"
 
 
-def test_proj_projection():
+def test_proj_projection_grid():
     """Test that ProjProjection correctly wraps proj transformations"""
     # Test with a Lambert Conformal Conic projection
     proj_string = "+proj=lcc +lat_0=55.5 +lon_0=352 +lat_1=55.5 +lat_2=55.5 +x_0=0 +y_0=0 +R=6371229 +units=m +no_defs"
@@ -696,6 +703,7 @@ def test_proj_projection():
 
         # Test roundtrip through the grid
         grid_coords = grid.findPointXy(lat=lat, lon=lon)
+        assert grid_coords is not None, f"Grid coordinates not found for lat={lat}, lon={lon}"
         result_lat, result_lon = grid.getCoordinates(*grid_coords)
 
         # Results should match within grid resolution
@@ -703,7 +711,7 @@ def test_proj_projection():
         assert abs(result_lon - lon) < grid.dx, f"Grid lon error: {result_lon} vs {lon}"
 
 
-def test_grid_equivalence():
+def test_grid_equivalence_lcc():
     """Test that a proj-based grid matches the original implementation"""
     # Create original LambertConformalConic projection
     original_proj = LambertConformalConicProjection(lambda_0=352, phi_0=55.5, phi_1=55.5, phi_2=55.5, radius=6371229.0)
@@ -722,7 +730,6 @@ def test_grid_equivalence():
     }
 
     original_grid = ProjectionGrid.from_bounds(projection=original_proj, **grid_bounds)
-
     proj_grid = ProjectionGrid.from_bounds(projection=proj_proj, **grid_bounds)
 
     # Test points
@@ -747,6 +754,11 @@ def test_grid_equivalence():
         orig_grid_xy = original_grid.findPointXy(lat=lat, lon=lon)
         proj_grid_xy = proj_grid.findPointXy(lat=lat, lon=lon)
 
+        # Both should find the point or both should not find it
+        assert (orig_grid_xy is None) == (proj_grid_xy is None), f"Inconsistent point finding for ({lat}, {lon})"
+        if orig_grid_xy is None or proj_grid_xy is None:
+            return
+
         # Grid coordinates should match exactly
         assert abs(orig_grid_xy[0] - proj_grid_xy[0]) < 1e-8, f"Grid X mismatch: {orig_grid_xy[0]} vs {proj_grid_xy[0]}"
         assert abs(orig_grid_xy[1] - proj_grid_xy[1]) < 1e-8, f"Grid Y mismatch: {orig_grid_xy[1]} vs {proj_grid_xy[1]}"
@@ -761,8 +773,6 @@ def test_grid_equivalence_regular_latlon():
 
     # Create equivalent proj-based regular lat-lon projection
     proj_proj = ProjProjection("+proj=longlat +datum=WGS84 +no_defs")
-
-    # Create equivalent grid with the proj projection
     proj_grid = ProjectionGrid(projection=proj_proj, nx=120, ny=100, origin=(-30.0, 10.0), dx=0.5, dy=0.5)
 
     # Test points covering various areas within the grid
@@ -780,8 +790,8 @@ def test_grid_equivalence_regular_latlon():
         orig_grid_xy = original_grid.findPointXy(lat=lat, lon=lon)
         proj_grid_xy = proj_grid.findPointXy(lat=lat, lon=lon)
 
-        # Both should find the point or both should not find it
-        assert (orig_grid_xy is None) == (proj_grid_xy is None), f"Inconsistent point finding for ({lat}, {lon})"
+        # Both should find the point
+        assert orig_grid_xy is not None and proj_grid_xy is not None, f"Point not found for ({lat}, {lon})"
 
         # If point is found, coordinates should match exactly
         if orig_grid_xy is not None:
@@ -801,3 +811,56 @@ def test_grid_equivalence_regular_latlon():
             # Results should match exactly
             assert abs(orig_lat - proj_lat) < 1e-8, f"Latitude mismatch: {orig_lat} vs {proj_lat}"
             assert abs(orig_lon - proj_lon) < 1e-8, f"Longitude mismatch: {orig_lon} vs {proj_lon}"
+
+
+def test_grid_equivalence_rotated_latlon():
+    """Test that a proj-based rotated lat-lon grid matches the original implementation"""
+    lat_origin = -36.0885
+    lon_origin = 245.305
+
+    original_proj = RotatedLatLonProjection(lat_origin=lat_origin, lon_origin=lon_origin)
+    proj_proj = ProjProjection(
+        f"+proj=ob_tran +o_proj=longlat +o_lat_p={-lat_origin} +o_lon_p=0.0 +lon_0={lon_origin} +datum=WGS84 +no_defs +type=crs"
+    )
+
+    # Grid bounds could be adjusted to something used in the open-meteo backend
+    grid_bounds = {
+        "nx": 100,
+        "ny": 80,
+        "lat_range": (-40.0, 40.0),
+        "lon_range": (200.0, 300.0),
+    }
+
+    original_grid = ProjectionGrid.from_bounds(projection=original_proj, **grid_bounds)
+    proj_grid = ProjectionGrid.from_bounds(projection=proj_proj, **grid_bounds)
+
+    # Test points covering various areas within the grid
+    test_points = [
+        (0, 0),  # Origin
+        (45, 45),  # Mid-latitude
+        (-45, -45),  # Southern hemisphere
+        (10, 50),  # Europe
+        (40, -100),  # North America
+        (50, -170),  # Pacific
+        (-30, 170),  # South Pacific
+    ]
+
+    for lat, lon in test_points:
+        # Compare projection results
+        orig_x, orig_y = original_proj.forward(lat, lon)
+        proj_x, proj_y = proj_proj.forward(lat, lon)
+        assert abs(orig_x - proj_x) < 1e-3, f"X mismatch: {orig_x} vs {proj_x}"
+        assert abs(orig_y - proj_y) < 1e-3, f"Y mismatch: {orig_y} vs {proj_y}"
+
+        # Compare grid results
+        orig_grid_xy = original_grid.findPointXy(lat=lat, lon=lon)
+        proj_grid_xy = proj_grid.findPointXy(lat=lat, lon=lon)
+        assert orig_grid_xy == proj_grid_xy, f"Grid index mismatch: {orig_grid_xy} vs {proj_grid_xy}"
+
+        # Test the inverse transformation (getCoordinates)
+        if orig_grid_xy is not None:
+            x, y = orig_grid_xy
+            orig_lat, orig_lon = original_grid.getCoordinates(x, y)
+            proj_lat, proj_lon = proj_grid.getCoordinates(x, y)
+            assert abs(orig_lat - proj_lat) < 1e-4, f"Latitude mismatch: {orig_lat} vs {proj_lat}"
+            assert abs(orig_lon - proj_lon) < 1e-4, f"Longitude mismatch: {orig_lon} vs {proj_lon}"
