@@ -29,10 +29,6 @@ runs:
         version: "0.7.13"
         enable-cache: true
         cache-dependency-glob: "**/uv.lock"
-
-    - name: "Set up Python"
-      uses: actions/setup-python@v5
-      with:
         python-version: ${{ inputs.python-version }}
 
     - name: Download wheels
