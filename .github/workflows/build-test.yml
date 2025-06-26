@@ -172,11 +172,11 @@ jobs:
             python-version: "3.13"
             test-type: standard
 
-          - name: Python 3.14-Dev
+          - name: Python 3.14 Pre Release
             runner: ubuntu-latest
             platform-name: linux-x86_64
             is-musl: false
-            python-version: "3.14-dev"
+            python-version: "3.14"
             test-type: standard
 
           # Minimum dependencies test
