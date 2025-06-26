@@ -13,21 +13,27 @@ from .test_utils import filter_numpy_size_warning
 def s3_test_file():
     yield "openmeteo/data/dwd_icon_d2/temperature_2m/chunk_3960.om"
 
+
 @pytest.fixture
 def s3_backend():
     fs = S3FileSystem(anon=True, default_block_size=256, default_cache_type="none")
     yield fs
 
+
 @pytest.fixture
 def s3_backend_with_cache():
     s3_fs = S3FileSystem(anon=True, default_block_size=256, default_cache_type="none")
-    fs = CachingFileSystem(fs=s3_fs, cache_check=3600, block_size=256, cache_storage="cache", check_files=False, same_names=True)
+    fs = CachingFileSystem(
+        fs=s3_fs, cache_check=3600, block_size=256, cache_storage="cache", check_files=False, same_names=True
+    )
     yield fs
+
 
 @pytest.fixture
 def local_fs():
     fs = LocalFileSystem()
     yield fs
+
 
 @pytest.fixture
 async def s3_backend_async():

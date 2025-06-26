@@ -10,17 +10,6 @@
           "pythonPath": ".venv/bin/python"
         }
       }
-    },
-    "ruff": {
-      "initialization_options": {
-        "settings": {
-          "lineLength": 120,
-          "lint": {
-            // I-prefixed rules are for imports
-            "extendSelect": ["I"]
-          }
-        }
-      }
     }
   },
   "languages": {
@@ -29,10 +18,8 @@
       "format_on_save": "on",
       "formatter": [
         {
-          "code_actions": {
-            "source.organizeImports.ruff": true,
-            // Fix all auto-fixable problems
-            "source.fixAll.ruff": true
+          "language_server": {
+            "name": "ruff"
           }
         }
       ]

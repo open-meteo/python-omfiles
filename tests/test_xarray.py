@@ -7,16 +7,14 @@ from xarray.core import indexing
 
 from .test_utils import create_test_om_file, filter_numpy_size_warning
 
-test_dtypes = [
-    np.int8, np.uint8, np.int16, np.uint16, np.int32,
-    np.uint32, np.int64, np.uint64, np.float32, np.float64
-]
+test_dtypes = [np.int8, np.uint8, np.int16, np.uint16, np.int32, np.uint32, np.int64, np.uint64, np.float32, np.float64]
 
-@pytest.mark.parametrize('dtype', test_dtypes, ids=[f"{dtype.__name__}" for dtype in test_dtypes])
+
+@pytest.mark.parametrize("dtype", test_dtypes, ids=[f"{dtype.__name__}" for dtype in test_dtypes])
 def test_om_backend_xarray_dtype(dtype, empty_temp_om_file):
     dtype = np.dtype(dtype)
 
-    create_test_om_file(empty_temp_om_file, shape=(5,5), dtype=dtype)
+    create_test_om_file(empty_temp_om_file, shape=(5, 5), dtype=dtype)
 
     reader = om.OmFilePyReader(empty_temp_om_file)
     backend_array = om_xarray.OmBackendArray(reader=reader)
@@ -49,6 +47,7 @@ def test_xarray_backend(temp_om_file):
         ],
     )
 
+
 @filter_numpy_size_warning
 def test_xarray_hierarchical_file(empty_temp_om_file):
     # Create test data
@@ -71,7 +70,7 @@ def test_xarray_hierarchical_file(empty_temp_om_file):
         chunks=[2, 2, 1, 10],
         name="temperature",
         scale_factor=100000.0,
-        children=[temperature_dimension_var, temp_units, temp_metadata]
+        children=[temperature_dimension_var, temp_units, temp_metadata],
     )
 
     # dimensionality metadata
@@ -85,7 +84,7 @@ def test_xarray_hierarchical_file(empty_temp_om_file):
         chunks=[2, 2, 10],
         name="precipitation",
         scale_factor=100000.0,
-        children=[precipitation_dimension_var, precip_units, precip_metadata]
+        children=[precipitation_dimension_var, precip_units, precip_metadata],
     )
 
     # Write dimensions
@@ -98,8 +97,7 @@ def test_xarray_hierarchical_file(empty_temp_om_file):
 
     # Write root array with children
     root_var = writer.write_group(
-        name="",
-        children=[temperature_var, precipitation_var, lat, lon, alt, time, global_attr]
+        name="", children=[temperature_var, precipitation_var, lat, lon, alt, time, global_attr]
     )
 
     # Finalize the file
