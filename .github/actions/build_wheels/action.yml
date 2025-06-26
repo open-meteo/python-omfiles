@@ -49,6 +49,7 @@ runs:
       with:
         python-version: ${{ inputs.python-version }}
         cache: ""
+        allow-prereleases: true
 
     # Install required python dependencies. This needs to be done before
     # running cargo test, because pyo3-numpy requires numpy to be installed
