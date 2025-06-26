@@ -25,13 +25,6 @@ dev = [
     "psutil",
     "maturin>=1.7,<2.0"
 ]
-bench = [
-    "hidefix",
-    "h5py",
-    "netCDF4",
-    "zarr",
-    "tensorstore",
-]
 
 [tool.maturin]
 python-source = "python"             # Python source code is in the `python` directory
