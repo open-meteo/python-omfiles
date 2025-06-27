@@ -17,7 +17,7 @@ use omfiles_rs::{
     core::data_types::{DataType, OmFileArrayDataType},
     io::reader_async::OmFileReaderAsync,
 };
-use pyo3::prelude::*;
+use pyo3::{prelude::*, types::PyTuple};
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
 use std::{fs::File, ops::Range, sync::Arc};
 
@@ -35,8 +35,9 @@ pub struct OmFilePyReaderAsync {
     /// concurrently, but only one writer to close it.
     reader: RwLock<Option<OmFileReaderAsync<AsyncBackendImpl>>>,
     /// Shape of the array data in the file (read-only property)
-    #[pyo3(get)]
     shape: Vec<u64>,
+    /// Chunk shape of the array data in the file (read-only property)
+    chunk_shape: Vec<u64>,
 }
 
 #[gen_stub_pymethods]
@@ -81,9 +82,12 @@ impl OmFilePyReaderAsync {
             .map_err(convert_omfilesrs_error)?;
 
         let shape = get_shape_vec(&reader);
+        let chunk_shape = get_chunk_shape(&reader);
+
         Ok(Self {
             reader: RwLock::new(Some(reader)),
             shape,
+            chunk_shape,
         })
     }
 
@@ -112,10 +116,12 @@ impl OmFilePyReaderAsync {
             .await
             .map_err(convert_omfilesrs_error)?;
         let shape = get_shape_vec(&reader);
+        let chunk_shape = get_chunk_shape(&reader);
 
         Ok(Self {
             reader: RwLock::new(Some(reader)),
             shape,
+            chunk_shape,
         })
     }
 
@@ -307,6 +313,20 @@ impl OmFilePyReaderAsync {
 
         Ok(())
     }
+
+    /// The shape of the variable.
+    #[getter]
+    fn shape<'py>(&self, py: Python<'py>) -> PyResult<pyo3::Bound<'py, PyTuple>> {
+        let tup = PyTuple::new(py, &self.shape)?;
+        Ok(tup)
+    }
+
+    /// The chunk shape of the variable.
+    #[getter]
+    fn chunks<'py>(&self, py: Python<'py>) -> PyResult<pyo3::Bound<'py, PyTuple>> {
+        let tup = PyTuple::new(py, &self.chunk_shape)?;
+        Ok(tup)
+    }
 }
 
 async fn read_squeezed_typed_array<T>(
@@ -329,16 +349,18 @@ where
 
 /// Small helper function to get the correct shape of the data. We need to
 /// be careful with scalars and groups!
-fn get_shape_vec<Backend>(reader: &OmFileReaderAsync<Backend>) -> Vec<u64> {
-    let dtype = reader.data_type();
-    if dtype == DataType::None {
-        // "groups"
-        return vec![];
-    } else if (dtype as u8) < (DataType::Int8Array as u8) {
-        // scalars
+fn get_shape_vec(reader: &OmFileReaderAsync<AsyncBackendImpl>) -> Vec<u64> {
+    if !reader.data_type().is_array() {
         return vec![];
     }
     reader.get_dimensions().to_vec()
+}
+
+fn get_chunk_shape(reader: &OmFileReaderAsync<AsyncBackendImpl>) -> Vec<u64> {
+    if !reader.data_type().is_array() {
+        return vec![];
+    }
+    reader.get_chunk_dimensions().to_vec()
 }
 
 enum AsyncBackendImpl {
