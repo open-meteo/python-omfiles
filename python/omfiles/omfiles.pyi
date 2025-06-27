@@ -32,15 +32,6 @@ class OmFilePyReader:
     Dataset: Data-array, might have associated attributes.
     Attribute: A named data value associated with a group or dataset.
     """
-    shape: builtins.list[builtins.int]
-    r"""
-    Get the shape of the data stored in the .om file.
-    
-    Returns
-    -------
-    list
-        List containing the dimensions of the data
-    """
     closed: builtins.bool
     r"""
     Check if the reader is closed.
@@ -49,6 +40,14 @@ class OmFilePyReader:
     -------
     bool
         True if the reader is closed, False otherwise
+    """
+    shape: tuple
+    r"""
+    The shape of the variable.
+    """
+    chunks: tuple
+    r"""
+    The chunk shape of the variable.
     """
     is_scalar: builtins.bool
     r"""
@@ -251,9 +250,13 @@ class OmFilePyReaderAsync:
     in OM files. It supports reading from local files via memory mapping or
     from remote files through fsspec compatibility.
     """
-    shape: builtins.list[builtins.int]
+    shape: tuple
     r"""
-    Shape of the array data in the file (read-only property)
+    The shape of the variable.
+    """
+    chunks: tuple
+    r"""
+    The chunk shape of the variable.
     """
     @staticmethod
     async def from_fsspec(fs_obj:typing.Any, path:builtins.str) -> OmFilePyReaderAsync:

@@ -16,7 +16,7 @@ use omfiles_rs::{
     core::data_types::{DataType, OmFileArrayDataType, OmFileScalarDataType},
     io::reader::OmFileReader,
 };
-use pyo3::{prelude::*, BoundObject};
+use pyo3::{prelude::*, types::PyTuple, BoundObject};
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
 use std::{
     collections::HashMap,
@@ -61,7 +61,6 @@ pub struct OmFilePyReader {
     /// -------
     /// list
     ///     List containing the dimensions of the data
-    #[pyo3(get)]
     shape: Vec<u64>,
 }
 
@@ -296,6 +295,23 @@ impl OmFilePyReader {
         }
 
         Ok(())
+    }
+
+    /// The shape of the variable.
+    #[getter]
+    fn shape<'py>(&self, py: Python<'py>) -> PyResult<pyo3::Bound<'py, PyTuple>> {
+        let tup = PyTuple::new(py, &self.shape)?;
+        Ok(tup)
+    }
+
+    /// The chunk shape of the variable.
+    #[getter]
+    fn chunks<'py>(&self, py: Python<'py>) -> PyResult<pyo3::Bound<'py, PyTuple>> {
+        self.with_reader(|reader| {
+            let chunks = get_chunk_shape(reader);
+            let tup = PyTuple::new(py, chunks)?;
+            Ok(tup)
+        })
     }
 
     /// Check if the variable is a scalar.
@@ -584,15 +600,17 @@ fn read_squeezed_typed_array<T: Element + OmFileArrayDataType + Clone + Zero>(
 /// Small helper function to get the correct shape of the data. We need to
 /// be careful with scalars and groups!
 fn get_shape_vec<Backend>(reader: &OmFileReader<Backend>) -> Vec<u64> {
-    let dtype = reader.data_type();
-    if dtype == DataType::None {
-        // "groups"
-        return vec![];
-    } else if (dtype as u8) < (DataType::Int8Array as u8) {
-        // scalars
+    if !reader.data_type().is_array() {
         return vec![];
     }
     reader.get_dimensions().to_vec()
+}
+
+fn get_chunk_shape<Backend>(reader: &OmFileReader<Backend>) -> Vec<u64> {
+    if !reader.data_type().is_array() {
+        return vec![];
+    }
+    reader.get_chunk_dimensions().to_vec()
 }
 
 /// Concrete wrapper type for the backend implementation, delegating to the appropriate backend

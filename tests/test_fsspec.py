@@ -93,7 +93,8 @@ def test_fsspec_reader_close(local_fs, temp_om_file):
         reader = omfiles.OmFilePyReader(f)
 
         # Check properties before closing
-        assert reader.shape == [5, 5]
+        assert reader.shape == (5, 5)
+        assert reader.chunks == (5, 5)
         assert not reader.closed
 
         # Get data and verify
@@ -136,7 +137,8 @@ def test_fsspec_file_actually_closes(local_fs, temp_om_file):
 
     # Create, verify and close reader
     reader = omfiles.OmFilePyReader.from_fsspec(local_fs, temp_om_file)
-    assert reader.shape == [5, 5]
+    assert reader.shape == (5, 5)
+    assert reader.chunks == (5, 5)
     dtype = reader.dtype
     assert dtype == np.float32
     reader.close()
