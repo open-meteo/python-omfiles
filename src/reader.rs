@@ -1,6 +1,7 @@
 use crate::{
-    array_index::ArrayIndex, data_type::get_numpy_dtype, errors::convert_omfilesrs_error,
-    fsspec_backend::FsSpecBackend, hierarchy::OmVariable, typed_array::OmFileTypedArray,
+    array_index::ArrayIndex, compression::PyCompressionType, data_type::get_numpy_dtype,
+    errors::convert_omfilesrs_error, fsspec_backend::FsSpecBackend, hierarchy::OmVariable,
+    typed_array::OmFileTypedArray,
 };
 use delegate::delegate;
 use num_traits::Zero;
@@ -359,6 +360,12 @@ impl OmFilePyReader {
     #[getter]
     fn name(&self) -> PyResult<String> {
         self.with_reader(|reader| Ok(reader.get_name().unwrap_or("".to_string())))
+    }
+
+    /// Get the compression type of the variable
+    #[getter]
+    fn compression(&self) -> PyResult<PyCompressionType> {
+        self.with_reader(|reader| Ok(PyCompressionType::from_omfilesrs(reader.compression())))
     }
 
     /// Read data from the open variable.om file using numpy-style indexing.
