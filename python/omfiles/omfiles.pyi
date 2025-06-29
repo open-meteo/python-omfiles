@@ -85,6 +85,10 @@ class OmFilePyReader:
     str
         Name of the variable or an empty string if not available
     """
+    compression: builtins.str
+    r"""
+    Get the compression type of the variable
+    """
     def __new__(cls, source:typing.Any) -> OmFilePyReader:
         r"""
         Initialize an OmFilePyReader from a file path or fsspec file object.
