@@ -6,7 +6,7 @@ use pyo3::prelude::*;
 use pyo3::types::PyDict;
 use pyo3::Python;
 use pyo3_async_runtimes::async_std::into_future;
-use std::io::{self, Seek, SeekFrom, Write};
+use std::io::{self, Write};
 
 /// An asynchronous backend for reading files using fsspec.
 pub struct AsyncFsSpecBackend {
@@ -147,7 +147,7 @@ impl OmFileReaderBackend for FsSpecBackend {
     }
 }
 
-/// An fsspec writer backend that implements Write, Seek, and OmFileWriterBackend traits.
+/// An fsspec writer backend that implements OmFileWriterBackend traits and Write.
 pub struct FsSpecWriterBackend {
     fs: PyObject,
     path: String,
@@ -203,36 +203,6 @@ impl Write for FsSpecWriterBackend {
     }
 }
 
-impl Seek for FsSpecWriterBackend {
-    fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
-        let new_position = match pos {
-            SeekFrom::Start(pos) => pos,
-            SeekFrom::End(offset) => {
-                let end = self.buffer.len() as u64;
-                if offset < 0 {
-                    end.checked_sub((-offset) as u64).ok_or_else(|| {
-                        io::Error::new(io::ErrorKind::InvalidInput, "Seek before start")
-                    })?
-                } else {
-                    end + offset as u64
-                }
-            }
-            SeekFrom::Current(offset) => {
-                if offset < 0 {
-                    self.position.checked_sub((-offset) as u64).ok_or_else(|| {
-                        io::Error::new(io::ErrorKind::InvalidInput, "Seek before start")
-                    })?
-                } else {
-                    self.position + offset as u64
-                }
-            }
-        };
-
-        self.position = new_position;
-        Ok(self.position)
-    }
-}
-
 impl OmFileWriterBackend for FsSpecWriterBackend {
     fn write(&mut self, data: &[u8]) -> Result<(), OmFilesRsError> {
         self.write_all(data).map_err(|e| {
@@ -241,17 +211,6 @@ impl OmFileWriterBackend for FsSpecWriterBackend {
         // Immediately flush to fsspec after each write to ensure data persistence
         self.flush_to_fs()
             .map_err(|e| OmFilesRsError::DecoderError(format!("Failed to flush to fsspec: {}", e)))
-    }
-
-    fn write_at(&mut self, data: &[u8], offset: usize) -> Result<(), OmFilesRsError> {
-        // Seek to the offset position
-        self.seek(std::io::SeekFrom::Start(offset as u64))
-            .map_err(|e| {
-                OmFilesRsError::DecoderError(format!("Failed to seek in fsspec backend: {}", e))
-            })?;
-
-        // Write the data (this will auto-flush due to our write implementation)
-        OmFileWriterBackend::write(self, data)
     }
 
     fn synchronize(&self) -> Result<(), OmFilesRsError> {
@@ -313,8 +272,6 @@ mod tests {
             std::io::Write::write(&mut backend, b"Hello, World!")?;
             backend.flush()?;
 
-            // Test seeking
-            backend.seek(SeekFrom::Start(7))?;
             std::io::Write::write(&mut backend, b"fsspec")?;
             backend.flush()?;
 
