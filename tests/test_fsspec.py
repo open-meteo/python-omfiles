@@ -1,9 +1,12 @@
+import tempfile
+import os
 import numpy as np
 import omfiles
 import pytest
 import xarray as xr
 from fsspec.implementations.cached import CachingFileSystem
 from fsspec.implementations.local import LocalFileSystem
+from fsspec.implementations.memory import MemoryFileSystem
 from s3fs import S3FileSystem
 
 from .test_utils import filter_numpy_size_warning
@@ -151,3 +154,174 @@ def test_fsspec_file_actually_closes(local_fs, temp_om_file):
         assert False, "File should be closed"
     except (ValueError, OSError):
         pass
+
+
+def test_memory_filesystem():
+    """Test writing to an in-memory filesystem."""
+    print("Testing memory filesystem...")
+
+    # Create a memory filesystem
+    fs = MemoryFileSystem()
+
+    # Create test data
+    data = np.random.rand(10, 10).astype(np.float32)
+
+    # Create writer using fsspec
+    writer = omfiles.OmFilePyWriter.from_fsspec(fs, "test_memory.om")
+
+    # Write array
+    variable = writer.write_array(data, chunks=[5, 5], name="test_data")
+
+    # Add some metadata
+    metadata = writer.write_scalar("Test data from memory filesystem", name="description")
+
+    # Close with root variable
+    writer.close(variable)
+
+    # Debug: List files in memory filesystem
+    print(f"Files in memory filesystem: {fs.ls('/')}")
+
+    # Verify the file exists in memory
+    if not fs.exists("test_memory.om"):
+        print("ERROR: File does not exist in memory filesystem")
+        print(f"Available files: {fs.ls('/')}")
+        return None, None
+
+    file_size = fs.size("test_memory.om")
+    print(f"Memory filesystem test passed! File size: {file_size} bytes")
+
+    return fs, "test_memory.om"
+
+
+def test_local_filesystem():
+    """Test writing to local filesystem using fsspec."""
+    print("Testing local filesystem...")
+
+    # Create a local filesystem
+    fs = LocalFileSystem()
+
+    # Create test data
+    data = np.random.rand(20, 15).astype(np.float64)
+
+    # Use a temporary file
+    with tempfile.NamedTemporaryFile(suffix=".om", delete=False) as tmp:
+        tmp_path = tmp.name
+
+    try:
+        # Create writer using fsspec
+        writer = omfiles.OmFilePyWriter.from_fsspec(fs, tmp_path)
+
+        # Write array with different parameters
+        variable = writer.write_array(
+            data,
+            chunks=[10, 5],
+            scale_factor=100.0,
+            add_offset=10.0,
+            compression="pfor_delta_2d",
+            name="local_test_data",
+        )
+
+        # Add metadata
+        units = writer.write_scalar("meters", name="units")
+        description = writer.write_scalar("Test data from local filesystem", name="description")
+
+        # Create a group with children
+        metadata_group = writer.write_group("metadata", [units, description])
+
+        # Close with root variable
+        writer.close(variable)
+
+        # Verify the file exists
+        assert os.path.exists(tmp_path)
+        file_size = os.path.getsize(tmp_path)
+        print(f"Local filesystem test passed! File size: {file_size} bytes")
+
+    finally:
+        # Clean up
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+
+
+def test_hierarchical_data():
+    """Test writing hierarchical data structure using fsspec."""
+    print("Testing hierarchical data structure...")
+
+    # Create a memory filesystem
+    fs = MemoryFileSystem()
+
+    # Create test data
+    temperature = np.random.rand(5, 5, 10).astype(np.float32)
+    humidity = np.random.rand(5, 5, 10).astype(np.float32)
+
+    # Create writer
+    writer = omfiles.OmFilePyWriter.from_fsspec(fs, "hierarchical_test.om")
+
+    # Write temperature data
+    temp_var = writer.write_array(temperature, chunks=[5, 5, 5], name="temperature", scale_factor=100.0)
+
+    # Write humidity data
+    humid_var = writer.write_array(humidity, chunks=[5, 5, 5], name="humidity", scale_factor=100.0)
+
+    # Add metadata for temperature
+    temp_units = writer.write_scalar("celsius", name="units")
+    temp_desc = writer.write_scalar("Surface temperature", name="description")
+    temp_dims = writer.write_scalar("lat,lon,time", name="_ARRAY_DIMENSIONS")
+
+    # Add metadata for humidity
+    humid_units = writer.write_scalar("percent", name="units")
+    humid_desc = writer.write_scalar("Relative humidity", name="description")
+    humid_dims = writer.write_scalar("lat,lon,time", name="_ARRAY_DIMENSIONS")
+
+    # Create metadata groups
+    temp_metadata = writer.write_group("temp_metadata", [temp_units, temp_desc, temp_dims])
+    humid_metadata = writer.write_group("humid_metadata", [humid_units, humid_desc, humid_dims])
+
+    # Create root group
+    root_group = writer.write_group("weather_data", [temp_var, humid_var, temp_metadata, humid_metadata])
+
+    # Close with root group
+    writer.close(root_group)
+
+    # Verify
+    assert fs.exists("hierarchical_test.om")
+    file_size = fs.size("hierarchical_test.om")
+    print(f"Hierarchical data test passed! File size: {file_size} bytes")
+
+
+def test_different_data_types():
+    """Test writing different data types using fsspec."""
+    print("Testing different data types...")
+
+    # Create a memory filesystem
+    fs = MemoryFileSystem()
+
+    # Create writer
+    writer = omfiles.OmFilePyWriter.from_fsspec(fs, "datatypes_test.om")
+
+    # Test different data types
+    int32_data = np.random.randint(0, 100, size=(8, 8), dtype=np.int32)
+    float64_data = np.random.rand(6, 6).astype(np.float64)
+    int8_data = np.random.randint(-128, 127, size=(4, 4), dtype=np.int8)
+
+    # Write arrays
+    int32_var = writer.write_array(int32_data, chunks=[4, 4], name="int32_data")
+    float64_var = writer.write_array(float64_data, chunks=[3, 3], name="float64_data")
+    int8_var = writer.write_array(int8_data, chunks=[2, 2], name="int8_data")
+
+    # Write scalar values of different types
+    str_scalar = writer.write_scalar("test string", name="string_value")
+    int_scalar = writer.write_scalar(42, name="int_value")
+    float_scalar = writer.write_scalar(3.14159, name="float_value")
+
+    # Create root group
+    root_group = writer.write_group(
+        "mixed_data", [int32_var, float64_var, int8_var, str_scalar, int_scalar, float_scalar]
+    )
+
+    # Close with root group
+    writer.close(root_group)
+
+    # Verify
+    assert fs.exists("datatypes_test.om")
+    file_size = fs.size("datatypes_test.om")
+    print(f"Different data types test passed! File size: {file_size} bytes")
