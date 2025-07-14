@@ -1,5 +1,6 @@
-import tempfile
 import os
+import tempfile
+
 import numpy as np
 import omfiles
 import pytest
@@ -168,14 +169,8 @@ def test_memory_filesystem():
 
     # Create writer using fsspec
     writer = omfiles.OmFilePyWriter.from_fsspec(fs, "test_memory.om")
-
-    # Write array
-    variable = writer.write_array(data, chunks=[5, 5], name="test_data")
-
-    # Add some metadata
     metadata = writer.write_scalar("Test data from memory filesystem", name="description")
-
-    # Close with root variable
+    variable = writer.write_array(data, chunks=[5, 5], name="test_data", children=[metadata])
     writer.close(variable)
 
     # Debug: List files in memory filesystem
@@ -211,6 +206,13 @@ def test_local_filesystem():
         # Create writer using fsspec
         writer = omfiles.OmFilePyWriter.from_fsspec(fs, tmp_path)
 
+        # Add metadata
+        units = writer.write_scalar("meters", name="units")
+        description = writer.write_scalar("Test data from local filesystem", name="description")
+
+        # Create a group with children
+        metadata_group = writer.write_group("metadata", [units, description])
+
         # Write array with different parameters
         variable = writer.write_array(
             data,
@@ -219,14 +221,8 @@ def test_local_filesystem():
             add_offset=10.0,
             compression="pfor_delta_2d",
             name="local_test_data",
+            children=[metadata_group],
         )
-
-        # Add metadata
-        units = writer.write_scalar("meters", name="units")
-        description = writer.write_scalar("Test data from local filesystem", name="description")
-
-        # Create a group with children
-        metadata_group = writer.write_group("metadata", [units, description])
 
         # Close with root variable
         writer.close(variable)
