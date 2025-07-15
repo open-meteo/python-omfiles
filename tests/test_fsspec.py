@@ -195,11 +195,12 @@ def test_fsspec_roundtrip(memory_fs):
     # Write
     data = create_test_data(shape=(8, 8), dtype=np.float32)
     writer = omfiles.OmFilePyWriter.from_fsspec(memory_fs, "roundtrip.om")
+    # fpx_xor_2d is a lossless compression
     variable = writer.write_array(data, chunks=[4, 4], name="roundtrip_data", compression="fpx_xor_2d")
     writer.close(variable)
     assert_file_exists(memory_fs, "roundtrip.om")
     # Read
     reader = omfiles.OmFilePyReader.from_fsspec(memory_fs, "roundtrip.om")
     read_data = reader[:]
-    np.testing.assert_allclose(data, read_data)
+    np.testing.assert_array_equal(data, read_data)
     reader.close()
