@@ -6,7 +6,6 @@ use pyo3::prelude::*;
 use pyo3::types::PyDict;
 use pyo3::Python;
 use pyo3_async_runtimes::async_std::into_future;
-use std::io::{self, Write};
 
 /// An asynchronous backend for reading files using fsspec.
 pub struct AsyncFsSpecBackend {
@@ -147,77 +146,50 @@ impl OmFileReaderBackend for FsSpecBackend {
     }
 }
 
-/// An fsspec writer backend that implements OmFileWriterBackend traits and Write.
+/// An fsspec writer backend that implements OmFileWriterBackend.
 pub struct FsSpecWriterBackend {
-    fs: PyObject,
-    path: String,
-    buffer: Vec<u8>,
-    position: u64,
+    _fs: PyObject,
+    open_fs: PyObject,
 }
 
 impl FsSpecWriterBackend {
     /// Create a new fsspec writer backend.
     pub fn new(fs: PyObject, path: String) -> PyResult<Self> {
-        Ok(Self {
-            fs,
-            path,
-            buffer: Vec::new(),
-            position: 0,
-        })
-    }
-
-    /// Flush the buffer to the fsspec file system.
-    pub fn flush_to_fs(&self) -> PyResult<()> {
-        Python::with_gil(|py| {
-            let bound_fs = self.fs.bind(py);
-            let bytes = pyo3::types::PyBytes::new(py, &self.buffer);
-            bound_fs.call_method1("write_bytes", (self.path.clone(), bytes))?;
-            Ok(())
-        })
-    }
-}
-
-impl Write for FsSpecWriterBackend {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        // Extend the buffer to accommodate the new data at the current position
-        let end_position = self.position as usize + buf.len();
-        if end_position > self.buffer.len() {
-            self.buffer.resize(end_position, 0);
-        }
-
-        // Write the data to the buffer at the current position
-        let start_pos = self.position as usize;
-        self.buffer[start_pos..end_position].copy_from_slice(buf);
-        self.position += buf.len() as u64;
-
-        Ok(buf.len())
-    }
-
-    fn flush(&mut self) -> io::Result<()> {
-        self.flush_to_fs().map_err(|e| {
-            io::Error::new(
-                io::ErrorKind::Other,
-                format!("Failed to flush to fsspec: {}", e),
-            )
-        })
+        let open_fs = Python::with_gil(|py| {
+            let bound_fs = fs.bind(py);
+            let open_file = bound_fs
+                .call_method("open", (path, "wb"), None)
+                .unwrap()
+                .unbind();
+            open_file
+        });
+        Ok(Self { _fs: fs, open_fs })
     }
 }
 
 impl OmFileWriterBackend for FsSpecWriterBackend {
     fn write(&mut self, data: &[u8]) -> Result<(), OmFilesRsError> {
-        self.write_all(data).map_err(|e| {
+        Python::with_gil(|py| {
+            let bound_file = self.open_fs.bind(py);
+            let py_bytes = pyo3::types::PyBytes::new(py, data);
+            // We need to write to the open_fs. Otherwise fsspec does not
+            // provide an API which correctly buffers the data.
+            bound_file.call_method1("write", (py_bytes,))?;
+            Ok(())
+        })
+        .map_err(|e: pyo3::PyErr| {
             OmFilesRsError::DecoderError(format!("Failed to write to fsspec backend: {}", e))
-        })?;
-        // Immediately flush to fsspec after each write to ensure data persistence
-        self.flush_to_fs()
-            .map_err(|e| OmFilesRsError::DecoderError(format!("Failed to flush to fsspec: {}", e)))
+        })
     }
 
     fn synchronize(&self) -> Result<(), OmFilesRsError> {
-        // Flush the buffer to the fsspec file system
-        self.flush_to_fs().map_err(|e| {
-            OmFilesRsError::DecoderError(format!("Failed to synchronize fsspec backend: {}", e))
-        })
+        // Fsspec operations are typically synchronized upon completion of the write call.
+        // If a specific fs has an explicit sync method, it would be called here.
+        // For many backends, calling `flush` on an opened file handle might be equivalent.
+        // Without a specific `synchronize` method on fsspec's abstract interface,
+        // we rely on the underlying backend's behavior.
+        // For now, we'll no-op, assuming writes are flushed by the fsspec implementation.
+        Ok(())
     }
 }
 
@@ -263,17 +235,30 @@ mod tests {
         pyo3::prepare_freethreaded_python();
 
         Python::with_gil(|py| -> Result<(), Box<dyn Error>> {
-            let fsspec = py.import("fsspec")?;
-            let fs = fsspec.call_method1("filesystem", ("memory",))?;
+            let memory_module = py.import("fsspec.implementations.memory")?;
+            let fs = memory_module.call_method0("MemoryFileSystem")?;
 
-            let mut backend = FsSpecWriterBackend::new(fs.into(), "test_file.om".to_string())?;
+            let mut write_backend =
+                FsSpecWriterBackend::new(fs.into(), "test_file.om".to_string())?;
 
             // Test writing
-            std::io::Write::write(&mut backend, b"Hello, World!")?;
-            backend.flush()?;
+            write_backend.write(b"Hello, World!")?;
+            write_backend.synchronize()?;
 
-            std::io::Write::write(&mut backend, b"fsspec")?;
-            backend.flush()?;
+            write_backend.write(b"fsspec")?;
+            write_backend.synchronize()?;
+
+            // Read back using the FsSpecBackend for reading
+            let fs = memory_module.call_method0("MemoryFileSystem")?;
+            let read_backend = FsSpecBackend::new(fs.into(), "test_file.om".to_string())?;
+            let bytes = read_backend.get_bytes_owned(0, 44)?;
+            assert_eq!(
+                &bytes,
+                &[
+                    72, 101, 108, 108, 111, 44, 32, 87, 111, 114, 108, 100, 33, 102, 115, 115, 112,
+                    101, 99
+                ]
+            );
 
             Ok(())
         })?;

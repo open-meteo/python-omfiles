@@ -54,7 +54,7 @@ async def s3_backend_async():
 
 
 def create_test_data(shape=(10, 10), dtype: npt.DTypeLike = np.float32) -> np.ndarray:
-    return np.random.rand(*shape).astype(dtype)
+    return np.arange(np.prod(shape)).reshape(shape).astype(dtype)
 
 
 def write_simple_omfile(writer, data, name="test_data"):
@@ -164,6 +164,10 @@ def test_write_local_fsspec(local_fs):
         write_simple_omfile(writer, data, name="local_test_data")
         assert os.path.exists(tmp_path)
         assert os.path.getsize(tmp_path) > 0
+
+        reader = omfiles.OmFilePyReader.from_fsspec(local_fs, tmp_path)
+        np.testing.assert_array_equal(reader[:], data)
+
     finally:
         os.unlink(tmp_path)
 
