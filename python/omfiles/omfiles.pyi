@@ -361,6 +361,18 @@ class OmFilePyWriter:
         Raises:
         OSError: If the file cannot be created
         """
+    @staticmethod
+    def from_fsspec(fs_obj:typing.Any, path:builtins.str) -> OmFilePyWriter:
+        r"""
+        Create an OmFilePyWriter from a fsspec filesystem object.
+        
+        Args:
+            fs_obj: A fsspec filesystem object that supports write operations
+            path: The path to the file within the file system
+        
+        Returns:
+            OmFilePyWriter: A new writer instance
+        """
     def close(self, root_variable:OmVariable) -> None:
         r"""
         Finalize and close the .om file by writing the trailer with the root variable.
