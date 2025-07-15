@@ -155,14 +155,11 @@ pub struct FsSpecWriterBackend {
 impl FsSpecWriterBackend {
     /// Create a new fsspec writer backend.
     pub fn new(fs: PyObject, path: String) -> PyResult<Self> {
-        let open_fs = Python::with_gil(|py| {
+        let open_fs = Python::with_gil(|py| -> PyResult<PyObject> {
             let bound_fs = fs.bind(py);
-            let open_file = bound_fs
-                .call_method("open", (path, "wb"), None)
-                .unwrap()
-                .unbind();
-            open_file
-        });
+            let open_file = bound_fs.call_method1("open", (path, "wb"))?.unbind();
+            Ok(open_file)
+        })?;
         Ok(Self { _fs: fs, open_fs })
     }
 }
