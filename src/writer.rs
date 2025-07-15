@@ -62,10 +62,6 @@ impl OmFilePyWriter {
     ///
     /// Returns:
     ///     OmFilePyWriter: A new writer instance
-    ///
-    /// Raises:
-    ///     ValueError: If the fsspec object is invalid
-    ///     RuntimeError: If there's an error creating the writer
     fn from_fsspec(fs_obj: PyObject, path: String) -> PyResult<Self> {
         let fsspec_backend = FsSpecWriterBackend::new(fs_obj, path)?;
         let writer = OmFileWriter::new(fsspec_backend, 8 * 1024);

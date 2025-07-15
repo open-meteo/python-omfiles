@@ -372,10 +372,6 @@ class OmFilePyWriter:
         
         Returns:
             OmFilePyWriter: A new writer instance
-        
-        Raises:
-            ValueError: If the fsspec object is invalid
-            RuntimeError: If there's an error creating the writer
         """
     def close(self, root_variable:OmVariable) -> None:
         r"""
