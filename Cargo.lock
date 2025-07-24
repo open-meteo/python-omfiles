@@ -842,9 +842,9 @@ dependencies = [
 ]
 
 [[package]]
-name = "omfiles-rs"
+name = "omfiles"
 version = "0.1.0"
-source = "git+https://github.com/open-meteo/rust-omfiles?rev=cc3a0e708bb4cbc1d13ae0959937c9b31abbf3c8#cc3a0e708bb4cbc1d13ae0959937c9b31abbf3c8"
+source = "git+https://github.com/open-meteo/rust-omfiles?rev=1a9227dd9b72372f0e2cf82830739ca63ca07a51#1a9227dd9b72372f0e2cf82830739ca63ca07a51"
 dependencies = [
  "async-executor",
  "async-lock",
@@ -1059,7 +1059,7 @@ dependencies = [
  "delegate",
  "num-traits",
  "numpy",
- "omfiles-rs",
+ "omfiles",
  "pyo3",
  "pyo3-async-runtimes",
  "pyo3-stub-gen",
