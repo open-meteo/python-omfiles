@@ -1,9 +1,10 @@
 name: Deploy MkDocs to GitHub Pages
 
 on:
-  push:
-    branches:
-      - feat/mkdocs
+  workflow_run:
+    workflows: ["Release Please"]
+    types:
+      - completed
 
 jobs:
   deploy:
