@@ -1,6 +1,11 @@
 # OM-Files Python & Rust Package
 
-Welcome to the documentation for the omfiles Python package, a Python interface for reading and writing `.om` files.
+<rewrite_this>
+!!! warning
+    This package is under active development and may change without notice.
+</rewrite_this>
+
+Welcome to the documentation for the `omfiles` Python package, an interface for reading and writing `.om` files.
 
 The [OM file format](https://github.com/open-meteo/om-file-format) is designed for efficient storage and access of multi-dimensional scientific data, supporting hierarchical structures, chunked arrays, and compression.
 The Python bindings are powered by [PyO3](https://pyo3.rs/), leveraging the [rust-omfiles](https://github.com/open-meteo/rust-omfiles) package.
@@ -78,7 +83,7 @@ writer.close(variable)
 
 ## API Reference
 
-See the [API documentation](api/index.html) for details on all classes and methods.
+See the [API documentation](api.md) for details on all classes and methods.
 
 ---
 

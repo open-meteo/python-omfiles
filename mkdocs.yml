@@ -12,6 +12,7 @@ nav:
       - OmFilePyReader: api/reader.md
       - OmFilePyReaderAsync: api/readerasync.md
       - OmFilePyWriter: api/writer.md
+      - OmVariable: api/variable.md
       - types: api/types.md
       - xarray_backend: api/xarray.md
 
