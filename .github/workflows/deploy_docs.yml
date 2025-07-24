@@ -21,7 +21,7 @@ jobs:
 
       - name: Build and deploy documentation
         run: |
-          uv run mkdocs gh-deploy
+          uv run mkdocs gh-deploy --force --clean --remote-name origin --remote-branch gh-pages
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
