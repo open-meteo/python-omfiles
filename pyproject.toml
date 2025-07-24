@@ -23,7 +23,10 @@ dev = [
     "pytest>=6.1",
     "pytest-asyncio",
     "psutil",
-    "maturin>=1.7,<2.0"
+    "maturin>=1.7,<2.0",
+    "mkdocs>=1.4,<2.0",
+    "mkdocs-material",
+    "mkdocstrings[python]",
 ]
 
 [tool.maturin]
@@ -42,12 +45,18 @@ asyncio_mode = "auto"
 
 [tool.ruff]
 line-length = 120
-exclude = ["omfiles.pyi"]
 
 [tool.ruff.lint]
 unfixable = ["F401"]
 # Add import sorting rules (I-prefixed rules)
 extend-select = ["I"]
+select = ["D"] # Enable all docstring-related rules
+ignore = [
+    "D200",
+    "D203",
+    "D212",
+    "D413"
+]
 
 [project.entry-points."xarray.backends"]
 om = "omfiles.xarray_backend:OmXarrayEntrypoint"
