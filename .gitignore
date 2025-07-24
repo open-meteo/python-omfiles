@@ -37,6 +37,9 @@ venv/
 .installed.cfg
 *.egg
 
+# docs
+site/
+
 # Installer logs
 pip-log.txt
 pip-delete-this-directory.txt

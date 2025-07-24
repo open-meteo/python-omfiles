@@ -1,3 +1,6 @@
+"""OmFilePyReader backend for Xarray."""
+# ruff: noqa: D101, D102, D105, D107
+
 from __future__ import annotations
 
 import numpy as np
@@ -78,6 +81,7 @@ class OmDataStore(WritableCFDataStore):
     def _get_known_dimensions(self):
         """
         Get a set of all dimension names used in the dataset.
+
         This scans all variables for their _ARRAY_DIMENSIONS attribute.
         """
         dimensions = set()
@@ -141,6 +145,8 @@ class OmDataStore(WritableCFDataStore):
 
 
 class OmBackendArray(BackendArray):
+    """OmBackendArray is an xarray backend implementation for the OMFilePyReader."""
+
     def __init__(self, reader: OmFilePyReader):
         self.reader = reader
 
@@ -153,6 +159,7 @@ class OmBackendArray(BackendArray):
         return self.reader.dtype
 
     def __getitem__(self, key: indexing.ExplicitIndexer) -> np.typing.ArrayLike:
+        """Retrieve data from the OmFilePyReader using the provided key."""
         return indexing.explicit_indexing_adapter(
             key,
             self.shape,
