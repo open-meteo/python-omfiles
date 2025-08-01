@@ -22,18 +22,8 @@ theme:
   name: readthedocs
   # logo: images/logo.png # Optional: add a logo to docs/images/logo.png
   # favicon: images/favicon.ico # Optional: add a favicon to docs/images/favicon.ico
-  palette:
-    - scheme: default
-      primary: blue
-      accent: indigo
-  features:
-    - navigation.tabs
-    - navigation.top
-    - search.highlight
-    - search.suggest
 
 plugins:
-  - search
   - autorefs
   - mkdocstrings:
       handlers:

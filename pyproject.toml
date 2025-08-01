@@ -25,7 +25,6 @@ dev = [
     "psutil",
     "maturin>=1.7,<2.0",
     "mkdocs>=1.4,<2.0",
-    "mkdocs-material",
     "mkdocstrings[python]",
 ]
 
