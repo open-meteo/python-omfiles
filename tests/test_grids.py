@@ -3,6 +3,7 @@ from typing import cast
 import numpy as np
 import pyproj
 import pytest
+from omfiles._utils import _normalize_longitude
 from omfiles.grids import (
     LambertAzimuthalEqualAreaProjection,
     LambertConformalConicProjection,
@@ -12,7 +13,6 @@ from omfiles.grids import (
     StereographicProjection,
 )
 from omfiles.om_domains import RegularLatLonGrid
-from omfiles.utils import _normalize_longitude
 
 # Fixtures for grids
 
