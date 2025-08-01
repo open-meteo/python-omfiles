@@ -103,8 +103,6 @@ async def test_pfor_serializer_roundtrip(store: Store, dtype: np.dtype) -> None:
     spath = StorePath(store, path)
     assert await store.is_empty("")
 
-    print("dtype", dtype)
-
     # Create test data
     data = np.array(
         [

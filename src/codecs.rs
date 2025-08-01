@@ -7,8 +7,6 @@ use pyo3::prelude::*;
 use pyo3::types::PyBytes;
 use std::ffi::c_uchar;
 
-const CODEC_ID_PFOR_DELTA_2D: &str = "pfor_delta_2d";
-
 fn get_dtype_size(dtype_str: &str) -> PyResult<usize> {
     match dtype_str {
         "int8" => Ok(1),
@@ -28,7 +26,7 @@ fn get_dtype_size(dtype_str: &str) -> PyResult<usize> {
     }
 }
 
-#[pyclass(module = "omfiles_zarr_codecs._omfiles_rs_bindings", dict)]
+#[pyclass]
 #[derive(Debug, Clone)]
 pub struct PforDelta2dCodec {}
 
@@ -37,11 +35,6 @@ impl PforDelta2dCodec {
     #[new]
     fn new() -> PyResult<Self> {
         Ok(PforDelta2dCodec {})
-    }
-
-    #[getter]
-    fn codec_id(&self) -> &'static str {
-        CODEC_ID_PFOR_DELTA_2D
     }
 
     #[pyo3(signature = (array, dtype))]
