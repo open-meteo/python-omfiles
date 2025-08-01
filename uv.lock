@@ -1170,20 +1170,32 @@ dependencies = [
     { name = "xarray", version = "2025.7.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
 ]
 
-[package.dev-dependencies]
+[package.optional-dependencies]
 codec = [
     { name = "numcodecs", version = "0.12.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "numcodecs", version = "0.13.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.10.*'" },
     { name = "numcodecs", version = "0.16.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "zarr", version = "2.18.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "zarr", version = "2.18.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.10.*'" },
-    { name = "zarr", version = "3.0.8", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "zarr", version = "3.1.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
 ]
+
+[package.dev-dependencies]
 dev = [
     { name = "maturin" },
+    { name = "omfiles", extra = ["codec"] },
     { name = "psutil" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
+    { name = "sphinx", version = "7.4.7", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "sphinx", version = "8.1.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.10.*'" },
+    { name = "sphinx", version = "8.2.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "sphinx-autodoc-typehints", version = "2.3.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "sphinx-autodoc-typehints", version = "3.0.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.10.*'" },
+    { name = "sphinx-autodoc-typehints", version = "3.2.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "sphinx-rtd-theme" },
+]
+documentation = [
     { name = "sphinx", version = "7.4.7", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "sphinx", version = "8.1.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.10.*'" },
     { name = "sphinx", version = "8.2.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
@@ -1196,21 +1208,26 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "fsspec", specifier = ">=2023.1.0" },
+    { name = "numcodecs", marker = "extra == 'codec'", specifier = ">=0.12.1" },
     { name = "numpy", specifier = ">=1.20.0" },
     { name = "s3fs", specifier = ">=2023.1.0" },
     { name = "xarray", specifier = ">=2023.1.0" },
+    { name = "zarr", marker = "extra == 'codec'", specifier = ">=2.18.2" },
 ]
+provides-extras = ["codec"]
 
 [package.metadata.requires-dev]
-codec = [
-    { name = "numcodecs", specifier = ">=0.12.1" },
-    { name = "zarr", specifier = ">=2.18.2" },
-]
 dev = [
     { name = "maturin", specifier = ">=1.7,<2.0" },
+    { name = "omfiles", extras = ["codec"] },
     { name = "psutil" },
     { name = "pytest", specifier = ">=6.1" },
     { name = "pytest-asyncio" },
+    { name = "sphinx", specifier = ">=7.4.7" },
+    { name = "sphinx-autodoc-typehints", specifier = ">=2.3.0" },
+    { name = "sphinx-rtd-theme", specifier = ">=3.0.2" },
+]
+documentation = [
     { name = "sphinx", specifier = ">=7.4.7" },
     { name = "sphinx-autodoc-typehints", specifier = ">=2.3.0" },
     { name = "sphinx-rtd-theme", specifier = ">=3.0.2" },
@@ -2172,7 +2189,7 @@ wheels = [
 
 [[package]]
 name = "zarr"
-version = "3.0.8"
+version = "3.1.1"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.12'",
@@ -2185,9 +2202,9 @@ dependencies = [
     { name = "packaging", marker = "python_full_version >= '3.11'" },
     { name = "typing-extensions", marker = "python_full_version >= '3.11'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/52/60/9652fd0536fbaca8d08cbc1a5572c52e0ce01773297df75da8bb47e45907/zarr-3.0.8.tar.gz", hash = "sha256:88505d095af899a88ae8ac4db02f4650ef0801d2ff6f65b6d1f0a45dcf760a6d", size = 256825, upload-time = "2025-05-19T14:19:00.123Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/15/a9/29fe1800380092ae03ac6207d757f3e5affaf1fcd2e5ef074cf4fc68f0fa/zarr-3.1.1.tar.gz", hash = "sha256:17db72f37f2489452d2137ac891c4133b8f976f9189d8efd3e75f3b3add84e8c", size = 314075, upload-time = "2025-07-30T11:51:36.81Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/00/3b/e20bdf84088c11f2c396d034506cbffadd53e024111c1aa4585c2aba1523/zarr-3.0.8-py3-none-any.whl", hash = "sha256:7f81e7aec086437d98882aa432209107114bd7f3a9f4958b2af9c6b5928a70a7", size = 205364, upload-time = "2025-05-19T14:18:58.789Z" },
+    { url = "https://files.pythonhosted.org/packages/c8/48/bde2f58cfbc9fd6ab844e2f2fd79d5e54195c12a17aa9b47c0b0e701a421/zarr-3.1.1-py3-none-any.whl", hash = "sha256:9a0b7e7c27bf62965b8eef6b8b8fdb9b47381f0738be35e40f37be6479b546be", size = 255373, upload-time = "2025-07-30T11:51:34.623Z" },
 ]
 
 [[package]]

@@ -18,19 +18,25 @@ dependencies = [
     "xarray>=2023.1.0",
 ]
 
+[project.optional-dependencies]
+codec = [
+    "zarr>=2.18.2",
+    "numcodecs>=0.12.1",
+]
+
 [dependency-groups]
+documentation = [
+    "sphinx>=7.4.7",
+    "sphinx-autodoc-typehints>=2.3.0",
+    "sphinx-rtd-theme>=3.0.2",
+]
 dev = [
     "pytest>=6.1",
     "pytest-asyncio",
     "psutil",
     "maturin>=1.7,<2.0",
-    "sphinx>=7.4.7",
-    "sphinx-autodoc-typehints>=2.3.0",
-    "sphinx-rtd-theme>=3.0.2",
-]
-codec = [
-    "zarr>=2.18.2",
-    "numcodecs>=0.12.1",
+    {include-group = "documentation"},
+    "omfiles[codec]",
 ]
 
 [tool.maturin]

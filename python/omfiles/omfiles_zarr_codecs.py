@@ -63,7 +63,7 @@ try:
     from zarr.core.common import JSON, ChunkCoords
 
     if version.parse(zarr.__version__) <= version.parse("3.1.0"):
-        raise ImportError("omfiles.pfor_serializer requires zarr > 3.1.0")
+        raise ValueError("omfiles.pfor_serializer requires zarr > 3.1.0, got version {}".format(zarr.__version__))
 
     @dataclass(frozen=True)
     class PforSerializer(ArrayBytesCodec, Metadata):
