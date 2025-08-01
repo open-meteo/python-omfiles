@@ -2,10 +2,16 @@
 
 import asyncio
 from dataclasses import dataclass, field
-from typing import Any, Dict, Self
+from typing import TYPE_CHECKING, Any, Dict, Self
 
 import numpy as np
-from zarr.core.dtype import TBaseDType, TBaseScalar, ZDType
+
+if TYPE_CHECKING:
+    from zarr.core.dtype import TBaseDType, TBaseScalar, ZDType
+else:
+    TBaseDType = object
+    TBaseScalar = object
+    ZDType = object
 
 try:
     import zarr
@@ -59,7 +65,7 @@ class PforSerializer(ArrayBytesCodec, Metadata):
         out = await asyncio.to_thread(self._impl.decode_array, chunk_bytes, numpy_dtype, np.prod(chunk_spec.shape))
         return chunk_spec.prototype.nd_buffer.from_ndarray_like(out.reshape(chunk_spec.shape))
 
-    def validate(self, *, shape: ChunkCoords, dtype: ZDType[TBaseDType, TBaseScalar], chunk_grid: ChunkGrid) -> None:
+    def validate(self, *, shape: ChunkCoords, dtype: "ZDType[TBaseDType, TBaseScalar]", chunk_grid: ChunkGrid) -> None:
         """Validate codec compatibility with the array spec."""
         pass
         # if dtype != np.dtype(self.dtype):
