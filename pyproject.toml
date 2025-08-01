@@ -13,30 +13,32 @@ classifiers = [
 dynamic = ["version"]
 dependencies = [
     "numpy>=1.21.0",
+]
+
+[project.optional-dependencies]
+xarray = ["xarray>=2023.1.0"]
+fsspec = ["fsspec>=2023.1.0", "s3fs>=2023.1.0"]
+proj = ["pyproj"]
+all = [
+    "xarray>=2023.1.0",
     "fsspec>=2023.1.0",
     "s3fs>=2023.1.0",
-    "xarray>=2023.1.0",
+    "pyproj"
 ]
 
 [dependency-groups]
+documentation = [
+    "sphinx>=7.4.7",
+    "sphinx-autodoc-typehints>=2.3.0",
+    "sphinx-rtd-theme>=3.0.2",
+]
 dev = [
     "pytest>=6.1",
     "pytest-asyncio",
     "psutil",
-    "pyproj",
-    "maturin>=1.7,<2.0"
-]
-bench = [
-    "hidefix",
-    "h5py",
-    "netCDF4",
-    "zarr",
-    "tensorstore",
-]
-test = [
-    "pytest>=6.0",
-    "psutil",
-    "pyproj",
+    "maturin>=1.7,<2.0",
+    {include-group = "documentation"},
+    "omfiles[all]",
 ]
 
 [tool.maturin]
@@ -55,12 +57,20 @@ asyncio_mode = "auto"
 
 [tool.ruff]
 line-length = 120
-exclude = ["omfiles.pyi"]
 
 [tool.ruff.lint]
 unfixable = ["F401"]
 # Add import sorting rules (I-prefixed rules)
 extend-select = ["I"]
+select = ["D"] # Enable all docstring-related rules
+ignore = [
+    "D200",
+    "D203",
+    "D212",
+    "D413"
+]
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["D"]  # Ignore all docstring errors in tests/
 
 [project.entry-points."xarray.backends"]
-om = "omfiles.xarray_backend:OmXarrayEntrypoint"
+om = "omfiles.xarray:OmXarrayEntrypoint"

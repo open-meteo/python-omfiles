@@ -17,15 +17,14 @@ use omfiles_rs::{
     core::data_types::{DataType, OmFileArrayDataType},
     io::reader_async::OmFileReaderAsync,
 };
-use pyo3::prelude::*;
+use pyo3::{prelude::*, types::PyTuple};
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
 use std::{fs::File, ops::Range, sync::Arc};
 
 /// A reader for OM files with async access.
 ///
-/// This class provides asynchronous access to multi-dimensional array data stored
-/// in OM files. It supports reading from local files via memory mapping or
-/// from remote files through fsspec compatibility.
+/// Provides asynchronous access to multi-dimensional array data stored in OM files.
+/// Supports reading from local files via memory mapping or from remote files through fsspec compatibility.
 #[gen_stub_pyclass]
 #[pyclass(module = "omfiles.omfiles")]
 pub struct OmFilePyReaderAsync {
@@ -35,8 +34,9 @@ pub struct OmFilePyReaderAsync {
     /// concurrently, but only one writer to close it.
     reader: RwLock<Option<OmFileReaderAsync<AsyncBackendImpl>>>,
     /// Shape of the array data in the file (read-only property)
-    #[pyo3(get)]
     shape: Vec<u64>,
+    /// Chunk shape of the array data in the file (read-only property)
+    chunk_shape: Vec<u64>,
 }
 
 #[gen_stub_pymethods]
@@ -44,24 +44,16 @@ pub struct OmFilePyReaderAsync {
 impl OmFilePyReaderAsync {
     /// Create a new async reader from an fsspec fs object.
     ///
-    /// Parameters
-    /// ----------
-    /// fs_obj : fsspec.spec.AbstractFileSystem
-    ///     A fsspec file system object which needs to have the async methods `_cat_file` and `_size`.
-    /// path: String
-    ///     The path to the file within the file system.
+    /// Args:
+    ///     fs_obj (fsspec.spec.AbstractFileSystem): A fsspec file system object which needs to have the async methods `_cat_file` and `_size`.
+    ///     path (str): The path to the file within the file system.
     ///
-    /// Returns
-    /// -------
-    /// OmFilePyReaderAsync
-    ///     A new reader instance
+    /// Returns:
+    ///     OmFilePyReaderAsync: A new reader instance.
     ///
-    /// Raises
-    /// ------
-    /// TypeError
-    ///     If the provided file object is not a valid fsspec file
-    /// IOError
-    ///     If there's an error reading the file
+    /// Raises:
+    ///     TypeError: If the provided file object is not a valid fsspec file.
+    ///     IOError: If there's an error reading the file.
     #[staticmethod]
     async fn from_fsspec(fs_obj: PyObject, path: String) -> PyResult<Self> {
         Python::with_gil(|py| {
@@ -81,28 +73,25 @@ impl OmFilePyReaderAsync {
             .map_err(convert_omfilesrs_error)?;
 
         let shape = get_shape_vec(&reader);
+        let chunk_shape = get_chunk_shape(&reader);
+
         Ok(Self {
             reader: RwLock::new(Some(reader)),
             shape,
+            chunk_shape,
         })
     }
 
     /// Create a new async reader from a local file path.
     ///
-    /// Parameters
-    /// ----------
-    /// file_path : str
-    ///     Path to the OM file to read
+    /// Args:
+    ///     file_path (str): Path to the OM file to read.
     ///
-    /// Returns
-    /// -------
-    /// OmFilePyReaderAsync
-    ///     A new reader instance
+    /// Returns:
+    ///     OmFilePyReaderAsync: A new reader instance.
     ///
-    /// Raises
-    /// ------
-    /// IOError
-    ///     If the file cannot be opened or read
+    /// Raises:
+    ///     IOError: If the file cannot be opened or read.
     #[staticmethod]
     async fn from_path(file_path: String) -> PyResult<Self> {
         let file_handle = File::open(file_path)
@@ -112,31 +101,26 @@ impl OmFilePyReaderAsync {
             .await
             .map_err(convert_omfilesrs_error)?;
         let shape = get_shape_vec(&reader);
+        let chunk_shape = get_chunk_shape(&reader);
 
         Ok(Self {
             reader: RwLock::new(Some(reader)),
             shape,
+            chunk_shape,
         })
     }
 
     /// Read data from the array concurrently based on specified ranges.
     ///
-    /// Parameters
-    /// ----------
-    /// ranges : ArrayIndex
-    ///     Index or slice object specifying the ranges to read
+    /// Args:
+    ///     ranges (omfiles.types.BasicSelection): Index or slice object specifying the ranges to read.
     ///
-    /// Returns
-    /// -------
-    /// OmFileTypedArray
-    ///     Array data of the appropriate numpy type
+    /// Returns:
+    ///     OmFileTypedArray: Array data of the appropriate numpy type.
     ///
-    /// Raises
-    /// ------
-    /// ValueError
-    ///     If the reader is closed
-    /// TypeError
-    ///     If the data type is not supported
+    /// Raises:
+    ///     ValueError: If the reader is closed.
+    ///     TypeError: If the data type is not supported.
     async fn read_concurrent<'py>(&self, ranges: ArrayIndex) -> PyResult<OmFileTypedArray> {
         let io_size_max = None;
         let io_size_merge = None;
@@ -268,16 +252,13 @@ impl OmFilePyReaderAsync {
 
     /// Close the reader and release any resources.
     ///
-    /// This method properly closes the underlying file resources.
+    /// Properly closes the underlying file resources.
     ///
-    /// Returns
-    /// -------
-    /// None
+    /// Returns:
+    ///     None
     ///
-    /// Raises
-    /// ------
-    /// RuntimeError
-    ///     If the reader cannot be closed due to concurrent access
+    /// Raises:
+    ///     RuntimeError: If the reader cannot be closed due to concurrent access.
     fn close(&self) -> PyResult<()> {
         // Need write access to take the reader
         let mut guard = match self.reader.try_write() {
@@ -307,6 +288,26 @@ impl OmFilePyReaderAsync {
 
         Ok(())
     }
+
+    /// The shape of the variable.
+    ///
+    /// Returns:
+    ///     tuple: The shape of the array.
+    #[getter]
+    fn shape<'py>(&self, py: Python<'py>) -> PyResult<pyo3::Bound<'py, PyTuple>> {
+        let tup = PyTuple::new(py, &self.shape)?;
+        Ok(tup)
+    }
+
+    /// The chunk shape of the variable.
+    ///
+    /// Returns:
+    ///     tuple: The chunk shape of the array.
+    #[getter]
+    fn chunks<'py>(&self, py: Python<'py>) -> PyResult<pyo3::Bound<'py, PyTuple>> {
+        let tup = PyTuple::new(py, &self.chunk_shape)?;
+        Ok(tup)
+    }
 }
 
 async fn read_squeezed_typed_array<T>(
@@ -329,16 +330,18 @@ where
 
 /// Small helper function to get the correct shape of the data. We need to
 /// be careful with scalars and groups!
-fn get_shape_vec<Backend>(reader: &OmFileReaderAsync<Backend>) -> Vec<u64> {
-    let dtype = reader.data_type();
-    if dtype == DataType::None {
-        // "groups"
-        return vec![];
-    } else if (dtype as u8) < (DataType::Int8Array as u8) {
-        // scalars
+fn get_shape_vec(reader: &OmFileReaderAsync<AsyncBackendImpl>) -> Vec<u64> {
+    if !reader.data_type().is_array() {
         return vec![];
     }
     reader.get_dimensions().to_vec()
+}
+
+fn get_chunk_shape(reader: &OmFileReaderAsync<AsyncBackendImpl>) -> Vec<u64> {
+    if !reader.data_type().is_array() {
+        return vec![];
+    }
+    reader.get_chunk_dimensions().to_vec()
 }
 
 enum AsyncBackendImpl {

@@ -28,10 +28,7 @@ runs:
       with:
         version: "0.7.13"
         enable-cache: ${{ inputs.is-musl != 'true' && 'true' || 'false' }}
-
-    - name: "Set up Python"
-      uses: actions/setup-python@v5
-      with:
+        cache-dependency-glob: "**/uv.lock"
         python-version: ${{ inputs.python-version }}
 
     - name: Download wheels

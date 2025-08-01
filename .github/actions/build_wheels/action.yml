@@ -39,15 +39,17 @@ runs:
           ${{ runner.os }}-build-${{ inputs.platform-name }}-
 
     - name: Install uv
-      uses: astral-sh/setup-uv@v5
+      uses: astral-sh/setup-uv@v6
       with:
         version: "0.7.13"
         enable-cache: ${{ inputs.is-musl != 'true' && 'true' || 'false' }}
+        cache-dependency-glob: "**/uv.lock"
 
     - uses: actions/setup-python@v5
       with:
         python-version: ${{ inputs.python-version }}
-        cache: ${{ inputs.is-musl != 'true' && 'pip' || '' }}
+        cache: ""
+        allow-prereleases: true
 
     # Install required python dependencies. This needs to be done before
     # running cargo test, because pyo3-numpy requires numpy to be installed
