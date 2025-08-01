@@ -12,7 +12,7 @@ try:
 
     import numcodecs.abc
 
-    @dataclass(frozen=True)
+    @dataclass
     class TurboPfor(numcodecs.abc.Codec):
         codec_id = "turbo_pfor"
         dtype: str = "int16"
