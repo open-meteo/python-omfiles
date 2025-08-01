@@ -26,10 +26,10 @@ omfiles.types
     :undoc-members:
     :show-inheritance:
 
-omfiles.xarray_backend
+omfiles.xarray
 ----------------------
 
-.. automodule:: omfiles.xarray_backend
+.. automodule:: omfiles.xarray
     :members:
     :undoc-members:
     :show-inheritance:

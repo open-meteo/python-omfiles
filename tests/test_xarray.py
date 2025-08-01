@@ -1,6 +1,6 @@
 import numpy as np
 import omfiles.omfiles as om
-import omfiles.xarray_backend as om_xarray
+import omfiles.xarray as om_xarray
 import pytest
 import xarray as xr
 from xarray.core import indexing

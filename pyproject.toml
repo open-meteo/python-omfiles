@@ -13,20 +13,30 @@ classifiers = [
 dynamic = ["version"]
 dependencies = [
     "numpy>=1.20.0",
-    "fsspec>=2023.1.0",
-    "s3fs>=2023.1.0",
-    "xarray>=2023.1.0",
 ]
 
+[project.optional-dependencies]
+xarray = ["xarray>=2023.1.0"]
+fsspec = ["fsspec>=2023.1.0", "s3fs>=2023.1.0"]
+all = [
+    "xarray>=2023.1.0",
+    "fsspec>=2023.1.0",
+    "s3fs>=2023.1.0"
+    ]
+
 [dependency-groups]
+documentation = [
+    "sphinx>=7.4.7",
+    "sphinx-autodoc-typehints>=2.3.0",
+    "sphinx-rtd-theme>=3.0.2",
+]
 dev = [
     "pytest>=6.1",
     "pytest-asyncio",
     "psutil",
     "maturin>=1.7,<2.0",
-    "sphinx>=7.4.7",
-    "sphinx-autodoc-typehints>=2.3.0",
-    "sphinx-rtd-theme>=3.0.2",
+    {include-group = "documentation"},
+    "omfiles[all]",
 ]
 
 [tool.maturin]
@@ -61,4 +71,4 @@ ignore = [
 "tests/*" = ["D"]  # Ignore all docstring errors in tests/
 
 [project.entry-points."xarray.backends"]
-om = "omfiles.xarray_backend:OmXarrayEntrypoint"
+om = "omfiles.xarray:OmXarrayEntrypoint"
