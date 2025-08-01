@@ -18,7 +18,11 @@ dependencies = [
 [project.optional-dependencies]
 xarray = ["xarray>=2023.1.0"]
 fsspec = ["fsspec>=2023.1.0", "s3fs>=2023.1.0"]
-all = ["xarray", "fsspec"]
+all = [
+    "xarray>=2023.1.0",
+    "fsspec>=2023.1.0",
+    "s3fs>=2023.1.0"
+    ]
 
 [dependency-groups]
 documentation = [
