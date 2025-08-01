@@ -62,8 +62,7 @@ try:
     from zarr.core.chunk_grids import ChunkGrid
     from zarr.core.common import JSON, ChunkCoords
 
-    if version.parse(zarr.__version__) <= version.parse("3.1.0"):
-        raise ValueError("omfiles.pfor_serializer requires zarr > 3.1.0, got version {}".format(zarr.__version__))
+    ZARR_VERSION_AFTER_3_1_0 = version.parse(zarr.__version__) >= version.parse("3.1.0")
 
     @dataclass(frozen=True)
     class PforSerializer(ArrayBytesCodec, Metadata):
@@ -83,19 +82,24 @@ try:
 
         async def _encode_single(self, chunk_data: NDBuffer, chunk_spec: ArraySpec) -> Buffer:
             """Encode a single array chunk to bytes."""
+            if ZARR_VERSION_AFTER_3_1_0:
+                numpy_dtype = chunk_spec.dtype.to_native_dtype()
+            else:
+                numpy_dtype = chunk_spec.dtype
+
             out = await asyncio.to_thread(
-                self._impl.encode_array,
-                np.ascontiguousarray(chunk_data.as_numpy_array()),
-                chunk_spec.dtype.to_native_dtype(),
+                self._impl.encode_array, np.ascontiguousarray(chunk_data.as_numpy_array()), numpy_dtype
             )
             return chunk_spec.prototype.buffer.from_bytes(out)
 
         async def _decode_single(self, chunk_data: Buffer, chunk_spec: ArraySpec) -> NDBuffer:
             """Decode a single byte chunk to an array."""
             chunk_bytes = chunk_data.to_bytes()
-            out = await asyncio.to_thread(
-                self._impl.decode_array, chunk_bytes, chunk_spec.dtype.to_native_dtype(), np.prod(chunk_spec.shape)
-            )
+            if ZARR_VERSION_AFTER_3_1_0:
+                numpy_dtype = chunk_spec.dtype.to_native_dtype()
+            else:
+                numpy_dtype = chunk_spec.dtype
+            out = await asyncio.to_thread(self._impl.decode_array, chunk_bytes, numpy_dtype, np.prod(chunk_spec.shape))
             return chunk_spec.prototype.nd_buffer.from_ndarray_like(out.reshape(chunk_spec.shape))
 
         def compute_encoded_size(self, input_byte_length: int, chunk_spec: ArraySpec) -> int:
