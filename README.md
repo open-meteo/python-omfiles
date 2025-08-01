@@ -160,17 +160,3 @@ Can be generated from the rust doc comments via
 ```bash
 cargo run stub_gen
 ```
-
-## Benchmarks
-
-Before running the benchmarks, make sure to compile the release version of the library:
-
-```bash
-maturin develop --release
-```
-
-Then run the benchmarks:
-
-```bash
-uv run benchmarks/main.py
-```
