@@ -74,5 +74,5 @@ ignore = [
 om = "omfiles.xarray_backend:OmXarrayEntrypoint"
 
 [project.entry-points."zarr.codecs"]
-"omfiles.pfor" = "omfiles.omfiles_zarr_codecs:PforCodec"
-"omfiles.pfor_serializer" = "omfiles.omfiles_zarr_codecs:PforSerializer"
+"omfiles.pfor" = "omfiles.zarr3:PforCodec"
+"omfiles.pfor_serializer" = "omfiles.zarr3:PforSerializer"
