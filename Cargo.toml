@@ -22,6 +22,7 @@ numpy = "0.25"
 num-traits = "0.2"
 delegate = "0.13"
 omfiles-rs = { git = "https://github.com/open-meteo/rust-omfiles", rev = "1a9227dd9b72372f0e2cf82830739ca63ca07a51", package = "omfiles" }
+om-file-format-sys = { git = "https://github.com/open-meteo/om-file-format", branch = "main" }
 pyo3-async-runtimes = { version = "0.25", features = ["async-std-runtime"] }
 thiserror = "2.0.12"
 async-lock = "3.4.0"
