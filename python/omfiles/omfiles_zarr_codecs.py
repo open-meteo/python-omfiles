@@ -1,6 +1,5 @@
 import asyncio
 from dataclasses import dataclass, field
-from typing import Any, Dict, Self
 
 import numpy as np
 
@@ -9,6 +8,8 @@ from .omfiles import (
 )
 
 try:
+    from typing import Any, Dict, Self
+
     import numcodecs.abc
 
     @dataclass(frozen=True)

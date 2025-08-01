@@ -2,11 +2,14 @@ import sys
 
 import numpy as np
 import pytest
-from numcodecs.zarr3 import Delta
 from omfiles.omfiles_zarr_codecs import PforCodec, PforSerializer
-from zarr import create_array
-from zarr.abc.store import Store
-from zarr.storage import LocalStore, MemoryStore, StorePath
+
+Delta = pytest.importorskip("numcodecs.zarr3.Delta")
+create_array = pytest.importorskip("zarr").create_array
+Store = pytest.importorskip("zarr.abc.store").Store
+LocalStore = pytest.importorskip("zarr.storage").LocalStore
+MemoryStore = pytest.importorskip("zarr.storage").MemoryStore
+StorePath = pytest.importorskip("zarr.storage").StorePath
 
 delta_config = {
     "float32": "<f4",
