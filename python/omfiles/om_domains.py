@@ -1,7 +1,10 @@
+"""Domains used in Open-Meteo files."""
+
 from typing import List
 
 import numpy as np
 
+from omfiles._utils import EPOCH
 from omfiles.grids import (
     AbstractGrid,
     ProjectionGrid,
@@ -9,7 +12,6 @@ from omfiles.grids import (
     RotatedLatLonProjection,
     StereographicProjection,
 )
-from omfiles.utils import EPOCH
 
 
 class OmDomain:
@@ -24,16 +26,11 @@ class OmDomain:
         """
         Initialize a domain configuration.
 
-        Parameters:
-        -----------
-        name : str
-            Name of the domain
-        grid : AbstractGrid
-            Grid implementation for this domain
-        file_length : int
-            Number of time steps in each file chunk
-        temporal_resolution_seconds : int, optional
-            Time resolution in seconds (default: 3600 = 1 hour)
+        Args:
+            name (str): Name of the domain.
+            grid (AbstractGrid): Grid implementation for this domain.
+            file_length (int): Number of time steps in each file chunk.
+            temporal_resolution_seconds (int, optional): Time resolution in seconds. Defaults to 3600 (1 hour).
         """
         self.name = name
         self.grid = grid
@@ -42,18 +39,15 @@ class OmDomain:
 
     def time_to_chunk_index(self, timestamp: np.datetime64) -> int:
         """
-        Convert a timestamp to a chunk index. This depends on the file_length
-        and the temporal_resolution_seconds of the domain.
+        Convert a timestamp to a chunk index.
 
-        Parameters:
-        -----------
-        timestamp : np.datetime64
-            The timestamp to convert
+        This depends on the file_length and the temporal_resolution_seconds of the domain.
+
+        Args:
+            timestamp (np.datetime64): The timestamp to convert.
 
         Returns:
-        --------
-        int
-            The chunk index containing the timestamp
+            int: The chunk index containing the timestamp.
         """
         seconds_since_epoch = (timestamp - EPOCH) / np.timedelta64(1, "s")
         chunk_index = int(seconds_since_epoch / (self.file_length * self.temporal_resolution_seconds))
@@ -67,16 +61,12 @@ class OmDomain:
         """
         Find all chunk indices that contain data within the given date range.
 
-        Parameters:
-        -----------
-        start_date : datetime
-            Start date for the data range
-        end_date : datetime
-            End date for the data range
+        Args:
+            start_timestamp (np.datetime64): Start timestamp for the data range.
+            end_timestamp (np.datetime64): End timestamp for the data range.
+
         Returns:
-        --------
-        List[int]
-            List of chunk indices containing data within the date range
+            List[int]: List of chunk indices containing data within the date range.
         """
         # Get chunk indices for start and end dates
         start_chunk = self.time_to_chunk_index(start_timestamp)
@@ -89,15 +79,11 @@ class OmDomain:
         """
         Get the time range covered by a specific chunk.
 
-        Parameters:
-        -----------
-        chunk_index : int
-            Index of the chunk
+        Args:
+            chunk_index (int): Index of the chunk.
 
         Returns:
-        --------
-        np.ndarray
-            Array of datetime64 objects representing the time points in the chunk
+            np.ndarray: Array of datetime64 objects representing the time points in the chunk.
         """
         chunk_start_seconds = chunk_index * self.file_length * self.temporal_resolution_seconds
         start_time = EPOCH + np.timedelta64(chunk_start_seconds, "s")

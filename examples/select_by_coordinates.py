@@ -61,27 +61,17 @@ def load_chunk_data(
     """
     Load data for a specific chunk and grid coordinates.
 
-    Parameters:
-    -----------
-    chunk_index : int
-        Index of the chunk to load
-    domain_name : str
-        Name of the domain
-    variable_name : str
-        Name of the variable to fetch
-    grid_coords : Tuple[int, int]
-        Grid coordinates (x, y) to extract
-    fs : fsspec.AbstractFileSystem
-        Filesystem to use for loading data
-    start_date : np.datetime64
-        Start of requested date range
-    end_date : np.datetime64
-        End of requested date range
+    Args:
+        chunk_index (int): Index of the chunk to load.
+        domain_name (str): Name of the domain.
+        variable_name (str): Name of the variable to fetch.
+        grid_coords (Tuple[int, int]): Grid coordinates (x, y) to extract.
+        fs (fsspec.AbstractFileSystem): Filesystem to use for loading data.
+        start_date (np.datetime64): Start of requested date range.
+        end_date (np.datetime64): End of requested date range.
 
     Returns:
-    --------
-    Tuple[np.ndarray, np.ndarray]
-        Tuple containing (time_array, data_array)
+        Tuple[np.ndarray, np.ndarray]: Tuple containing (time_array, data_array).
     """
     domain = DOMAINS[domain_name]
     x, y = grid_coords
@@ -114,25 +104,16 @@ def get_data_for_coordinates(
     """
     Fetch weather data for specific coordinates across a date range, merging multiple files as needed.
 
-    Parameters:
-    -----------
-    lat : float
-        Latitude in degrees
-    lon : float
-        Longitude in degrees
-    domain_name : str
-        Name of the domain to use (must be in omfiles.om_domains.DOMAINS)
-    variable_name : str
-        Name of the variable to fetch
-    start_date : datetime
-        Start date for the data
-    end_date : datetime
-        End date for the data
+    Args:
+        lat (float): Latitude in degrees.
+        lon (float): Longitude in degrees.
+        domain_name (str): Name of the domain to use (must be in omfiles.om_domains.DOMAINS).
+        variable_name (str): Name of the variable to fetch.
+        start_date (datetime): Start date for the data.
+        end_date (datetime): End date for the data.
 
     Returns:
-    --------
-    xr.Dataset
-        Dataset containing the requested variable at the specified location
+        xr.Dataset: Dataset containing the requested variable at the specified location.
     """
     # Get the domain configuration
     if domain_name not in DOMAINS:

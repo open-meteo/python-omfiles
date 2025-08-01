@@ -1,3 +1,5 @@
+"""Grids used in Open-Meteo files."""
+
 from abc import ABC, abstractmethod
 from functools import cached_property
 from typing import Generic, Optional, Tuple, TypeVar, cast
@@ -5,8 +7,8 @@ from typing import Generic, Optional, Tuple, TypeVar, cast
 import numpy as np
 import numpy.typing as npt
 
+from omfiles._utils import _modulo_positive, _normalize_longitude
 from omfiles.types import ArrayType, CoordType, ReturnUnionType
-from omfiles.utils import _modulo_positive, _normalize_longitude
 
 
 class AbstractGrid(ABC):
@@ -28,7 +30,8 @@ class AbstractGrid(ABC):
         """
         Return the latitude coordinates array.
 
-        Uses cached_property to ensure the array is computed only once.
+        Returns:
+            np.ndarray: Array of latitude coordinates.
         """
         pass
 
@@ -38,20 +41,33 @@ class AbstractGrid(ABC):
         """
         Return the longitude coordinates array.
 
-        Uses cached_property to ensure the array is computed only once.
+        Returns:
+            np.ndarray: Array of longitude coordinates.
         """
         pass
 
     @property
     @abstractmethod
     def shape(self) -> Tuple[int, int]:
-        """Return the grid shape as (n_lat, n_lon)."""
+        """
+        Return the grid shape as (n_lat, n_lon).
+
+        Returns:
+            Tuple[int, int]: Shape of the grid as (n_lat, n_lon).
+        """
         pass
 
     @abstractmethod
     def findPointXy(self, lat: float, lon: float) -> Optional[Tuple[int, int]]:
         """
         Find grid point indices (x, y) for given lat/lon coordinates.
+
+        Args:
+            lat (float): Latitude in degrees.
+            lon (float): Longitude in degrees.
+
+        Returns:
+            Optional[Tuple[int, int]]: (x, y) grid indices if point is in grid, None otherwise.
         """
         pass
 
@@ -59,6 +75,13 @@ class AbstractGrid(ABC):
     def getCoordinates(self, x: int, y: int) -> Tuple[float, float]:
         """
         Get lat/lon coordinates for a given grid point indices.
+
+        Args:
+            x (int): Grid x index.
+            y (int): Grid y index.
+
+        Returns:
+            Tuple[float, float]: (latitude, longitude) coordinates.
         """
         pass
 
@@ -67,7 +90,7 @@ class RegularLatLonGrid(AbstractGrid):
     """
     Regular latitude-longitude grid implementation.
 
-    This represents a standard equirectangular grid with uniform spacing.
+    Represents a standard equirectangular grid with uniform spacing.
     """
 
     def __init__(
@@ -82,20 +105,13 @@ class RegularLatLonGrid(AbstractGrid):
         """
         Initialize a regular lat/lon grid.
 
-        Parameters:
-        -----------
-        lat_start : float
-            Starting latitude value
-        lat_steps : int
-            Number of latitude points
-        lat_step_size : float
-            Spacing between latitude points
-        lon_start : float
-            Starting longitude value
-        lon_steps : int
-            Number of longitude points
-        lon_step_size : float
-            Spacing between longitude points
+        Args:
+            lat_start (float): Starting latitude value.
+            lat_steps (int): Number of latitude points.
+            lat_step_size (float): Spacing between latitude points.
+            lon_start (float): Starting longitude value.
+            lon_steps (int): Number of longitude points.
+            lon_step_size (float): Spacing between longitude points.
         """
         self._lat_start = lat_start
         self._lat_steps = lat_steps
@@ -106,12 +122,21 @@ class RegularLatLonGrid(AbstractGrid):
 
     @property
     def grid_type(self) -> str:
+        """
+        Grid type identifier.
+
+        Returns:
+            str: The grid type identifier.
+        """
         return "regular_latlon"
 
     @cached_property
     def latitude(self) -> np.ndarray:
         """
-        Lazily compute and cache the latitude coordinate array.
+        Compute and cache the latitude coordinate array.
+
+        Returns:
+            np.ndarray: Array of latitude coordinates.
         """
         return np.linspace(
             self._lat_start, self._lat_start + self._lat_step_size * self._lat_steps, self._lat_steps, endpoint=False
@@ -120,7 +145,10 @@ class RegularLatLonGrid(AbstractGrid):
     @cached_property
     def longitude(self) -> np.ndarray:
         """
-        Lazily compute and cache the longitude coordinate array.
+        Compute and cache the longitude coordinate array.
+
+        Returns:
+            np.ndarray: Array of longitude coordinates.
         """
         return np.linspace(
             self._lon_start, self._lon_start + self._lon_step_size * self._lon_steps, self._lon_steps, endpoint=False
@@ -128,23 +156,24 @@ class RegularLatLonGrid(AbstractGrid):
 
     @property
     def shape(self) -> Tuple[int, int]:
+        """
+        Grid shape as (n_lat, n_lon).
+
+        Returns:
+            Tuple[int, int]: Shape of the grid as (n_lat, n_lon).
+        """
         return (self._lat_steps, self._lon_steps)
 
     def findPointXy(self, lat: float, lon: float) -> Optional[Tuple[int, int]]:
         """
         Find grid point indices (x, y) for given lat/lon coordinates.
 
-        Parameters:
-        -----------
-        lat : float
-            Latitude in degrees
-        lon : float
-            Longitude in degrees
+        Args:
+            lat (float): Latitude in degrees.
+            lon (float): Longitude in degrees.
 
         Returns:
-        --------
-        tuple or None
-            (x, y) grid indices if point is in grid, None otherwise
+            Optional[Tuple[int, int]]: (x, y) grid indices if point is in grid, None otherwise.
         """
         # Calculate raw x and y indices
         x = int(round((lon - self._lon_start) / self._lon_step_size))
@@ -164,24 +193,19 @@ class RegularLatLonGrid(AbstractGrid):
         """
         Get lat/lon coordinates for a given grid point indices.
 
-        Parameters:
-        -----------
-        x : longitude index
-        y : latitude index
+        Args:
+            x (int): Longitude index.
+            y (int): Latitude index.
 
         Returns:
-        --------
-        tuple
-            (latitude, longitude) coordinates
+            Tuple[float, float]: (latitude, longitude) coordinates.
         """
-
         lat = self._lat_start + float(y) * self._lat_step_size
         lon = self._lon_start + float(x) * self._lon_step_size
 
         return (lat, lon)
 
 
-# Abstract base class instead of Protocol
 class AbstractProjection(ABC):
     """Base class for projection implementations."""
 
@@ -217,12 +241,9 @@ class RotatedLatLonProjection(AbstractProjection):
         """
         Initialize a rotated lat/lon projection.
 
-        Parameters:
-        -----------
-        lat_origin : float
-            Latitude of origin in degrees
-        lon_origin : float
-            Longitude of origin in degrees
+        Args:
+            lat_origin (float): Latitude of origin in degrees.
+            lon_origin (float): Longitude of origin in degrees.
         """
         # θ: Rotation around y-axis
         self.theta = np.radians(90.0 + lat_origin)
@@ -233,17 +254,12 @@ class RotatedLatLonProjection(AbstractProjection):
         """
         Transform from regular lat/lon to rotated lat/lon coordinates.
 
-        Parameters:
-        -----------
-        latitude : float or array
-            Latitude in degrees
-        longitude : float or array
-            Longitude in degrees
+        Args:
+            latitude (float or array): Latitude in degrees.
+            longitude (float or array): Longitude in degrees.
 
         Returns:
-        --------
-        tuple
-            (rotated_lat, rotated_lon) in degrees
+            tuple: (rotated_lat, rotated_lon) in degrees.
         """
         scalar_input = np.isscalar(latitude) and np.isscalar(longitude)
 
@@ -285,17 +301,12 @@ class RotatedLatLonProjection(AbstractProjection):
         """
         Transform from rotated lat/lon back to regular lat/lon coordinates.
 
-        Parameters:
-        -----------
-        x : float or array
-            Rotated longitude in degrees
-        y : float or array
-            Rotated latitude in degrees
+        Args:
+            x (float or array): Rotated longitude in degrees.
+            y (float or array): Rotated latitude in degrees.
 
         Returns:
-        --------
-        tuple
-            (latitude, longitude) in degrees
+            tuple: (latitude, longitude) in degrees.
         """
         scalar_input = np.isscalar(x) and np.isscalar(y)
 
@@ -335,14 +346,10 @@ class StereographicProjection(AbstractProjection):
         """
         Initialize a stereographic projection.
 
-        Parameters:
-        -----------
-        latitude : float
-            Central latitude in degrees
-        longitude : float
-            Central longitude in degrees
-        radius : float
-            Radius of Earth in meters (default: 6371000.0)
+        Args:
+            latitude (float): Central latitude in degrees.
+            longitude (float): Central longitude in degrees.
+            radius (float, optional): Radius of Earth in meters. Defaults to 6371000.0.
         """
         self.lambda_0: npt.NDArray[np.float32] = np.radians(longitude)
         self.sin_phi_1: npt.NDArray[np.float32] = np.sin(np.radians(latitude))
@@ -353,17 +360,12 @@ class StereographicProjection(AbstractProjection):
         """
         Transform from lat/lon coordinates to projected x/y coordinates.
 
-        Parameters:
-        -----------
-        latitude : float or array
-            Latitude in degrees
-        longitude : float or array
-            Longitude in degrees
+        Args:
+            latitude (float or array): Latitude in degrees.
+            longitude (float or array): Longitude in degrees.
 
         Returns:
-        --------
-        tuple
-            (x, y) coordinates in the projection
+            tuple: (x, y) coordinates in the projection.
         """
         scalar_input = np.isscalar(latitude) and np.isscalar(longitude)
 
@@ -389,17 +391,12 @@ class StereographicProjection(AbstractProjection):
         """
         Transform from projected x/y coordinates back to lat/lon.
 
-        Parameters:
-        -----------
-        x : float or array
-            X coordinate in the projection
-        y : float or array
-            Y coordinate in the projection
+        Args:
+            x (float or array): X coordinate in the projection.
+            y (float or array): Y coordinate in the projection.
 
         Returns:
-        --------
-        tuple
-            (latitude, longitude) in degrees
+            tuple: (latitude, longitude) in degrees.
         """
         x_arr = np.asarray(x, dtype=np.float32)
         y_arr = np.asarray(y, dtype=np.float32)
@@ -423,23 +420,21 @@ class LambertAzimuthalEqualAreaProjection(AbstractProjection):
     """
     Lambert Azimuthal Equal-Area projection implementation.
 
-    This implements the equations for the Lambert Azimuthal Equal-Area projection
+    Implements the equations for the Lambert Azimuthal Equal-Area projection,
     which preserves area but not angles or distances.
-    https://mathworld.wolfram.com/LambertAzimuthalEqual-AreaProjection.html
+
+    Reference:
+        https://mathworld.wolfram.com/LambertAzimuthalEqual-AreaProjection.html
     """
 
     def __init__(self, lambda_0: float, phi_1: float, radius: float = 6371229.0):
         """
         Initialize a Lambert Azimuthal Equal-Area projection.
 
-        Parameters:
-        -----------
-        lambda_0 : float
-            Central longitude in degrees
-        phi_1 : float
-            Standard parallel in degrees
-        radius : float
-            Radius of Earth in meters (default: 6371229.0)
+        Args:
+            lambda_0 (float): Central longitude in degrees.
+            phi_1 (float): Standard parallel in degrees.
+            radius (float, optional): Radius of Earth in meters. Defaults to 6371229.0.
         """
         self.lambda_0 = np.radians(lambda_0)
         self.phi_1 = np.radians(phi_1)
@@ -449,17 +444,12 @@ class LambertAzimuthalEqualAreaProjection(AbstractProjection):
         """
         Transform from lat/lon coordinates to projected x/y coordinates.
 
-        Parameters:
-        -----------
-        latitude : float or array
-            Latitude in degrees
-        longitude : float or array
-            Longitude in degrees
+        Args:
+            latitude (float or array): Latitude in degrees.
+            longitude (float or array): Longitude in degrees.
 
         Returns:
-        --------
-        tuple
-            (x, y) coordinates in the projection
+            tuple: (x, y) coordinates in the projection.
         """
         scalar_input = np.isscalar(latitude) and np.isscalar(longitude)
 
@@ -494,17 +484,12 @@ class LambertAzimuthalEqualAreaProjection(AbstractProjection):
         """
         Transform from projected x/y coordinates back to lat/lon.
 
-        Parameters:
-        -----------
-        x : float or array
-            X coordinate in the projection
-        y : float or array
-            Y coordinate in the projection
+        Args:
+            x (float or array): X coordinate in the projection.
+            y (float or array): Y coordinate in the projection.
 
         Returns:
-        --------
-        tuple
-            (latitude, longitude) in degrees
+            tuple: (latitude, longitude) in degrees.
         """
         scalar_input = np.isscalar(x) and np.isscalar(y)
 
@@ -537,28 +522,24 @@ class LambertConformalConicProjection(AbstractProjection):
     """
     Lambert Conformal Conic projection implementation.
 
-    This implements the equations for the Lambert Conformal Conic projection,
+    Implements the equations for the Lambert Conformal Conic projection,
     which preserves angles but not areas or distances.
-    https://mathworld.wolfram.com/LambertConformalConicProjection.html
-    https://pubs.usgs.gov/pp/1395/report.pdf page 104
+
+    References:
+        https://mathworld.wolfram.com/LambertConformalConicProjection.html
+        https://pubs.usgs.gov/pp/1395/report.pdf page 104
     """
 
     def __init__(self, lambda_0: float, phi_0: float, phi_1: float, phi_2: float, radius: float = 6370997):
         """
         Initialize a Lambert Conformal Conic projection.
 
-        Parameters:
-        -----------
-        lambda_0 : float
-            Reference longitude in degrees (LoVInDegrees in grib)
-        phi_0 : float
-            Reference latitude in degrees (LaDInDegrees in grib)
-        phi_1 : float
-            First standard parallel in degrees (Latin1InDegrees in grib)
-        phi_2 : float
-            Second standard parallel in degrees (Latin2InDegrees in grib)
-        radius : float
-            Radius of Earth in meters (default: 6370997)
+        Args:
+            lambda_0 (float): Reference longitude in degrees (LoVInDegrees in grib).
+            phi_0 (float): Reference latitude in degrees (LaDInDegrees in grib).
+            phi_1 (float): First standard parallel in degrees (Latin1InDegrees in grib).
+            phi_2 (float): Second standard parallel in degrees (Latin2InDegrees in grib).
+            radius (float): Radius of Earth in meters (default: 6370997).
         """
         # Normalize lambda_0 to [-180, 180] range
         lambda_0_normalized = _normalize_longitude(lambda_0)
@@ -586,17 +567,12 @@ class LambertConformalConicProjection(AbstractProjection):
         """
         Transform from lat/lon coordinates to projected x/y coordinates.
 
-        Parameters:
-        -----------
-        latitude : float or array
-            Latitude in degrees
-        longitude : float or array
-            Longitude in degrees
+        Args:
+            latitude (float or array): Latitude in degrees.
+            longitude (float or array): Longitude in degrees.
 
         Returns:
-        --------
-        tuple
-            (x, y) coordinates in the projection
+            tuple: (x, y) coordinates in the projection.
         """
         scalar_input = np.isscalar(latitude) and np.isscalar(longitude)
 
@@ -619,17 +595,12 @@ class LambertConformalConicProjection(AbstractProjection):
         """
         Transform from projected x/y coordinates back to lat/lon.
 
-        Parameters:
-        -----------
-        x : float or array
-            X coordinate in the projection
-        y : float or array
-            Y coordinate in the projection
+        Args:
+            x (float or array): X coordinate in the projection.
+            y (float or array): Y coordinate in the projection.
 
         Returns:
-        --------
-        tuple
-            (latitude, longitude) in degrees
+            tuple: (latitude, longitude) in degrees.
         """
         scalar_input = np.isscalar(x) and np.isscalar(y)
 
@@ -671,20 +642,13 @@ class ProjectionGrid(AbstractGrid, Generic[P]):
         """
         Initialize a projection grid with all parameters.
 
-        Parameters:
-        -----------
-        projection : Projectable
-            Projection implementation
-        nx : int
-            Number of grid points in x direction
-        ny : int
-            Number of grid points in y direction
-        origin : Tuple[float, float]
-            Origin coordinates (x, y) of the grid in projection space
-        dx : float
-            Grid spacing in x direction
-        dy : float
-            Grid spacing in y direction
+        Args:
+            projection (Projectable): Projection implementation.
+            nx (int): Number of grid points in x direction.
+            ny (int): Number of grid points in y direction.
+            origin (Tuple[float, float]): Origin coordinates (x, y) of the grid in projection space.
+            dx (float): Grid spacing in x direction.
+            dy (float): Grid spacing in y direction.
         """
         self.projection = projection
         self.nx = nx
@@ -700,23 +664,15 @@ class ProjectionGrid(AbstractGrid, Generic[P]):
         """
         Create a projection grid from geographic bounds.
 
-        Parameters:
-        -----------
-        nx : int
-            Number of grid points in x direction
-        ny : int
-            Number of grid points in y direction
-        lat_range : Tuple[float, float]
-            Latitude range (min, max) in degrees
-        lon_range : Tuple[float, float]
-            Longitude range (min, max) in degrees
-        projection : Projectable
-            Projection implementation
+        Args:
+            nx (int): Number of grid points in x direction.
+            ny (int): Number of grid points in y direction.
+            lat_range (Tuple[float, float]): Latitude range (min, max) in degrees.
+            lon_range (Tuple[float, float]): Longitude range (min, max) in degrees.
+            projection (Projectable): Projection implementation.
 
         Returns:
-        --------
-        ProjectionGrid
-            New grid instance
+            ProjectionGrid: New grid instance.
         """
         sw = projection.forward(lat_range[0], lon_range[0])
         ne = projection.forward(lat_range[1], lon_range[1])
@@ -732,39 +688,33 @@ class ProjectionGrid(AbstractGrid, Generic[P]):
         """
         Create a projection grid centered at a geographic location.
 
-        Parameters:
-        -----------
-        nx : int
-            Number of grid points in x direction
-        ny : int
-            Number of grid points in y direction
-        center_lat : float
-            Center latitude in degrees
-        center_lon : float
-            Center longitude in degrees
-        dx : float
-            Grid spacing in x direction in meters
-        dy : float
-            Grid spacing in y direction in meters
-        projection : Projectable
-            Projection implementation
+        Args:
+            nx (int): Number of grid points in x direction.
+            ny (int): Number of grid points in y direction.
+            center_lat (float): Center latitude in degrees.
+            center_lon (float): Center longitude in degrees.
+            dx (float): Grid spacing in x direction in meters.
+            dy (float): Grid spacing in y direction in meters.
+            projection (Projectable): Projection implementation.
 
         Returns:
-        --------
-        ProjectionGrid
-            New grid instance
+            ProjectionGrid: New grid instance.
         """
         center = cast(tuple[float, float], projection.forward(center_lat, center_lon))
         return cls(projection, nx, ny, center, dx, dy)
 
     @property
     def grid_type(self) -> str:
+        """Grid type identifier."""
         return "projection"
 
     @cached_property
     def _coordinates(self) -> Tuple[np.ndarray, np.ndarray]:
         """
         Lazily compute and cache both latitude and longitude arrays.
+
+        Returns:
+            Tuple[np.ndarray, np.ndarray]: Arrays of latitude and longitude coordinates.
         """
         # Create meshgrid of coordinates
         y_indices, x_indices = np.meshgrid(np.arange(self.ny), np.arange(self.nx), indexing="ij")
@@ -781,6 +731,9 @@ class ProjectionGrid(AbstractGrid, Generic[P]):
     def latitude(self) -> np.ndarray:  # type: ignore
         """
         Get the latitude coordinate array.
+
+        Returns:
+            np.ndarray: Array of latitude coordinates.
         """
         return self._coordinates[0]
 
@@ -788,28 +741,32 @@ class ProjectionGrid(AbstractGrid, Generic[P]):
     def longitude(self) -> np.ndarray:  # type: ignore
         """
         Get the longitude coordinate array.
+
+        Returns:
+            np.ndarray: Array of longitude coordinates.
         """
         return self._coordinates[1]
 
     @property
     def shape(self) -> Tuple[int, int]:
+        """
+        Grid shape as (n_lat, n_lon).
+
+        Returns:
+            Tuple[int, int]: Shape of the grid as (n_lat, n_lon).
+        """
         return (self.ny, self.nx)
 
     def findPointXy(self, lat: float, lon: float) -> Optional[Tuple[int, int]]:
         """
         Find grid point indices (x, y) for given lat/lon coordinates.
 
-        Parameters:
-        -----------
-        lat : float
-            Latitude in degrees
-        lon : float
-            Longitude in degrees
+        Args:
+            lat (float): Latitude in degrees.
+            lon (float): Longitude in degrees.
 
         Returns:
-        --------
-        tuple or None
-            (x, y) grid indices if point is in grid, None otherwise
+            Optional[Tuple[int, int]]: (x, y) grid indices if point is in grid, None otherwise.
         """
         pos = cast(tuple[float, float], self.projection.forward(lat, lon))
         x = int(round((pos[0] - self.origin[0]) / self.dx))
@@ -824,17 +781,12 @@ class ProjectionGrid(AbstractGrid, Generic[P]):
         """
         Get lat/lon coordinates for a given grid point indices.
 
-        Parameters:
-        -----------
-        x : int
-            X index
-        y : int
-            Y index
+        Args:
+            x (int): X index.
+            y (int): Y index.
 
         Returns:
-        --------
-        tuple
-            (latitude, longitude) coordinates
+            Tuple[float, float]: (latitude, longitude) coordinates.
         """
         xcord = float(x) * self.dx + self.origin[0]
         ycord = float(y) * self.dy + self.origin[1]
@@ -849,9 +801,7 @@ class ProjectionGrid(AbstractGrid, Generic[P]):
         Calculate angle towards true north for every grid point.
 
         Returns:
-        --------
-        numpy.ndarray
-            Array of angles in degrees, 0 = points towards north pole
+            np.ndarray: Array of angles in degrees, 0 = points towards north pole.
         """
         pos = self.projection.forward(90, 0)  # North pole
         north_pole_x = (pos[0] - self.origin[0]) / self.dx
@@ -869,21 +819,14 @@ class ProjectionGrid(AbstractGrid, Generic[P]):
         """
         Find indices of grid points within a geographic bounding box.
 
-        Parameters:
-        -----------
-        lat_min : float
-            Minimum latitude
-        lat_max : float
-            Maximum latitude
-        lon_min : float
-            Minimum longitude
-        lon_max : float
-            Maximum longitude
+        Args:
+            lat_min (float): Minimum latitude.
+            lat_max (float): Maximum latitude.
+            lon_min (float): Minimum longitude.
+            lon_max (float): Maximum longitude.
 
         Returns:
-        --------
-        numpy.ndarray
-            Array of grid point indices within the box
+            np.ndarray: Array of grid point indices within the box.
         """
         sw = self.findPointXy(lat_min, lon_min)
         se = self.findPointXy(lat_min, lon_max)
@@ -912,16 +855,18 @@ class ProjectionGrid(AbstractGrid, Generic[P]):
 
 
 class ProjProjection(AbstractProjection):
-    """A projection that wraps a proj projection"""
+    """
+    A projection that wraps a proj projection.
+
+    """
 
     def __init__(self, proj_string: str):
-        """Initialize with a proj string or EPSG code
+        """
+        Initialize with a proj string or EPSG code.
 
-        Parameters
-        ----------
-        proj_string : str
-            The proj string (e.g. "+proj=lcc +lat_0=50...") or
-            EPSG code (e.g. "EPSG:4326")
+        Args:
+            proj_string (str): The proj string (e.g. "+proj=lcc +lat_0=50...") or
+                EPSG code (e.g. "EPSG:4326").
         """
         import pyproj
 
@@ -936,37 +881,29 @@ class ProjProjection(AbstractProjection):
         self.inverse_transformer = pyproj.Transformer.from_crs(self.crs_proj, self.crs_latlon, always_xy=True)
 
     def forward(self, latitude: CoordType, longitude: CoordType) -> ReturnUnionType:
-        """Transform from latitude/longitude to projection coordinates
+        """
+        Transform from latitude/longitude to projection coordinates.
 
-        Parameters
-        ----------
-        latitude : float
-            Latitude in degrees
-        longitude : float
-            Longitude in degrees
+        Args:
+            latitude (float): Latitude in degrees.
+            longitude (float): Longitude in degrees.
 
-        Returns
-        -------
-        tuple[float, float]
-            The (x, y) coordinates in the projection
+        Returns:
+            tuple[float, float]: The (x, y) coordinates in the projection.
         """
         x, y = self.forward_transformer.transform(longitude, latitude)
         return x, y
 
     def inverse(self, x: CoordType, y: CoordType) -> ReturnUnionType:
-        """Transform from projection coordinates to latitude/longitude
+        """
+        Transform from projection coordinates to latitude/longitude.
 
-        Parameters
-        ----------
-        x : float
-            X coordinate in the projection
-        y : float
-            Y coordinate in the projection
+        Args:
+            x (float): X coordinate in the projection.
+            y (float): Y coordinate in the projection.
 
-        Returns
-        -------
-        tuple[float, float]
-            The (latitude, longitude) coordinates in degrees
+        Returns:
+            tuple[float, float]: The (latitude, longitude) coordinates in degrees.
         """
         lon, lat = self.inverse_transformer.transform(x, y)
         return lat, lon
