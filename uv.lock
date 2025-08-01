@@ -1160,17 +1160,25 @@ wheels = [
 name = "omfiles"
 source = { editable = "." }
 dependencies = [
-    { name = "fsspec" },
     { name = "numpy", version = "2.0.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.10.*'" },
     { name = "numpy", version = "2.3.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+]
+
+[package.optional-dependencies]
+all = [
+    { name = "fsspec" },
+    { name = "numcodecs", version = "0.12.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "numcodecs", version = "0.13.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.10.*'" },
+    { name = "numcodecs", version = "0.16.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "s3fs" },
     { name = "xarray", version = "2024.7.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "xarray", version = "2025.6.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.10.*'" },
     { name = "xarray", version = "2025.7.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "zarr", version = "2.18.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "zarr", version = "2.18.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.10.*'" },
+    { name = "zarr", version = "3.1.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
 ]
-
-[package.optional-dependencies]
 codec = [
     { name = "numcodecs", version = "0.12.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "numcodecs", version = "0.13.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.10.*'" },
@@ -1179,11 +1187,20 @@ codec = [
     { name = "zarr", version = "2.18.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.10.*'" },
     { name = "zarr", version = "3.1.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
 ]
+fsspec = [
+    { name = "fsspec" },
+    { name = "s3fs" },
+]
+xarray = [
+    { name = "xarray", version = "2024.7.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "xarray", version = "2025.6.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.10.*'" },
+    { name = "xarray", version = "2025.7.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+]
 
 [package.dev-dependencies]
 dev = [
     { name = "maturin" },
-    { name = "omfiles", extra = ["codec"] },
+    { name = "omfiles", extra = ["all"] },
     { name = "psutil" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
@@ -1207,19 +1224,24 @@ documentation = [
 
 [package.metadata]
 requires-dist = [
-    { name = "fsspec", specifier = ">=2023.1.0" },
+    { name = "fsspec", marker = "extra == 'all'", specifier = ">=2023.1.0" },
+    { name = "fsspec", marker = "extra == 'fsspec'", specifier = ">=2023.1.0" },
+    { name = "numcodecs", marker = "extra == 'all'", specifier = ">=0.12.1" },
     { name = "numcodecs", marker = "extra == 'codec'", specifier = ">=0.12.1" },
     { name = "numpy", specifier = ">=1.20.0" },
-    { name = "s3fs", specifier = ">=2023.1.0" },
-    { name = "xarray", specifier = ">=2023.1.0" },
+    { name = "s3fs", marker = "extra == 'all'", specifier = ">=2023.1.0" },
+    { name = "s3fs", marker = "extra == 'fsspec'", specifier = ">=2023.1.0" },
+    { name = "xarray", marker = "extra == 'all'", specifier = ">=2023.1.0" },
+    { name = "xarray", marker = "extra == 'xarray'", specifier = ">=2023.1.0" },
+    { name = "zarr", marker = "extra == 'all'", specifier = ">=2.18.2" },
     { name = "zarr", marker = "extra == 'codec'", specifier = ">=2.18.2" },
 ]
-provides-extras = ["codec"]
+provides-extras = ["codec", "xarray", "fsspec", "all"]
 
 [package.metadata.requires-dev]
 dev = [
     { name = "maturin", specifier = ">=1.7,<2.0" },
-    { name = "omfiles", extras = ["codec"] },
+    { name = "omfiles", extras = ["all"] },
     { name = "psutil" },
     { name = "pytest", specifier = ">=6.1" },
     { name = "pytest-asyncio" },
