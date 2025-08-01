@@ -282,8 +282,9 @@ impl OmFilePyWriter {
         text_signature = "(name, children)",
         signature = (name, children)
     )]
-    /// Create a new group in the .om file. This is essentially a variable with no data,
-    /// which serves as a container for other variables.
+    /// Create a new group in the .om file.
+    ///
+    /// This is essentially a variable with no data, which serves as a container for other variables.
     ///
     /// Args:
     ///     name: Name of the group

@@ -23,9 +23,8 @@ use std::{fs::File, ops::Range, sync::Arc};
 
 /// A reader for OM files with async access.
 ///
-/// This class provides asynchronous access to multi-dimensional array data stored
-/// in OM files. It supports reading from local files via memory mapping or
-/// from remote files through fsspec compatibility.
+/// Provides asynchronous access to multi-dimensional array data stored in OM files.
+/// Supports reading from local files via memory mapping or from remote files through fsspec compatibility.
 #[gen_stub_pyclass]
 #[pyclass(module = "omfiles.omfiles")]
 pub struct OmFilePyReaderAsync {
@@ -45,24 +44,16 @@ pub struct OmFilePyReaderAsync {
 impl OmFilePyReaderAsync {
     /// Create a new async reader from an fsspec fs object.
     ///
-    /// Parameters
-    /// ----------
-    /// fs_obj : fsspec.spec.AbstractFileSystem
-    ///     A fsspec file system object which needs to have the async methods `_cat_file` and `_size`.
-    /// path: String
-    ///     The path to the file within the file system.
+    /// Args:
+    ///     fs_obj (fsspec.spec.AbstractFileSystem): A fsspec file system object which needs to have the async methods `_cat_file` and `_size`.
+    ///     path (str): The path to the file within the file system.
     ///
-    /// Returns
-    /// -------
-    /// OmFilePyReaderAsync
-    ///     A new reader instance
+    /// Returns:
+    ///     OmFilePyReaderAsync: A new reader instance.
     ///
-    /// Raises
-    /// ------
-    /// TypeError
-    ///     If the provided file object is not a valid fsspec file
-    /// IOError
-    ///     If there's an error reading the file
+    /// Raises:
+    ///     TypeError: If the provided file object is not a valid fsspec file.
+    ///     IOError: If there's an error reading the file.
     #[staticmethod]
     async fn from_fsspec(fs_obj: PyObject, path: String) -> PyResult<Self> {
         Python::with_gil(|py| {
@@ -93,20 +84,14 @@ impl OmFilePyReaderAsync {
 
     /// Create a new async reader from a local file path.
     ///
-    /// Parameters
-    /// ----------
-    /// file_path : str
-    ///     Path to the OM file to read
+    /// Args:
+    ///     file_path (str): Path to the OM file to read.
     ///
-    /// Returns
-    /// -------
-    /// OmFilePyReaderAsync
-    ///     A new reader instance
+    /// Returns:
+    ///     OmFilePyReaderAsync: A new reader instance.
     ///
-    /// Raises
-    /// ------
-    /// IOError
-    ///     If the file cannot be opened or read
+    /// Raises:
+    ///     IOError: If the file cannot be opened or read.
     #[staticmethod]
     async fn from_path(file_path: String) -> PyResult<Self> {
         let file_handle = File::open(file_path)
@@ -127,22 +112,15 @@ impl OmFilePyReaderAsync {
 
     /// Read data from the array concurrently based on specified ranges.
     ///
-    /// Parameters
-    /// ----------
-    /// ranges : ArrayIndex
-    ///     Index or slice object specifying the ranges to read
+    /// Args:
+    ///     ranges (omfiles.types.BasicSelection): Index or slice object specifying the ranges to read.
     ///
-    /// Returns
-    /// -------
-    /// OmFileTypedArray
-    ///     Array data of the appropriate numpy type
+    /// Returns:
+    ///     OmFileTypedArray: Array data of the appropriate numpy type.
     ///
-    /// Raises
-    /// ------
-    /// ValueError
-    ///     If the reader is closed
-    /// TypeError
-    ///     If the data type is not supported
+    /// Raises:
+    ///     ValueError: If the reader is closed.
+    ///     TypeError: If the data type is not supported.
     async fn read_concurrent<'py>(&self, ranges: ArrayIndex) -> PyResult<OmFileTypedArray> {
         let io_size_max = None;
         let io_size_merge = None;
@@ -274,16 +252,13 @@ impl OmFilePyReaderAsync {
 
     /// Close the reader and release any resources.
     ///
-    /// This method properly closes the underlying file resources.
+    /// Properly closes the underlying file resources.
     ///
-    /// Returns
-    /// -------
-    /// None
+    /// Returns:
+    ///     None
     ///
-    /// Raises
-    /// ------
-    /// RuntimeError
-    ///     If the reader cannot be closed due to concurrent access
+    /// Raises:
+    ///     RuntimeError: If the reader cannot be closed due to concurrent access.
     fn close(&self) -> PyResult<()> {
         // Need write access to take the reader
         let mut guard = match self.reader.try_write() {
@@ -315,6 +290,9 @@ impl OmFilePyReaderAsync {
     }
 
     /// The shape of the variable.
+    ///
+    /// Returns:
+    ///     tuple: The shape of the array.
     #[getter]
     fn shape<'py>(&self, py: Python<'py>) -> PyResult<pyo3::Bound<'py, PyTuple>> {
         let tup = PyTuple::new(py, &self.shape)?;
@@ -322,6 +300,9 @@ impl OmFilePyReaderAsync {
     }
 
     /// The chunk shape of the variable.
+    ///
+    /// Returns:
+    ///     tuple: The chunk shape of the array.
     #[getter]
     fn chunks<'py>(&self, py: Python<'py>) -> PyResult<pyo3::Bound<'py, PyTuple>> {
         let tup = PyTuple::new(py, &self.chunk_shape)?;
