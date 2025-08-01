@@ -14,7 +14,7 @@ The Python bindings are powered by `PyO3 <https://pyo3.rs/>`_, leveraging the `r
 Features
 --------
 
-* **Read and write ``.om`` files** from Python and Rust.
+* **Read and write** ``.om`` **files** from Python.
 * **Hierarchical data model**: groups, datasets, and attributes.
 * **Chunked and compressed arrays** for efficient storage.
 * **NumPy-style indexing** and async access in Python.
@@ -88,7 +88,7 @@ Writing an OM file
 API Reference
 -------------
 
-See the `API documentation <api.md>`_ for details on all classes and methods.
+See the `API documentation <api.html>`_ for details on all classes and methods.
 
 ----
 
@@ -102,7 +102,7 @@ Contributions are welcome! Please see the `GitHub repository <https://github.com
 License
 -------
 
-OM-Files is released under the GPLv2 license.
+``omfiles`` is released under the GPLv2 license.
 
 ----
 
