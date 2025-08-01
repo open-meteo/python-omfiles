@@ -69,7 +69,6 @@ async def test_pfordelta_roundtrip(store: Store, dtype: np.dtype) -> None:
 
     chunk_shape = (1, 10)  # NOTE: chunks are no clean divisor of data.shape
 
-    delta_filter = Delta(dtype=delta_config[dtype.__name__])
     # Create array with our codec
     z = create_array(
         spath,
@@ -77,9 +76,8 @@ async def test_pfordelta_roundtrip(store: Store, dtype: np.dtype) -> None:
         chunks=chunk_shape,
         dtype=data.dtype,
         fill_value=0,
-        filters=[delta_filter],
-        # Codec is used as a byte-byte-compressor here, therefore dtype is set like this.
-        # We should rather use it as a serializer, i.e. ByteArrayCompressor
+        filters=[],
+        # Codec is used as a byte-byte-compressor here
         compressors=PforCodec(),
     )
 
@@ -92,18 +90,7 @@ async def test_pfordelta_roundtrip(store: Store, dtype: np.dtype) -> None:
     bytes_after = z.nbytes_stored()
     assert bytes_after > bytes_before
 
-    # Verify data matches
     np.testing.assert_array_equal(z[:], data)
-
-    # Check original and compressed sizes
-    original_size = data.nbytes
-
-    # For detailed analysis, we could trace the actual compression ratio
-    # In a real scenario, you might want to capture metrics about the compression
-
-    print(
-        f"Successfully round-tripped data. Original size: {original_size} bytes, Compressed size: {bytes_after - bytes_before} bytes"
-    )
 
 
 @pytest.mark.skipif(sys.version_info < (3, 11), reason="Requires Python >= 3.11")
@@ -132,7 +119,8 @@ async def test_pfor_serializer_roundtrip(store: Store, dtype: np.dtype) -> None:
         dtype=np.dtype(dtype),
     )
 
-    chunk_shape = (2, 5)  # Different chunk shape for variety
+    # Different chunk shape for variety
+    chunk_shape = (2, 5)
 
     # Create array with PforSerializer as the serializer
     z = create_array(
@@ -141,9 +129,10 @@ async def test_pfor_serializer_roundtrip(store: Store, dtype: np.dtype) -> None:
         chunks=chunk_shape,
         dtype=data.dtype,
         fill_value=0,
-        serializer=PforSerializer(),  # Use PforSerializer as the array-to-bytes codec
-        filters=[],  # No filters needed, can use empty list
-        compressors=[],  # No additional compression
+        # PforSerializer can serialize all integer types as an array-to-bytes codec
+        serializer=PforSerializer(),
+        filters=[],
+        compressors=[],
     )
 
     bytes_before = z.nbytes_stored()
@@ -156,7 +145,3 @@ async def test_pfor_serializer_roundtrip(store: Store, dtype: np.dtype) -> None:
 
     # Verify data matches after roundtrip
     np.testing.assert_array_equal(z[:], data)
-
-    # Check original and compressed sizes
-    original_size = data.nbytes
-    print(f"PforSerializer test: Original size: {original_size} bytes, Stored size: {bytes_after - bytes_before} bytes")
