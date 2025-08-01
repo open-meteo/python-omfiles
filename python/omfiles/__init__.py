@@ -1,6 +1,6 @@
 """Provides classes and utilities for reading, writing, and manipulating OM files."""
 
-from . import types, xarray_backend
+from . import types
 from .omfiles import OmFilePyReader, OmFilePyReaderAsync, OmFilePyWriter, OmVariable
 
 __all__ = [
@@ -8,13 +8,5 @@ __all__ = [
     "OmFilePyReaderAsync",
     "OmFilePyWriter",
     "OmVariable",
-    "xarray_backend",
     "types",
 ]
-
-try:
-    from . import omfiles_zarr_codecs
-
-    __all__.append("omfiles_zarr_codecs")
-except ImportError:
-    pass
