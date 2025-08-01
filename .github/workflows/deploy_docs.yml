@@ -1,4 +1,4 @@
-name: Deploy MkDocs to GitHub Pages
+name: Deploy Sphinx Docs to GitHub Pages
 
 on:
   workflow_run:
@@ -6,6 +6,9 @@ on:
     types:
       - completed
   workflow_dispatch:
+  push:
+    branches:
+      - feat/mkdocs
 
 jobs:
   deploy:
@@ -21,11 +24,12 @@ jobs:
           enable-cache: "true"
           cache-dependency-glob: "**/uv.lock"
 
-      - name: Build and deploy documentation
+      - name: Build Sphinx documentation
         run: |
-          uv run mkdocs gh-deploy --force --clean --remote-name origin --remote-branch gh-pages
+          cd docs
+          uv run make html
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: site
+          path: docs/_build/html

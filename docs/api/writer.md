@@ -1,1 +1,0 @@
-::: omfiles.OmFilePyWriter
