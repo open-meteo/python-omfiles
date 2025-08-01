@@ -28,6 +28,10 @@ dev = [
     "sphinx-autodoc-typehints>=2.3.0",
     "sphinx-rtd-theme>=3.0.2",
 ]
+codec = [
+    "zarr>=2.18.2",
+    "numcodecs>=0.12.1",
+]
 
 [tool.maturin]
 python-source = "python"             # Python source code is in the `python` directory

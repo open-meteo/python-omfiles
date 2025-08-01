@@ -1,3 +1,5 @@
+import sys
+
 import numpy as np
 import pytest
 from numcodecs.zarr3 import Delta
@@ -39,6 +41,7 @@ def store(request):
 test_dtypes = [np.int8, np.uint8, np.int16, np.uint16, np.int32, np.uint32, np.int64, np.uint64]
 
 
+@pytest.mark.skipif(sys.version_info < (3, 11), reason="Requires Python >= 3.11")
 @pytest.mark.parametrize("store", ["local", "memory"], indirect=["store"])
 @pytest.mark.parametrize("dtype", test_dtypes)
 async def test_pfordelta_roundtrip(store: Store, dtype: np.dtype) -> None:
@@ -101,6 +104,7 @@ async def test_pfordelta_roundtrip(store: Store, dtype: np.dtype) -> None:
     )
 
 
+@pytest.mark.skipif(sys.version_info < (3, 11), reason="Requires Python >= 3.11")
 @pytest.mark.parametrize("store", ["local", "memory"], indirect=["store"])
 @pytest.mark.parametrize("dtype", test_dtypes)
 async def test_pfor_serializer_roundtrip(store: Store, dtype: np.dtype) -> None:
@@ -109,6 +113,8 @@ async def test_pfor_serializer_roundtrip(store: Store, dtype: np.dtype) -> None:
     path = "pfor_serializer_roundtrip"
     spath = StorePath(store, path)
     assert await store.is_empty("")
+
+    print("dtype", dtype)
 
     # Create test data
     data = np.array(
