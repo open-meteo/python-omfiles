@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added Changelog
+- Added example for a latitude-longitude plot
 - Added Async Reader
 
 ### Fixed
