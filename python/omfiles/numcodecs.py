@@ -1,3 +1,5 @@
+"""TurboPfor codec implementation as numcodecs.abc.Codec."""
+
 from dataclasses import dataclass
 from typing import Self
 
@@ -16,9 +18,12 @@ from .omfiles import (
 
 @dataclass
 class TurboPfor(numcodecs.abc.Codec):
+    """TurboPfor codec for compressing integer arrays."""
+
     codec_id = "turbo_pfor"
     dtype: str = "int16"
     chunk_elements: int | None = None
+    _impl = RustPforCodec()
 
     @classmethod
     def from_config(cls, config) -> Self:
@@ -29,14 +34,12 @@ class TurboPfor(numcodecs.abc.Codec):
         chunk_elements = config.get("chunk_elements")
         return cls(dtype=dtype, chunk_elements=chunk_elements)
 
-    @property
-    def _impl(self) -> RustPforCodec:
-        return RustPforCodec()
-
     def encode(self, buf):
+        """Encode a numpy array using TurboPfor."""
         return self._impl.encode_array(buf, np.dtype(self.dtype))
 
     def decode(self, buf, out=None):
+        """Decode a buffer using TurboPfor."""
         if out is not None:
             raise ValueError("Output array not supported")
 

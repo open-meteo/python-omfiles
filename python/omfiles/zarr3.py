@@ -1,8 +1,11 @@
+"""ArrayBytesCodec and BytesBytesCodec for TurboPFor."""
+
 import asyncio
 from dataclasses import dataclass, field
 from typing import Any, Dict, Self
 
 import numpy as np
+from zarr.core.dtype import TBaseDType, TBaseScalar, ZDType
 
 try:
     import zarr
@@ -56,11 +59,7 @@ class PforSerializer(ArrayBytesCodec, Metadata):
         out = await asyncio.to_thread(self._impl.decode_array, chunk_bytes, numpy_dtype, np.prod(chunk_spec.shape))
         return chunk_spec.prototype.nd_buffer.from_ndarray_like(out.reshape(chunk_spec.shape))
 
-    def compute_encoded_size(self, input_byte_length: int, chunk_spec: ArraySpec) -> int:
-        # PFor compression is variable-size
-        raise NotImplementedError("PFor compression produces variable-sized output")
-
-    def validate(self, *, shape: ChunkCoords, dtype: np.dtype[Any], chunk_grid: ChunkGrid) -> None:
+    def validate(self, *, shape: ChunkCoords, dtype: ZDType[TBaseDType, TBaseScalar], chunk_grid: ChunkGrid) -> None:
         """Validate codec compatibility with the array spec."""
         pass
         # if dtype != np.dtype(self.dtype):
@@ -70,9 +69,6 @@ class PforSerializer(ArrayBytesCodec, Metadata):
     def from_config(cls, config: Dict[str, Any]) -> Self:
         """Create codec instance from configuration."""
         return cls()
-        # dtype = config.get('dtype', 'int16')
-        # length = config.get('length')
-        # return cls(dtype=dtype, length=length)
 
 
 @dataclass(frozen=True)
@@ -94,18 +90,11 @@ class PforCodec(BytesBytesCodec, Metadata):
             self._impl.decode_array,
             chunk_data.to_bytes(),
             np.dtype("uint8"),
-            np.prod(chunk_spec.shape) * chunk_spec.dtype.item_size,
+            np.prod(chunk_spec.shape) * chunk_spec.dtype.to_native_dtype().itemsize,
         )
         return chunk_spec.prototype.buffer.from_bytes(out)
-
-    def compute_encoded_size(self, input_byte_length: int, chunk_spec: ArraySpec) -> int:
-        # PFor compression is variable-size
-        raise NotImplementedError("PFor compression produces variable-sized output")
 
     @classmethod
     def from_config(cls, config: Dict[str, Any]) -> Self:
         """Create codec instance from configuration."""
         return cls()
-        # dtype = config.get('dtype', 'int16')
-        # length = config.get('length')
-        # return cls(dtype=dtype, length=length)
