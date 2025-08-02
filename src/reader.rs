@@ -351,129 +351,131 @@ impl OmFilePyReader {
     ///
     /// Raises:
     ///     ValueError: If the requested ranges are invalid or if there's an error reading the data.
-    fn __getitem__<'py>(&self, ranges: ArrayIndex) -> PyResult<OmFileTypedArray> {
-        let io_size_max = None;
-        let io_size_merge = None;
-        let read_ranges = ranges.to_read_range(&self.shape)?;
+    fn __getitem__<'py>(&self, py: Python<'_>, ranges: ArrayIndex) -> PyResult<OmFileTypedArray> {
+        py.allow_threads(|| {
+            let io_size_max = None;
+            let io_size_merge = None;
+            let read_ranges = ranges.to_read_range(&self.shape)?;
 
-        self.with_reader(|reader| {
-            let dtype = reader.data_type();
+            self.with_reader(|reader| {
+                let dtype = reader.data_type();
 
-            let scalar_error = PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                "Scalar data types are not supported",
-            );
+                let scalar_error = PyErr::new::<pyo3::exceptions::PyValueError, _>(
+                    "Scalar data types are not supported",
+                );
 
-            let untyped_py_array_or_error = match dtype {
-                DataType::None => Err(scalar_error),
-                DataType::Int8 => Err(scalar_error),
-                DataType::Uint8 => Err(scalar_error),
-                DataType::Int16 => Err(scalar_error),
-                DataType::Uint16 => Err(scalar_error),
-                DataType::Int32 => Err(scalar_error),
-                DataType::Uint32 => Err(scalar_error),
-                DataType::Int64 => Err(scalar_error),
-                DataType::Uint64 => Err(scalar_error),
-                DataType::Float => Err(scalar_error),
-                DataType::Double => Err(scalar_error),
-                DataType::String => Err(scalar_error),
-                DataType::Int8Array => {
-                    let array = read_squeezed_typed_array::<i8>(
-                        &reader,
-                        &read_ranges,
-                        io_size_max,
-                        io_size_merge,
-                    )?;
-                    Ok(OmFileTypedArray::Int8(array))
-                }
-                DataType::Uint8Array => {
-                    let array = read_squeezed_typed_array::<u8>(
-                        &reader,
-                        &read_ranges,
-                        io_size_max,
-                        io_size_merge,
-                    )?;
-                    Ok(OmFileTypedArray::Uint8(array))
-                }
-                DataType::Int16Array => {
-                    let array = read_squeezed_typed_array::<i16>(
-                        &reader,
-                        &read_ranges,
-                        io_size_max,
-                        io_size_merge,
-                    )?;
-                    Ok(OmFileTypedArray::Int16(array))
-                }
-                DataType::Uint16Array => {
-                    let array = read_squeezed_typed_array::<u16>(
-                        &reader,
-                        &read_ranges,
-                        io_size_max,
-                        io_size_merge,
-                    )?;
-                    Ok(OmFileTypedArray::Uint16(array))
-                }
-                DataType::Int32Array => {
-                    let array = read_squeezed_typed_array::<i32>(
-                        &reader,
-                        &read_ranges,
-                        io_size_max,
-                        io_size_merge,
-                    )?;
-                    Ok(OmFileTypedArray::Int32(array))
-                }
-                DataType::Uint32Array => {
-                    let array = read_squeezed_typed_array::<u32>(
-                        &reader,
-                        &read_ranges,
-                        io_size_max,
-                        io_size_merge,
-                    )?;
-                    Ok(OmFileTypedArray::Uint32(array))
-                }
-                DataType::Int64Array => {
-                    let array = read_squeezed_typed_array::<i64>(
-                        &reader,
-                        &read_ranges,
-                        io_size_max,
-                        io_size_merge,
-                    )?;
-                    Ok(OmFileTypedArray::Int64(array))
-                }
-                DataType::Uint64Array => {
-                    let array = read_squeezed_typed_array::<u64>(
-                        &reader,
-                        &read_ranges,
-                        io_size_max,
-                        io_size_merge,
-                    )?;
-                    Ok(OmFileTypedArray::Uint64(array))
-                }
-                DataType::FloatArray => {
-                    let array = read_squeezed_typed_array::<f32>(
-                        &reader,
-                        &read_ranges,
-                        io_size_max,
-                        io_size_merge,
-                    )?;
-                    Ok(OmFileTypedArray::Float(array))
-                }
-                DataType::DoubleArray => {
-                    let array = read_squeezed_typed_array::<f64>(
-                        &reader,
-                        &read_ranges,
-                        io_size_max,
-                        io_size_merge,
-                    )?;
-                    Ok(OmFileTypedArray::Double(array))
-                }
-                DataType::StringArray => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                    "String Arrays not currently supported",
-                )),
-            };
+                let untyped_py_array_or_error = match dtype {
+                    DataType::None => Err(scalar_error),
+                    DataType::Int8 => Err(scalar_error),
+                    DataType::Uint8 => Err(scalar_error),
+                    DataType::Int16 => Err(scalar_error),
+                    DataType::Uint16 => Err(scalar_error),
+                    DataType::Int32 => Err(scalar_error),
+                    DataType::Uint32 => Err(scalar_error),
+                    DataType::Int64 => Err(scalar_error),
+                    DataType::Uint64 => Err(scalar_error),
+                    DataType::Float => Err(scalar_error),
+                    DataType::Double => Err(scalar_error),
+                    DataType::String => Err(scalar_error),
+                    DataType::Int8Array => {
+                        let array = read_squeezed_typed_array::<i8>(
+                            &reader,
+                            &read_ranges,
+                            io_size_max,
+                            io_size_merge,
+                        )?;
+                        Ok(OmFileTypedArray::Int8(array))
+                    }
+                    DataType::Uint8Array => {
+                        let array = read_squeezed_typed_array::<u8>(
+                            &reader,
+                            &read_ranges,
+                            io_size_max,
+                            io_size_merge,
+                        )?;
+                        Ok(OmFileTypedArray::Uint8(array))
+                    }
+                    DataType::Int16Array => {
+                        let array = read_squeezed_typed_array::<i16>(
+                            &reader,
+                            &read_ranges,
+                            io_size_max,
+                            io_size_merge,
+                        )?;
+                        Ok(OmFileTypedArray::Int16(array))
+                    }
+                    DataType::Uint16Array => {
+                        let array = read_squeezed_typed_array::<u16>(
+                            &reader,
+                            &read_ranges,
+                            io_size_max,
+                            io_size_merge,
+                        )?;
+                        Ok(OmFileTypedArray::Uint16(array))
+                    }
+                    DataType::Int32Array => {
+                        let array = read_squeezed_typed_array::<i32>(
+                            &reader,
+                            &read_ranges,
+                            io_size_max,
+                            io_size_merge,
+                        )?;
+                        Ok(OmFileTypedArray::Int32(array))
+                    }
+                    DataType::Uint32Array => {
+                        let array = read_squeezed_typed_array::<u32>(
+                            &reader,
+                            &read_ranges,
+                            io_size_max,
+                            io_size_merge,
+                        )?;
+                        Ok(OmFileTypedArray::Uint32(array))
+                    }
+                    DataType::Int64Array => {
+                        let array = read_squeezed_typed_array::<i64>(
+                            &reader,
+                            &read_ranges,
+                            io_size_max,
+                            io_size_merge,
+                        )?;
+                        Ok(OmFileTypedArray::Int64(array))
+                    }
+                    DataType::Uint64Array => {
+                        let array = read_squeezed_typed_array::<u64>(
+                            &reader,
+                            &read_ranges,
+                            io_size_max,
+                            io_size_merge,
+                        )?;
+                        Ok(OmFileTypedArray::Uint64(array))
+                    }
+                    DataType::FloatArray => {
+                        let array = read_squeezed_typed_array::<f32>(
+                            &reader,
+                            &read_ranges,
+                            io_size_max,
+                            io_size_merge,
+                        )?;
+                        Ok(OmFileTypedArray::Float(array))
+                    }
+                    DataType::DoubleArray => {
+                        let array = read_squeezed_typed_array::<f64>(
+                            &reader,
+                            &read_ranges,
+                            io_size_max,
+                            io_size_merge,
+                        )?;
+                        Ok(OmFileTypedArray::Double(array))
+                    }
+                    DataType::StringArray => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
+                        "String Arrays not currently supported",
+                    )),
+                };
 
-            let untyped_py_array = untyped_py_array_or_error?;
+                let untyped_py_array = untyped_py_array_or_error?;
 
-            return Ok(untyped_py_array);
+                return Ok(untyped_py_array);
+            })
         })
     }
 
@@ -617,11 +619,14 @@ mod tests {
                 step: None,
             },
         ]);
-        let data = reader.__getitem__(ranges).expect("Could not get item!");
-        let data = match data {
-            OmFileTypedArray::Float(data) => data,
-            _ => panic!("Unexpected data type"),
-        };
+        let data = Python::with_gil(|py| {
+            let data = reader.__getitem__(py, ranges).expect("Could not get item!");
+            let data = match data {
+                OmFileTypedArray::Float(data) => data,
+                _ => panic!("Unexpected data type"),
+            };
+            data
+        });
 
         assert_eq!(data.shape(), [5, 5]);
 
