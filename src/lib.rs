@@ -13,7 +13,7 @@ mod typed_array;
 mod writer;
 
 /// A Python module implemented in Rust.
-#[pymodule]
+#[pymodule(gil_used = false)]
 fn omfiles<'py>(m: &Bound<'py, PyModule>) -> PyResult<()> {
     m.add_class::<reader::OmFilePyReader>()?;
     m.add_class::<writer::OmFilePyWriter>()?;
