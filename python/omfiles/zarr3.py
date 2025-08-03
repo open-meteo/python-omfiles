@@ -28,11 +28,20 @@ from zarr.core.buffer.core import Buffer, NDBuffer
 from zarr.core.chunk_grids import ChunkGrid
 from zarr.core.common import JSON, ChunkCoords
 
-from .omfiles import (
-    PforDelta2dCodec as RustPforCodec,  # type: ignore[arg-type]
-)
+from .omfiles import RustPforCodec  # type: ignore[arg-type]
 
 ZARR_VERSION_AFTER_3_1_0 = version.parse(zarr.__version__) >= version.parse("3.1.0")
+
+_SUPPORTED_DATATYPES = [
+    np.dtype(np.uint8),
+    np.dtype(np.uint16),
+    np.dtype(np.uint32),
+    np.dtype(np.uint64),
+    np.dtype(np.int8),
+    np.dtype(np.int16),
+    np.dtype(np.int32),
+    np.dtype(np.int64),
+]
 
 
 @dataclass(frozen=True)
@@ -67,9 +76,12 @@ class PforSerializer(ArrayBytesCodec, Metadata):
 
     def validate(self, *, shape: ChunkCoords, dtype: "ZDType[TBaseDType, TBaseScalar]", chunk_grid: ChunkGrid) -> None:
         """Validate codec compatibility with the array spec."""
-        pass
-        # if dtype != np.dtype(self.dtype):
-        #     raise ValueError(f"Array dtype {dtype} doesn't match codec dtype {self.dtype}")
+        if ZARR_VERSION_AFTER_3_1_0:
+            numpy_dtype = dtype.to_native_dtype()
+        else:
+            numpy_dtype = dtype
+        if numpy_dtype not in _SUPPORTED_DATATYPES:
+            raise ValueError(f"Array dtype {numpy_dtype} is not supported")
 
     @classmethod
     def from_config(cls, config: Dict[str, Any]) -> Self:

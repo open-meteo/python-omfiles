@@ -20,7 +20,7 @@ fn omfiles<'py>(m: &Bound<'py, PyModule>) -> PyResult<()> {
     m.add_class::<writer::OmFilePyWriter>()?;
     m.add_class::<reader_async::OmFilePyReaderAsync>()?;
     m.add_class::<hierarchy::OmVariable>()?;
-    m.add_class::<codecs::PforDelta2dCodec>()?;
+    m.add_class::<codecs::RustPforCodec>()?;
 
     Ok(())
 }

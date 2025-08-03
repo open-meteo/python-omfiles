@@ -17,8 +17,6 @@ fn get_dtype_size(dtype_str: &str) -> PyResult<usize> {
         "uint32" => Ok(4),
         "int64" => Ok(8),
         "uint64" => Ok(8),
-        "float32" => Ok(4),
-        "float64" => Ok(8),
         _ => Err(PyValueError::new_err(format!(
             "Unsupported dtype: {}",
             dtype_str
@@ -28,13 +26,13 @@ fn get_dtype_size(dtype_str: &str) -> PyResult<usize> {
 
 #[pyclass]
 #[derive(Debug, Clone)]
-pub struct PforDelta2dCodec {}
+pub struct RustPforCodec {}
 
 #[pymethods]
-impl PforDelta2dCodec {
+impl RustPforCodec {
     #[new]
     fn new() -> PyResult<Self> {
-        Ok(PforDelta2dCodec {})
+        Ok(RustPforCodec {})
     }
 
     #[pyo3(signature = (array, dtype))]

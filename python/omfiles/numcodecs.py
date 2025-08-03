@@ -11,9 +11,7 @@ except ImportError as e:
     ) from e
 import numpy as np
 
-from .omfiles import (
-    PforDelta2dCodec as RustPforCodec,  # type: ignore[arg-type]
-)
+from .omfiles import RustPforCodec  # type: ignore[arg-type]
 
 
 @dataclass
