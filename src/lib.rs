@@ -1,6 +1,7 @@
 use pyo3::prelude::*;
 use pyo3_stub_gen::define_stub_info_gatherer;
 mod array_index;
+mod codecs;
 mod compression;
 mod data_type;
 mod errors;
@@ -19,6 +20,7 @@ fn omfiles<'py>(m: &Bound<'py, PyModule>) -> PyResult<()> {
     m.add_class::<writer::OmFilePyWriter>()?;
     m.add_class::<reader_async::OmFilePyReaderAsync>()?;
     m.add_class::<hierarchy::OmVariable>()?;
+    m.add_class::<codecs::RustPforCodec>()?;
 
     Ok(())
 }

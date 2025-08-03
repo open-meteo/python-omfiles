@@ -455,3 +455,37 @@ class OmVariable:
         The size of the variable in bytes in the OM file.
         """
     def __repr__(self) -> builtins.str: ...
+
+class RustPforCodec:
+    r"""
+    RustPforCodec codec for compressing and decompressing integer arrays.
+
+    Supports numpy arrays of dtype: int8, int16, int32, int64, uint8, uint16, uint32, uint64.
+    """
+    def __new__(cls) -> RustPforCodec:
+        r"""
+        Create a new RustPforCodec codec instance.
+        """
+    def encode_array(self, array: numpy.typing.NDArray[typing.Any], dtype: numpy.dtype) -> bytes:
+        r"""
+        Compress a numpy integer array using RustPforCodec.
+
+        Args:
+            array: Input numpy array (integer dtype).
+            dtype: Numpy dtype of the array.
+
+        Returns:
+            Compressed bytes.
+        """
+    def decode_array(self, data: bytes, dtype: numpy.dtype, length: builtins.int) -> numpy.typing.NDArray[typing.Any]:
+        r"""
+        Decompress RustPforCodec-compressed bytes into a numpy array.
+
+        Args:
+            data: Compressed bytes.
+            dtype: Numpy dtype of the output array.
+            length: Number of elements in the output array.
+
+        Returns:
+            Decompressed numpy array.
+        """
