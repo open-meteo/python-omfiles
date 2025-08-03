@@ -5,6 +5,7 @@ use numpy::{
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
+use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
 use std::ffi::c_uchar;
 
 fn get_dtype_size(dtype_str: &str) -> PyResult<usize> {
@@ -24,17 +25,31 @@ fn get_dtype_size(dtype_str: &str) -> PyResult<usize> {
     }
 }
 
-#[pyclass]
+/// RustPforCodec codec for compressing and decompressing integer arrays.
+///
+/// Supports numpy arrays of dtype: int8, int16, int32, int64, uint8, uint16, uint32, uint64.
+#[gen_stub_pyclass]
+#[pyclass(module = "omfiles.omfiles")]
 #[derive(Debug, Clone)]
 pub struct RustPforCodec {}
 
+#[gen_stub_pymethods]
 #[pymethods]
 impl RustPforCodec {
+    /// Create a new RustPforCodec codec instance.
     #[new]
     fn new() -> PyResult<Self> {
         Ok(RustPforCodec {})
     }
 
+    /// Compress a numpy integer array using RustPforCodec.
+    ///
+    /// Args:
+    ///     array: Input numpy array (integer dtype).
+    ///     dtype: Numpy dtype of the array.
+    ///
+    /// Returns:
+    ///     Compressed bytes.
     #[pyo3(signature = (array, dtype))]
     fn encode_array<'py>(
         &self,
@@ -144,6 +159,15 @@ impl RustPforCodec {
         Ok(PyBytes::new(py, &output_buffer).into())
     }
 
+    /// Decompress RustPforCodec-compressed bytes into a numpy array.
+    ///
+    /// Args:
+    ///     data: Compressed bytes.
+    ///     dtype: Numpy dtype of the output array.
+    ///     length: Number of elements in the output array.
+    ///
+    /// Returns:
+    ///     Decompressed numpy array.
     #[pyo3(signature = (data, dtype, length))]
     fn decode_array<'py>(
         &self,

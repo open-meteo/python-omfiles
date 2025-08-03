@@ -26,9 +26,9 @@ from zarr.abc.metadata import Metadata
 from zarr.core.array_spec import ArraySpec
 from zarr.core.buffer.core import Buffer, NDBuffer
 from zarr.core.chunk_grids import ChunkGrid
-from zarr.core.common import JSON, ChunkCoords
+from zarr.core.common import JSON, BytesLike, ChunkCoords
 
-from .omfiles import RustPforCodec  # type: ignore[arg-type]
+from .omfiles import RustPforCodec
 
 ZARR_VERSION_AFTER_3_1_0 = version.parse(zarr.__version__) >= version.parse("3.1.0")
 
@@ -55,9 +55,9 @@ class PforSerializer(ArrayBytesCodec, Metadata):
     async def _encode_single(self, chunk_data: NDBuffer, chunk_spec: ArraySpec) -> Buffer:
         """Encode a single array chunk to bytes."""
         if ZARR_VERSION_AFTER_3_1_0:
-            numpy_dtype = chunk_spec.dtype.to_native_dtype()
+            numpy_dtype: np.dtype = chunk_spec.dtype.to_native_dtype()
         else:
-            numpy_dtype = chunk_spec.dtype
+            numpy_dtype: np.dtype = chunk_spec.dtype  # type: ignore
 
         out = await asyncio.to_thread(
             self._impl.encode_array, np.ascontiguousarray(chunk_data.as_numpy_array()), numpy_dtype
@@ -68,11 +68,11 @@ class PforSerializer(ArrayBytesCodec, Metadata):
         """Decode a single byte chunk to an array."""
         chunk_bytes = chunk_data.to_bytes()
         if ZARR_VERSION_AFTER_3_1_0:
-            numpy_dtype = chunk_spec.dtype.to_native_dtype()
+            numpy_dtype: np.dtype = chunk_spec.dtype.to_native_dtype()
         else:
-            numpy_dtype = chunk_spec.dtype
-        out = await asyncio.to_thread(self._impl.decode_array, chunk_bytes, numpy_dtype, np.prod(chunk_spec.shape))
-        return chunk_spec.prototype.nd_buffer.from_ndarray_like(out.reshape(chunk_spec.shape))
+            numpy_dtype: np.dtype = chunk_spec.dtype  # type: ignore
+        out = await asyncio.to_thread(self._impl.decode_array, chunk_bytes, numpy_dtype, int(np.prod(chunk_spec.shape)))
+        return chunk_spec.prototype.nd_buffer.from_ndarray_like(out.reshape(chunk_spec.shape))  # type: ignore
 
     def validate(self, *, shape: ChunkCoords, dtype: "ZDType[TBaseDType, TBaseScalar]", chunk_grid: ChunkGrid) -> None:
         """Validate codec compatibility with the array spec."""
@@ -99,17 +99,19 @@ class PforCodec(BytesBytesCodec, Metadata):
 
     async def _encode_single(self, chunk_data: Buffer, chunk_spec: ArraySpec) -> Buffer:
         """Encode a single bytes chunk."""
-        out = await asyncio.to_thread(self._impl.encode_array, chunk_data.as_array_like(), np.dtype("uint8"))
+        out = await asyncio.to_thread(self._impl.encode_array, chunk_data.as_array_like(), np.dtype("uint8"))  # type: ignore
         return chunk_spec.prototype.buffer.from_bytes(out)
 
     async def _decode_single(self, chunk_data: Buffer, chunk_spec: ArraySpec) -> Buffer:
         """Decode a single bytes chunk."""
-        out = await asyncio.to_thread(
-            self._impl.decode_array,
-            chunk_data.to_bytes(),
-            np.dtype("uint8"),
-            np.prod(chunk_spec.shape) * chunk_spec.dtype.to_native_dtype().itemsize,
-        )
+        out = (
+            await asyncio.to_thread(
+                self._impl.decode_array,
+                chunk_data.to_bytes(),
+                np.dtype("uint8"),
+                int(np.prod(chunk_spec.shape)) * chunk_spec.dtype.to_native_dtype().itemsize,
+            )
+        ).tobytes()
         return chunk_spec.prototype.buffer.from_bytes(out)
 
     @classmethod

@@ -11,7 +11,7 @@ except ImportError as e:
     ) from e
 import numpy as np
 
-from .omfiles import RustPforCodec  # type: ignore[arg-type]
+from .omfiles import RustPforCodec
 
 
 @dataclass
@@ -32,14 +32,16 @@ class TurboPfor(numcodecs.abc.Codec):
         chunk_elements = config.get("chunk_elements")
         return cls(dtype=dtype, chunk_elements=chunk_elements)
 
-    def encode(self, buf):
+    def encode(self, buf):  # type: ignore
         """Encode a numpy array using TurboPfor."""
         return self._impl.encode_array(buf, np.dtype(self.dtype))
 
-    def decode(self, buf, out=None):
+    def decode(self, buf, out=None):  # type: ignore
         """Decode a buffer using TurboPfor."""
         if out is not None:
             raise ValueError("Output array not supported")
+
+        assert self.chunk_elements is not None, "chunk_elements must be set"
 
         if isinstance(buf, np.ndarray):
             buf = buf.tobytes()
