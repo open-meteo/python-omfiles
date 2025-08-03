@@ -1,5 +1,6 @@
 import os
 import tempfile
+import threading
 
 import numpy as np
 import numpy.typing as npt
@@ -204,3 +205,32 @@ def test_fsspec_roundtrip(memory_fs):
     read_data = reader[:]
     np.testing.assert_array_equal(data, read_data)
     reader.close()
+
+
+def test_fsspec_multithreaded_read(memory_fs):
+    """Test that it is safe to release the GIL when using a PyObject (fsspec) as a storage backend."""
+    num_threads = 16
+    slice_size = 10
+    data = np.arange(num_threads * slice_size * 10).reshape(num_threads * slice_size, 10).astype(np.float32)
+    writer = omfiles.OmFilePyWriter.from_fsspec(memory_fs, "threaded_test.om")
+    root_var = writer.write_array(data, chunks=[5, 5], name="test")
+    writer.close(root_var)
+
+    # Read in multiple threads
+    reader = omfiles.OmFilePyReader.from_fsspec(memory_fs, "threaded_test.om")
+    starts = [i * slice_size for i in range(num_threads)]
+    results = [None] * num_threads
+
+    def read_slice(idx, start):
+        arr = reader[start : start + slice_size, :]
+        results[idx] = arr
+
+    threads = [threading.Thread(target=read_slice, args=(idx, start)) for idx, start in enumerate(starts)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert len(results) == num_threads
+    for i, arr in enumerate(results):
+        np.testing.assert_array_equal(arr, data[i * slice_size : (i + 1) * slice_size, :])
