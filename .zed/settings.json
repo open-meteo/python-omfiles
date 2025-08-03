@@ -18,6 +18,11 @@
       "format_on_save": "on",
       "formatter": [
         {
+          "code_actions": {
+            "source.fixAll.ruff": true
+          }
+        },
+        {
           "language_server": {
             "name": "ruff"
           }
