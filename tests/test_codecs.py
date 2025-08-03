@@ -10,19 +10,6 @@ from zarr import create_array
 from zarr.abc.store import Store
 from zarr.storage import LocalStore, MemoryStore, StorePath
 
-delta_config = {
-    "float32": "<f4",
-    "float64": "<f8",
-    "int8": "<i1",
-    "uint8": "<u1",
-    "int16": "<i2",
-    "uint16": "<u2",
-    "int32": "<i4",
-    "uint32": "<u4",
-    "int64": "<i8",
-    "uint64": "<u8",
-}
-
 
 @pytest.fixture
 def store(request):
@@ -53,7 +40,6 @@ async def test_pfordelta_roundtrip(store: Store, dtype: np.dtype) -> None:
     spath = StorePath(store, path)
     assert await store.is_empty("")
 
-    # Create data similar to the Rust test
     data = np.array(
         [
             [10, 22, 23, 24, 29, 30, 31, 32, 33, 34],
@@ -103,7 +89,6 @@ async def test_pfor_serializer_roundtrip(store: Store, dtype: np.dtype) -> None:
     spath = StorePath(store, path)
     assert await store.is_empty("")
 
-    # Create test data
     data = np.array(
         [
             [10, 22, 23, 24, 29, 30, 31, 32, 33, 34],
@@ -117,10 +102,9 @@ async def test_pfor_serializer_roundtrip(store: Store, dtype: np.dtype) -> None:
         dtype=np.dtype(dtype),
     )
 
-    # Different chunk shape for variety
+    # Different chunk than above
     chunk_shape = (2, 5)
 
-    # Create array with PforSerializer as the serializer
     z = create_array(
         spath,
         shape=data.shape,
