@@ -74,14 +74,14 @@ class PforSerializer(ArrayBytesCodec, Metadata):
         out = await asyncio.to_thread(self._impl.decode_array, chunk_bytes, numpy_dtype, int(np.prod(chunk_spec.shape)))
         return chunk_spec.prototype.nd_buffer.from_ndarray_like(out.reshape(chunk_spec.shape))  # type: ignore
 
-    def validate(self, *, shape: ChunkCoords, dtype: "ZDType[TBaseDType, TBaseScalar]", chunk_grid: ChunkGrid) -> None:
-        """Validate codec compatibility with the array spec."""
-        if ZARR_VERSION_AFTER_3_1_0:
-            numpy_dtype = dtype.to_native_dtype()
-        else:
-            numpy_dtype = dtype
-        if numpy_dtype not in _SUPPORTED_DATATYPES:
-            raise ValueError(f"Array dtype {numpy_dtype} is not supported")
+    # def validate(self, *, shape: ChunkCoords, dtype: "ZDType[TBaseDType, TBaseScalar]", chunk_grid: ChunkGrid) -> None:
+    #     """Validate codec compatibility with the array spec."""
+    #     if ZARR_VERSION_AFTER_3_1_0:
+    #         numpy_dtype = dtype.to_native_dtype()
+    #     else:
+    #         numpy_dtype = dtype
+    #     if numpy_dtype not in _SUPPORTED_DATATYPES:
+    #         raise ValueError(f"Array dtype {numpy_dtype} is not supported")
 
     @classmethod
     def from_config(cls, config: Dict[str, Any]) -> Self:
