@@ -5,7 +5,7 @@ import pytest
 
 pytest.importorskip("numcodecs.zarr3")
 from numcodecs.zarr3 import Delta
-from omfiles.zarr3 import PforCodec, PforSerializer
+from omfiles._zarr3 import PforCodec, PforSerializer
 from zarr import create_array
 from zarr.abc.store import Store
 from zarr.storage import LocalStore, MemoryStore, StorePath
