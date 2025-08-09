@@ -15,7 +15,7 @@ use omfiles_rs::{
         mmapfile::{MmapFile, Mode},
     },
     core::data_types::{DataType, OmFileArrayDataType},
-    io::reader_async::OmFileReaderAsync,
+    io::reader_async::OmFileReaderAsync as OmFileReaderAsyncRs,
 };
 use pyo3::{prelude::*, types::PyTuple};
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
@@ -27,12 +27,12 @@ use std::{fs::File, ops::Range, sync::Arc};
 /// Supports reading from local files via memory mapping or from remote files through fsspec compatibility.
 #[gen_stub_pyclass]
 #[pyclass(module = "omfiles.omfiles")]
-pub struct OmFilePyReaderAsync {
+pub struct OmFileReaderAsync {
     /// The reader is stored in an Option to be able to properly close it,
     /// particularly when working with memory-mapped files.
     /// The RwLock is used to allow multiple readers to access the reader
     /// concurrently, but only one writer to close it.
-    reader: RwLock<Option<OmFileReaderAsync<AsyncBackendImpl>>>,
+    reader: RwLock<Option<OmFileReaderAsyncRs<AsyncBackendImpl>>>,
     /// Shape of the array data in the file (read-only property)
     shape: Vec<u64>,
     /// Chunk shape of the array data in the file (read-only property)
@@ -41,7 +41,7 @@ pub struct OmFilePyReaderAsync {
 
 #[gen_stub_pymethods]
 #[pymethods]
-impl OmFilePyReaderAsync {
+impl OmFileReaderAsync {
     /// Create a new async reader from an fsspec fs object.
     ///
     /// Args:
@@ -49,7 +49,7 @@ impl OmFilePyReaderAsync {
     ///     path (str): The path to the file within the file system.
     ///
     /// Returns:
-    ///     OmFilePyReaderAsync: A new reader instance.
+    ///     OmFileReaderAsync: A new reader instance.
     ///
     /// Raises:
     ///     TypeError: If the provided file object is not a valid fsspec file.
@@ -68,7 +68,7 @@ impl OmFilePyReaderAsync {
         })?;
         let backend = AsyncFsSpecBackend::new(fs_obj, path).await?;
         let backend = AsyncBackendImpl::FsSpec(backend);
-        let reader = OmFileReaderAsync::new(Arc::new(backend))
+        let reader = OmFileReaderAsyncRs::new(Arc::new(backend))
             .await
             .map_err(convert_omfilesrs_error)?;
 
@@ -88,7 +88,7 @@ impl OmFilePyReaderAsync {
     ///     file_path (str): Path to the OM file to read.
     ///
     /// Returns:
-    ///     OmFilePyReaderAsync: A new reader instance.
+    ///     OmFileReaderAsync: A new reader instance.
     ///
     /// Raises:
     ///     IOError: If the file cannot be opened or read.
@@ -97,7 +97,7 @@ impl OmFilePyReaderAsync {
         let file_handle = File::open(file_path)
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyIOError, _>(e.to_string()))?;
         let backend = AsyncBackendImpl::Mmap(MmapFile::new(file_handle, Mode::ReadOnly)?);
-        let reader = OmFileReaderAsync::new(Arc::new(backend))
+        let reader = OmFileReaderAsyncRs::new(Arc::new(backend))
             .await
             .map_err(convert_omfilesrs_error)?;
         let shape = get_shape_vec(&reader);
@@ -311,7 +311,7 @@ impl OmFilePyReaderAsync {
 }
 
 async fn read_squeezed_typed_array<T>(
-    reader: &OmFileReaderAsync<AsyncBackendImpl>,
+    reader: &OmFileReaderAsyncRs<AsyncBackendImpl>,
     read_ranges: &[Range<u64>],
     io_size_max: Option<u64>,
     io_size_merge: Option<u64>,
@@ -330,14 +330,14 @@ where
 
 /// Small helper function to get the correct shape of the data. We need to
 /// be careful with scalars and groups!
-fn get_shape_vec(reader: &OmFileReaderAsync<AsyncBackendImpl>) -> Vec<u64> {
+fn get_shape_vec(reader: &OmFileReaderAsyncRs<AsyncBackendImpl>) -> Vec<u64> {
     if !reader.data_type().is_array() {
         return vec![];
     }
     reader.get_dimensions().to_vec()
 }
 
-fn get_chunk_shape(reader: &OmFileReaderAsync<AsyncBackendImpl>) -> Vec<u64> {
+fn get_chunk_shape(reader: &OmFileReaderAsyncRs<AsyncBackendImpl>) -> Vec<u64> {
     if !reader.data_type().is_array() {
         return vec![];
     }

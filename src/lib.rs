@@ -16,9 +16,9 @@ mod writer;
 /// A Python module implemented in Rust.
 #[pymodule(gil_used = false)]
 fn omfiles<'py>(m: &Bound<'py, PyModule>) -> PyResult<()> {
-    m.add_class::<reader::OmFilePyReader>()?;
-    m.add_class::<writer::OmFilePyWriter>()?;
-    m.add_class::<reader_async::OmFilePyReaderAsync>()?;
+    m.add_class::<reader::OmFileReader>()?;
+    m.add_class::<writer::OmFileWriter>()?;
+    m.add_class::<reader_async::OmFileReaderAsync>()?;
     m.add_class::<hierarchy::OmVariable>()?;
     m.add_class::<codecs::RustPforCodec>()?;
 

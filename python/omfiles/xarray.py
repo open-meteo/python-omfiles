@@ -1,17 +1,22 @@
-"""OmFilePyReader backend for Xarray."""
+"""OmFileReader backend for Xarray."""
 # ruff: noqa: D101, D102, D105, D107
 
 from __future__ import annotations
 
 import numpy as np
-from xarray.backends.common import BackendArray, BackendEntrypoint, WritableCFDataStore, _normalize_path
+from xarray.backends.common import (
+    AbstractDataStore,
+    BackendArray,
+    BackendEntrypoint,
+    _normalize_path,
+)
 from xarray.backends.store import StoreBackendEntrypoint
 from xarray.core import indexing
 from xarray.core.dataset import Dataset
 from xarray.core.utils import FrozenDict
 from xarray.core.variable import Variable
 
-from .omfiles import OmFilePyReader, OmVariable
+from .omfiles import OmFileReader, OmVariable
 
 # need some special secret attributes to tell us the dimensions
 DIMENSION_KEY = "_ARRAY_DIMENSIONS"
@@ -28,7 +33,7 @@ class OmXarrayEntrypoint(BackendEntrypoint):
         drop_variables=None,
     ) -> Dataset:
         filename_or_obj = _normalize_path(filename_or_obj)
-        with OmFilePyReader(filename_or_obj) as root_variable:
+        with OmFileReader(filename_or_obj) as root_variable:
             store = OmDataStore(root_variable)
             store_entrypoint = StoreBackendEntrypoint()
             return store_entrypoint.open_dataset(
@@ -42,11 +47,11 @@ class OmXarrayEntrypoint(BackendEntrypoint):
     url = "https://github.com/open-meteo/om-file-format/"
 
 
-class OmDataStore(WritableCFDataStore):
-    root_variable: OmFilePyReader
+class OmDataStore(AbstractDataStore):
+    root_variable: OmFileReader
     variables_store: dict[str, OmVariable]
 
-    def __init__(self, root_variable: OmFilePyReader):
+    def __init__(self, root_variable: OmFileReader):
         self.root_variable = root_variable
         self.variables_store = self.root_variable.get_flat_variable_metadata()
 
@@ -57,7 +62,7 @@ class OmDataStore(WritableCFDataStore):
         # Global attributes are attributes directly under the root variable.
         return FrozenDict(self._get_attributes_for_variable(self.root_variable, self.root_variable.name))
 
-    def _get_attributes_for_variable(self, reader: OmFilePyReader, path: str):
+    def _get_attributes_for_variable(self, reader: OmFileReader, path: str):
         attrs = {}
         direct_children = self._find_direct_children_in_store(path)
         for k, variable in direct_children.items():
@@ -103,7 +108,7 @@ class OmDataStore(WritableCFDataStore):
 
         return dimensions
 
-    def _get_datasets_for_variable(self, reader: OmFilePyReader):
+    def _get_datasets_for_variable(self, reader: OmFileReader):
         datasets = {}
         direct_children = self._find_direct_children_in_store("")
 
@@ -145,9 +150,9 @@ class OmDataStore(WritableCFDataStore):
 
 
 class OmBackendArray(BackendArray):
-    """OmBackendArray is an xarray backend implementation for the OMFilePyReader."""
+    """OmBackendArray is an xarray backend implementation for the OmFileReader."""
 
-    def __init__(self, reader: OmFilePyReader):
+    def __init__(self, reader: OmFileReader):
         self.reader = reader
 
     @property
@@ -159,7 +164,7 @@ class OmBackendArray(BackendArray):
         return self.reader.dtype
 
     def __getitem__(self, key: indexing.ExplicitIndexer) -> np.typing.ArrayLike:
-        """Retrieve data from the OmFilePyReader using the provided key."""
+        """Retrieve data from the OmFileReader using the provided key."""
         return indexing.explicit_indexing_adapter(
             key,
             self.shape,

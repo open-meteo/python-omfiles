@@ -12,29 +12,29 @@ use omfiles_rs::{
         data_types::{OmFileArrayDataType, OmFileScalarDataType},
     },
     errors::OmFilesRsError,
-    io::writer::{OmFileWriter, OmFileWriterArrayFinalized, OmOffsetSize},
+    io::writer::{OmFileWriter as OmFileWriterRs, OmFileWriterArrayFinalized, OmOffsetSize},
 };
 use pyo3::{exceptions::PyValueError, prelude::*};
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
 use std::{fs::File, sync::Mutex};
 
 enum WriterBackend {
-    File(OmFileWriter<File>),
-    FsSpec(OmFileWriter<FsSpecWriterBackend>),
+    File(OmFileWriterRs<File>),
+    FsSpec(OmFileWriterRs<FsSpecWriterBackend>),
 }
 
 #[gen_stub_pyclass]
-#[pyclass(module = "omfiles.omfiles")]
+#[pyclass(module = "omfiles.omfiles", name = "OmFileWriter")]
 /// A Python wrapper for the Rust OmFileWriter implementation.
-pub struct OmFilePyWriter {
+pub struct OmFileWriter {
     writer: Mutex<Option<WriterBackend>>,
 }
 
 #[gen_stub_pymethods]
 #[pymethods]
-impl OmFilePyWriter {
+impl OmFileWriter {
     #[new]
-    /// Initialize an OmFilePyWriter.
+    /// Initialize an OmFileWriter.
     ///
     /// Args:
     ///     file_path: Path where the .om file will be created
@@ -43,7 +43,7 @@ impl OmFilePyWriter {
     /// OSError: If the file cannot be created
     fn new(file_path: &str) -> PyResult<Self> {
         let file_handle = File::create(file_path)?;
-        let writer = OmFileWriter::new(file_handle, 8 * 1024);
+        let writer = OmFileWriterRs::new(file_handle, 8 * 1024);
         Ok(Self {
             writer: Mutex::new(Some(WriterBackend::File(writer))),
         })
@@ -54,17 +54,17 @@ impl OmFilePyWriter {
         text_signature = "(fs_obj, path, /)",
         signature = (fs_obj, path)
     )]
-    /// Create an OmFilePyWriter from a fsspec filesystem object.
+    /// Create an OmFileWriter from a fsspec filesystem object.
     ///
     /// Args:
     ///     fs_obj: A fsspec filesystem object that supports write operations
     ///     path: The path to the file within the file system
     ///
     /// Returns:
-    ///     OmFilePyWriter: A new writer instance
+    ///     OmFileWriter: A new writer instance
     fn from_fsspec(fs_obj: PyObject, path: String) -> PyResult<Self> {
         let fsspec_backend = FsSpecWriterBackend::new(fs_obj, path)?;
-        let writer = OmFileWriter::new(fsspec_backend, 8 * 1024);
+        let writer = OmFileWriterRs::new(fsspec_backend, 8 * 1024);
         Ok(Self {
             writer: Mutex::new(Some(WriterBackend::FsSpec(writer))),
         })
@@ -314,7 +314,7 @@ impl OmFilePyWriter {
     }
 }
 
-impl OmFilePyWriter {
+impl OmFileWriter {
     // Helper method for safe writer access
     fn with_writer<F, R>(&self, f: F) -> PyResult<R>
     where
@@ -419,7 +419,7 @@ mod tests {
             let data = ArrayD::from_shape_fn(dimensions, |idx| (idx[0] + idx[1]) as f32);
             let py_array = PyArrayDyn::from_array(py, &data);
 
-            let mut file_writer = OmFilePyWriter::new(file_path).unwrap();
+            let mut file_writer = OmFileWriter::new(file_path).unwrap();
 
             // Write data
             let result = file_writer.write_array(
@@ -450,7 +450,7 @@ mod tests {
             let fsspec = py.import("fsspec")?;
             let fs = fsspec.call_method1("filesystem", ("memory",))?;
 
-            let _writer = OmFilePyWriter::from_fsspec(fs.into(), "test_file.om".to_string())?;
+            let _writer = OmFileWriter::from_fsspec(fs.into(), "test_file.om".to_string())?;
 
             Ok(())
         })?;

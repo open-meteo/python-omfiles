@@ -9,9 +9,9 @@ import numpy.typing
 
 import omfiles
 
-class OmFilePyReader:
+class OmFileReader:
     r"""
-    An OmFilePyReader class for reading .om files.
+    An OmFileReader class for reading .om files.
 
     A reader object can have an arbitrary number of child readers, each representing
     a multidimensional variable or a scalar variable (an attribute). Thus, this class
@@ -89,9 +89,9 @@ class OmFilePyReader:
         r"""
         Get the compression type of the variable.
         """
-    def __new__(cls, source: typing.Any) -> OmFilePyReader:
+    def __new__(cls, source: typing.Any) -> OmFileReader:
         r"""
-        Initialize an OmFilePyReader from a file path or fsspec file object.
+        Initialize an OmFileReader from a file path or fsspec file object.
 
         Args:
             source (str or fsspec.core.OpenFile): Path to the .om file to read or a fsspec file object.
@@ -100,27 +100,27 @@ class OmFilePyReader:
             ValueError: If the file cannot be opened or is invalid.
         """
     @staticmethod
-    def from_path(file_path: builtins.str) -> OmFilePyReader:
+    def from_path(file_path: builtins.str) -> OmFileReader:
         r"""
-        Create an OmFilePyReader from a file path.
+        Create an OmFileReader from a file path.
 
         Args:
             file_path (str): Path to the .om file to read.
 
         Returns:
-            OmFilePyReader: OmFilePyReader instance.
+            OmFileReader: OmFileReader instance.
         """
     @staticmethod
-    def from_fsspec(fs_obj: typing.Any, path: builtins.str) -> OmFilePyReader:
+    def from_fsspec(fs_obj: typing.Any, path: builtins.str) -> OmFileReader:
         r"""
-        Create an OmFilePyReader from a fsspec fs object.
+        Create an OmFileReader from a fsspec fs object.
 
         Args:
             fs_obj (fsspec.spec.AbstractFileSystem): A fsspec file system object which needs to have the methods `cat_file` and `size`.
             path (str): The path to the file within the file system.
 
         Returns:
-            OmFilePyReader: A new reader instance.
+            OmFileReader: A new reader instance.
         """
     def get_flat_variable_metadata(self) -> builtins.dict[builtins.str, OmVariable]:
         r"""
@@ -129,22 +129,22 @@ class OmFilePyReader:
         Returns:
             dict: Dictionary mapping variable names to their metadata.
         """
-    def init_from_variable(self, variable: OmVariable) -> OmFilePyReader:
+    def init_from_variable(self, variable: OmVariable) -> OmFileReader:
         r"""
-        Initialize a new OmFilePyReader from a child variable.
+        Initialize a new OmFileReader from a child variable.
 
         Args:
             variable (OmVariable): Variable metadata to create a new reader from.
 
         Returns:
-            OmFilePyReader: A new reader for the specified variable.
+            OmFileReader: A new reader for the specified variable.
         """
-    def __enter__(self) -> OmFilePyReader:
+    def __enter__(self) -> OmFileReader:
         r"""
         Enter a context manager block.
 
         Returns:
-            OmFilePyReader: Self for use in context manager.
+            OmFileReader: Self for use in context manager.
 
         Raises:
             ValueError: If the reader is already closed.
@@ -228,7 +228,7 @@ class OmFilePyReader:
             ValueError: If the variable is not a scalar.
         """
 
-class OmFilePyReaderAsync:
+class OmFileReaderAsync:
     r"""
     A reader for OM files with async access.
 
@@ -252,7 +252,7 @@ class OmFilePyReaderAsync:
             tuple: The chunk shape of the array.
         """
     @staticmethod
-    async def from_fsspec(fs_obj: typing.Any, path: builtins.str) -> OmFilePyReaderAsync:
+    async def from_fsspec(fs_obj: typing.Any, path: builtins.str) -> OmFileReaderAsync:
         r"""
         Create a new async reader from an fsspec fs object.
 
@@ -261,14 +261,14 @@ class OmFilePyReaderAsync:
             path (str): The path to the file within the file system.
 
         Returns:
-            OmFilePyReaderAsync: A new reader instance.
+            OmFileReaderAsync: A new reader instance.
 
         Raises:
             TypeError: If the provided file object is not a valid fsspec file.
             IOError: If there's an error reading the file.
         """
     @staticmethod
-    async def from_path(file_path: builtins.str) -> OmFilePyReaderAsync:
+    async def from_path(file_path: builtins.str) -> OmFileReaderAsync:
         r"""
         Create a new async reader from a local file path.
 
@@ -276,7 +276,7 @@ class OmFilePyReaderAsync:
             file_path (str): Path to the OM file to read.
 
         Returns:
-            OmFilePyReaderAsync: A new reader instance.
+            OmFileReaderAsync: A new reader instance.
 
         Raises:
             IOError: If the file cannot be opened or read.
@@ -323,7 +323,7 @@ class OmFilePyReaderAsync:
             RuntimeError: If the reader cannot be closed due to concurrent access.
         """
 
-class OmFilePyWriter:
+class OmFileWriter:
     r"""
     A Python wrapper for the Rust OmFileWriter implementation.
     """
@@ -332,9 +332,9 @@ class OmFilePyWriter:
         r"""
         Check if the writer is closed.
         """
-    def __new__(cls, file_path: builtins.str) -> OmFilePyWriter:
+    def __new__(cls, file_path: builtins.str) -> OmFileWriter:
         r"""
-        Initialize an OmFilePyWriter.
+        Initialize an OmFileWriter.
 
         Args:
             file_path: Path where the .om file will be created
@@ -343,16 +343,16 @@ class OmFilePyWriter:
         OSError: If the file cannot be created
         """
     @staticmethod
-    def from_fsspec(fs_obj: typing.Any, path: builtins.str) -> OmFilePyWriter:
+    def from_fsspec(fs_obj: typing.Any, path: builtins.str) -> OmFileWriter:
         r"""
-        Create an OmFilePyWriter from a fsspec filesystem object.
+        Create an OmFileWriter from a fsspec filesystem object.
 
         Args:
             fs_obj: A fsspec filesystem object that supports write operations
             path: The path to the file within the file system
 
         Returns:
-            OmFilePyWriter: A new writer instance
+            OmFileWriter: A new writer instance
         """
     def close(self, root_variable: OmVariable) -> None:
         r"""

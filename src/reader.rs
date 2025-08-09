@@ -15,7 +15,7 @@ use omfiles_rs::{
         mmapfile::{MmapFile, Mode},
     },
     core::data_types::{DataType, OmFileArrayDataType, OmFileScalarDataType},
-    io::reader::OmFileReader,
+    io::reader::OmFileReader as OmFileReaderRs,
 };
 use pyo3::{prelude::*, types::PyTuple, BoundObject};
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
@@ -26,7 +26,7 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-/// An OmFilePyReader class for reading .om files.
+/// An OmFileReader class for reading .om files.
 ///
 /// A reader object can have an arbitrary number of child readers, each representing
 /// a multidimensional variable or a scalar variable (an attribute). Thus, this class
@@ -50,12 +50,12 @@ use std::{
 /// Attribute: A named data value associated with a group or dataset.
 #[gen_stub_pyclass]
 #[pyclass(module = "omfiles.omfiles")]
-pub struct OmFilePyReader {
+pub struct OmFileReader {
     /// The reader is stored in an Option to be able to properly close it,
     /// particularly when working with memory-mapped files.
     /// The RwLock is used to allow multiple readers to access the reader
     /// concurrently, but only one writer to close it.
-    reader: RwLock<Option<OmFileReader<BackendImpl>>>,
+    reader: RwLock<Option<OmFileReaderRs<BackendImpl>>>,
     /// Get the shape of the data stored in the .om file.
     ///
     /// Returns:
@@ -65,8 +65,8 @@ pub struct OmFilePyReader {
 
 #[gen_stub_pymethods]
 #[pymethods]
-impl OmFilePyReader {
-    /// Initialize an OmFilePyReader from a file path or fsspec file object.
+impl OmFileReader {
+    /// Initialize an OmFileReader from a file path or fsspec file object.
     ///
     /// Args:
     ///     source (str or fsspec.core.OpenFile): Path to the .om file to read or a fsspec file object.
@@ -95,19 +95,19 @@ impl OmFilePyReader {
         })
     }
 
-    /// Create an OmFilePyReader from a file path.
+    /// Create an OmFileReader from a file path.
     ///
     /// Args:
     ///     file_path (str): Path to the .om file to read.
     ///
     /// Returns:
-    ///     OmFilePyReader: OmFilePyReader instance.
+    ///     OmFileReader: OmFileReader instance.
     #[staticmethod]
     fn from_path(file_path: &str) -> PyResult<Self> {
         let file_handle = File::open(file_path)
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyIOError, _>(e.to_string()))?;
         let backend = BackendImpl::Mmap(MmapFile::new(file_handle, Mode::ReadOnly)?);
-        let reader = OmFileReader::new(Arc::new(backend)).map_err(convert_omfilesrs_error)?;
+        let reader = OmFileReaderRs::new(Arc::new(backend)).map_err(convert_omfilesrs_error)?;
         let shape = get_shape_vec(&reader);
 
         Ok(Self {
@@ -116,14 +116,14 @@ impl OmFilePyReader {
         })
     }
 
-    /// Create an OmFilePyReader from a fsspec fs object.
+    /// Create an OmFileReader from a fsspec fs object.
     ///
     /// Args:
     ///     fs_obj (fsspec.spec.AbstractFileSystem): A fsspec file system object which needs to have the methods `cat_file` and `size`.
     ///     path (str): The path to the file within the file system.
     ///
     /// Returns:
-    ///     OmFilePyReader: A new reader instance.
+    ///     OmFileReader: A new reader instance.
     #[staticmethod]
     fn from_fsspec(fs_obj: PyObject, path: String) -> PyResult<Self> {
         Python::with_gil(|py| {
@@ -136,7 +136,7 @@ impl OmFilePyReader {
             }
 
             let backend = BackendImpl::FsSpec(FsSpecBackend::new(fs_obj, path)?);
-            let reader = OmFileReader::new(Arc::new(backend)).map_err(convert_omfilesrs_error)?;
+            let reader = OmFileReaderRs::new(Arc::new(backend)).map_err(convert_omfilesrs_error)?;
             let shape = get_shape_vec(&reader);
 
             Ok(Self {
@@ -169,13 +169,13 @@ impl OmFilePyReader {
         })
     }
 
-    /// Initialize a new OmFilePyReader from a child variable.
+    /// Initialize a new OmFileReader from a child variable.
     ///
     /// Args:
     ///     variable (OmVariable): Variable metadata to create a new reader from.
     ///
     /// Returns:
-    ///     OmFilePyReader: A new reader for the specified variable.
+    ///     OmFileReader: A new reader for the specified variable.
     fn init_from_variable(&self, variable: OmVariable) -> PyResult<Self> {
         self.with_reader(|reader| {
             let child_reader = reader
@@ -193,7 +193,7 @@ impl OmFilePyReader {
     /// Enter a context manager block.
     ///
     /// Returns:
-    ///     OmFilePyReader: Self for use in context manager.
+    ///     OmFileReader: Self for use in context manager.
     ///
     /// Raises:
     ///     ValueError: If the reader is already closed.
@@ -508,10 +508,10 @@ impl OmFilePyReader {
     }
 }
 
-impl OmFilePyReader {
+impl OmFileReader {
     fn with_reader<F, R>(&self, f: F) -> PyResult<R>
     where
-        F: FnOnce(&OmFileReader<BackendImpl>) -> PyResult<R>,
+        F: FnOnce(&OmFileReaderRs<BackendImpl>) -> PyResult<R>,
     {
         let guard = self.reader.try_read().map_err(|_| {
             PyErr::new::<pyo3::exceptions::PyValueError, _>(
@@ -544,7 +544,7 @@ impl OmFilePyReader {
 }
 
 fn read_squeezed_typed_array<T: Element + OmFileArrayDataType + Clone + Zero>(
-    reader: &OmFileReader<impl OmFileReaderBackend>,
+    reader: &OmFileReaderRs<impl OmFileReaderBackend>,
     read_ranges: &[Range<u64>],
     io_size_max: Option<u64>,
     io_size_merge: Option<u64>,
@@ -558,14 +558,14 @@ fn read_squeezed_typed_array<T: Element + OmFileArrayDataType + Clone + Zero>(
 
 /// Small helper function to get the correct shape of the data. We need to
 /// be careful with scalars and groups!
-fn get_shape_vec<Backend>(reader: &OmFileReader<Backend>) -> Vec<u64> {
+fn get_shape_vec<Backend>(reader: &OmFileReaderRs<Backend>) -> Vec<u64> {
     if !reader.data_type().is_array() {
         return vec![];
     }
     reader.get_dimensions().to_vec()
 }
 
-fn get_chunk_shape<Backend>(reader: &OmFileReader<Backend>) -> Vec<u64> {
+fn get_chunk_shape<Backend>(reader: &OmFileReaderRs<Backend>) -> Vec<u64> {
     if !reader.data_type().is_array() {
         return vec![];
     }
@@ -606,7 +606,7 @@ mod tests {
         let file_path = "test_files/read_test.om";
         pyo3::prepare_freethreaded_python();
 
-        let reader = OmFilePyReader::from_path(file_path).unwrap();
+        let reader = OmFileReader::from_path(file_path).unwrap();
         let ranges = ArrayIndex(vec![
             IndexType::Slice {
                 start: Some(0),
