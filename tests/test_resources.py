@@ -10,7 +10,7 @@ def test_no_file_handle_leaks(temp_om_file):
 
     # Create and use multiple readers
     for _ in range(10):  # Open and close multiple times
-        reader = omfiles.OmFilePyReader(temp_om_file)
+        reader = omfiles.OmFileReader(temp_om_file)
         _ = reader[0:5, 0:5]
         reader.close()
 
@@ -18,7 +18,7 @@ def test_no_file_handle_leaks(temp_om_file):
     fs = fsspec.filesystem("file")
     for _ in range(10):
         with fs.open(temp_om_file, "rb") as f:
-            reader = omfiles.OmFilePyReader(f)
+            reader = omfiles.OmFileReader(f)
             _ = reader[0:5, 0:5]
             reader.close()
 

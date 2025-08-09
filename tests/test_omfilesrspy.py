@@ -6,7 +6,7 @@ import pytest
 
 
 def test_write_om_roundtrip(temp_om_file):
-    reader = omfiles.OmFilePyReader(temp_om_file)
+    reader = omfiles.OmFileReader(temp_om_file)
     data = reader[0:5, 0:5]
     reader.close()
 
@@ -42,12 +42,12 @@ def test_round_trip_array_datatypes():
 
     for test_data, dtype in test_cases:
         with tempfile.NamedTemporaryFile(suffix=".om") as temp_file:
-            writer = omfiles.OmFilePyWriter(temp_file.name)
+            writer = omfiles.OmFileWriter(temp_file.name)
             variable = writer.write_array(test_data, chunks=chunks, scale_factor=10000.0, add_offset=0.0)
             writer.close(variable)
 
             # Read data back
-            reader = omfiles.OmFilePyReader(temp_file.name)
+            reader = omfiles.OmFileReader(temp_file.name)
             read_data = reader[:]
             reader.close()
 
@@ -65,7 +65,7 @@ def test_write_hierarchical_file(empty_temp_om_file):
     child2_data = np.random.rand(3, 3).astype(np.float32)
 
     # Write hierarchical structure
-    writer = omfiles.OmFilePyWriter(empty_temp_om_file)
+    writer = omfiles.OmFileWriter(empty_temp_om_file)
 
     # Write child2 array
     child2_var = writer.write_array(child2_data, chunks=[1, 1], name="child2", scale_factor=100000.0)
@@ -88,8 +88,8 @@ def test_write_hierarchical_file(empty_temp_om_file):
     # Finalize the file
     writer.close(root_var)
 
-    # Read and verify the data using OmFilePyReader
-    reader = omfiles.OmFilePyReader(empty_temp_om_file)
+    # Read and verify the data using OmFileReader
+    reader = omfiles.OmFileReader(empty_temp_om_file)
 
     # Verify root data
     read_root = reader[:]
@@ -129,8 +129,8 @@ def test_write_hierarchical_file(empty_temp_om_file):
 
 @pytest.mark.asyncio
 async def test_read_concurrent(temp_om_file):
-    """Test the concurrent reading functionality of OmFilePyReader."""
-    reader = await omfiles.OmFilePyReaderAsync.from_path(temp_om_file)
+    """Test the concurrent reading functionality of OmFileReader."""
+    reader = await omfiles.OmFileReaderAsync.from_path(temp_om_file)
 
     # Test basic concurrent read
     data = await reader.read_concurrent((slice(0, 5), ...))
@@ -157,7 +157,7 @@ async def test_read_concurrent(temp_om_file):
 
 
 def test_reader_close(temp_om_file):
-    reader = omfiles.OmFilePyReader(temp_om_file)
+    reader = omfiles.OmFileReader(temp_om_file)
 
     # Verify we can read data
     data = reader[0:5, 0:5]
@@ -165,7 +165,7 @@ def test_reader_close(temp_om_file):
     assert data.dtype == np.float32
 
     # Test context manager
-    with omfiles.OmFilePyReader(temp_om_file) as ctx_reader:
+    with omfiles.OmFileReader(temp_om_file) as ctx_reader:
         ctx_data = ctx_reader[0:5, 0:5]
         assert ctx_data.shape == (5, 5)
         # Reader should be valid inside context

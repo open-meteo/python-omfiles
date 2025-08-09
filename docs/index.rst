@@ -50,9 +50,9 @@ Reading an OM file
 
 .. code-block:: python
 
-    from omfiles import OmFilePyReader
+    from omfiles import OmFileReader
 
-    with OmFilePyReader.from_path("test_file.om") as reader:
+    with OmFileReader.from_path("test_file.om") as reader:
         arr = reader[0:2, 0:100, ...]
         print(arr.shape)
 
@@ -62,13 +62,13 @@ Writing an OM file
 .. code-block:: python
 
     import numpy as np
-    from omfiles import OmFilePyWriter
+    from omfiles import OmFileWriter
 
     # Create sample data
     data = np.random.rand(100, 100).astype(np.float32)
 
     # Initialize writer
-    writer = OmFilePyWriter("simple.om")
+    writer = OmFileWriter("simple.om")
 
     # Write array with compression
     variable = writer.write_array(

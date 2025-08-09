@@ -8,7 +8,7 @@ import warnings
 import numpy as np
 import numpy.typing as npt
 import psutil
-from omfiles import OmFilePyWriter
+from omfiles import OmFileWriter
 
 
 def create_test_om_file(
@@ -16,7 +16,7 @@ def create_test_om_file(
 ) -> tuple[str, np.ndarray]:
     test_data = np.arange(np.prod(shape), dtype=dtype).reshape(shape)
 
-    writer = OmFilePyWriter(filename)
+    writer = OmFileWriter(filename)
     variable = writer.write_array(test_data, chunks=[5, 5])
     writer.close(variable)
 
