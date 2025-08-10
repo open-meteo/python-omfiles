@@ -18,14 +18,14 @@ doc = true
 
 [dependencies]
 pyo3 = { version = "0.25", features = ["abi3-py39", "experimental-async"] }
+pyo3-async-runtimes = { version = "0.25", features = ["async-std-runtime"] }
+pyo3-stub-gen = "0.12"
+async-lock = "3.4.0"
 numpy = "0.25"
 num-traits = "0.2"
 delegate = "0.13"
-omfiles-rs = { git = "https://github.com/open-meteo/rust-omfiles", rev = "1a9227dd9b72372f0e2cf82830739ca63ca07a51", package = "omfiles" }
+omfiles-rs = { git = "https://github.com/open-meteo/rust-omfiles", rev = "fffe1f151a26ad5ab688615269260811767f32ac", package = "omfiles" }
 om-file-format-sys = { git = "https://github.com/open-meteo/om-file-format", branch = "main" }
-pyo3-async-runtimes = { version = "0.25", features = ["async-std-runtime"] }
 thiserror = "2.0.12"
-async-lock = "3.4.0"
-pyo3-stub-gen = { git = "https://github.com/Jij-Inc/pyo3-stub-gen", branch = "main"}
 
 [features]
