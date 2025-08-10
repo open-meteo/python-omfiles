@@ -16,7 +16,7 @@ def test_om_backend_xarray_dtype(dtype, empty_temp_om_file):
 
     create_test_om_file(empty_temp_om_file, shape=(5, 5), dtype=dtype)
 
-    reader = om.OmFilePyReader(empty_temp_om_file)
+    reader = om.OmFileReader(empty_temp_om_file)
     backend_array = om_xarray.OmBackendArray(reader=reader)
 
     assert isinstance(backend_array.dtype, np.dtype)
@@ -57,7 +57,7 @@ def test_xarray_hierarchical_file(empty_temp_om_file):
     precipitation_data = np.random.rand(5, 5, 10).astype(np.float32)
 
     # Write hierarchical structure
-    writer = om.OmFilePyWriter(empty_temp_om_file)
+    writer = om.OmFileWriter(empty_temp_om_file)
 
     # dimensionality metadata
     temperature_dimension_var = writer.write_scalar("LATITUDE,LONGITUDE,ALTITUDE,TIME", name="_ARRAY_DIMENSIONS")

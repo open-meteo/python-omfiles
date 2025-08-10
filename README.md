@@ -28,9 +28,9 @@ pip install omfiles
 OM files are [structured like a tree of variables](https://github.com/open-meteo/om-file-format?tab=readme-ov-file#data-hierarchy-model). The following example assumes that the file `test_file.om` contains an array variable as a root variable which has a dimensionality greater than 2 and a size of at least 2x100:
 
 ```python
-from omfiles import OmFilePyReader
+from omfiles import OmFileReader
 
-reader = OmFilePyReader("test_file.om")
+reader = OmFileReader("test_file.om")
 data = reader[0:2, 0:100, ...]
 reader.close() # Close the reader to release resources
 ```
@@ -39,7 +39,7 @@ reader.close() # Close the reader to release resources
 
 ```python
 import fsspec
-from omfiles import OmFilePyReader
+from omfiles import OmFileReader
 
 # path to the file on S3
 s3_path = "s3://openmeteo/data/dwd_icon_d2/temperature_2m/chunk_3960.om"
@@ -49,7 +49,7 @@ fs = fsspec.filesystem("s3", anon=True)
 backend = fs.open(s3_path, mode="rb", cache_type="mmap", block_size=1024, cache_options={"location": "cache"})
 # Create reader from the fsspec file object using a context manager.
 # This will automatically close the file when the block is exited.
-with OmFilePyReader(backend) as reader:
+with OmFileReader(backend) as reader:
     # Read a specific region from the data
     data = reader[57812:57813, 0:100]
     print(f"First 10 temperature values: {data[:10]}")
@@ -61,13 +61,13 @@ with OmFilePyReader(backend) as reader:
 #### Simple Array
 ```python
 import numpy as np
-from omfiles import OmFilePyWriter
+from omfiles import OmFileWriter
 
 # Create sample data
 data = np.random.rand(100, 100).astype(np.float32)
 
 # Initialize writer
-writer = OmFilePyWriter("simple.om")
+writer = OmFileWriter("simple.om")
 
 # Write array with compression
 variable = writer.write_array(
@@ -86,14 +86,14 @@ writer.close(variable)
 #### Hierarchical Structure
 ```python
 import numpy as np
-from omfiles import OmFilePyWriter
+from omfiles import OmFileWriter
 
 # Create sample data
 features = np.random.rand(1000, 64).astype(np.float32)
 labels = np.random.randint(0, 10, size=(1000,), dtype=np.int32)
 
 # Initialize writer
-writer = OmFilePyWriter("hierarchical.om")
+writer = OmFileWriter("hierarchical.om")
 
 # Write child arrays first
 features_var = writer.write_array(
