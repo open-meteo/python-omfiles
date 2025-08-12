@@ -489,3 +489,8 @@ class RustPforCodec:
         Returns:
             Decompressed numpy array.
         """
+
+def _check_cpu_features() -> None:
+    r"""
+    Check if the CPU has the required features for SIMD compression operations.
+    """
