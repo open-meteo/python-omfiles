@@ -24,7 +24,7 @@ enum WriterBackend {
 }
 
 #[gen_stub_pyclass]
-#[pyclass(module = "omfiles.omfiles", name = "OmFileWriter")]
+#[pyclass(module = "omfiles.omfiles")]
 /// A Python wrapper for the Rust OmFileWriter implementation.
 pub struct OmFileWriter {
     writer: Mutex<Option<WriterBackend>>,
