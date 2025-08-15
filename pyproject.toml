@@ -81,5 +81,5 @@ ignore = [
 om = "omfiles.xarray:OmXarrayEntrypoint"
 
 [project.entry-points."zarr.codecs"]
-"omfiles.pfor" = "omfiles.zarr3:PforCodec"
-"omfiles.pfor_serializer" = "omfiles.zarr3:PforSerializer"
+"omfiles.pfor" = "omfiles._zarr3:PforCodec"
+"omfiles.pfor_serializer" = "omfiles._zarr3:PforSerializer"
