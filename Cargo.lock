@@ -762,17 +762,7 @@ dependencies = [
 [[package]]
 name = "om-file-format-sys"
 version = "0.0.0"
-source = "git+https://github.com/open-meteo/om-file-format?branch=main#8aaaeb7d4c043da71935f4a6fea26f930db1ea5c"
-dependencies = [
- "bindgen",
- "cc",
- "libc",
-]
-
-[[package]]
-name = "om-file-format-sys"
-version = "0.0.0"
-source = "git+https://github.com/open-meteo/om-file-format?rev=8aaaeb7d4c043da71935f4a6fea26f930db1ea5c#8aaaeb7d4c043da71935f4a6fea26f930db1ea5c"
+source = "git+https://github.com/open-meteo/om-file-format?rev=57c45a291314fae44db1b07abd9c5043146fc0d0#57c45a291314fae44db1b07abd9c5043146fc0d0"
 dependencies = [
  "bindgen",
  "cc",
@@ -782,14 +772,14 @@ dependencies = [
 [[package]]
 name = "omfiles"
 version = "0.1.0"
-source = "git+https://github.com/open-meteo/rust-omfiles?rev=fffe1f151a26ad5ab688615269260811767f32ac#fffe1f151a26ad5ab688615269260811767f32ac"
+source = "git+https://github.com/open-meteo/rust-omfiles?rev=ff0df1c89dbc2615fa2bbaeb6115538315a2629e#ff0df1c89dbc2615fa2bbaeb6115538315a2629e"
 dependencies = [
  "async-executor",
  "async-lock",
  "memmap2",
  "ndarray",
  "num-traits",
- "om-file-format-sys 0.0.0 (git+https://github.com/open-meteo/om-file-format?rev=8aaaeb7d4c043da71935f4a6fea26f930db1ea5c)",
+ "om-file-format-sys",
  "thiserror",
 ]
 
@@ -993,7 +983,6 @@ dependencies = [
  "delegate",
  "num-traits",
  "numpy",
- "om-file-format-sys 0.0.0 (git+https://github.com/open-meteo/om-file-format?branch=main)",
  "omfiles",
  "pyo3",
  "pyo3-async-runtimes",

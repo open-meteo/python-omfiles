@@ -80,6 +80,9 @@ ignore = [
 [project.entry-points."xarray.backends"]
 om = "omfiles.xarray:OmXarrayEntrypoint"
 
+[project.entry-points."numcodecs.codecs"]
+turbo_pfor = "omfiles._numcodecs:TurboPfor"
+
 [project.entry-points."zarr.codecs"]
 "omfiles.pfor" = "omfiles._zarr3:PforCodec"
 "omfiles.pfor_serializer" = "omfiles._zarr3:PforSerializer"
