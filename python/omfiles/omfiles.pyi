@@ -53,6 +53,16 @@ class OmFileReader:
         The chunk shape of the variable.
         """
     @property
+    def scale_factor(self) -> builtins.float:
+        r"""
+        The scale factor used for scaling the variable's data.
+        """
+    @property
+    def add_offset(self) -> builtins.float:
+        r"""
+        The add offset used for scaling the variable's data.
+        """
+    @property
     def is_scalar(self) -> builtins.bool:
         r"""
         Check if the variable is a scalar.
@@ -174,6 +184,16 @@ class OmFileReader:
         After closing, any operation on the reader will raise a ValueError.
 
         It is safe to call this method multiple times.
+        """
+    def get_complete_lut(self) -> builtins.list[builtins.int]:
+        r"""
+        Retrieve the complete lookup table for the variable.
+
+        The lookup table is a monotonically increasing array of u64 values containing
+        n+1 elements, where n is the number of chunks. Each value represents the absolute
+        offset in the file of the end of the chunk, and the first value is the start offset
+        of the first chunk. The size of chunk j can be calculated as lut[j+1] - lut[j]
+        using zero-based indexing.
         """
     def __getitem__(
         self, ranges: omfiles.types.BasicSelection

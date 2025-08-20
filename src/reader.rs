@@ -282,6 +282,31 @@ impl OmFileReader {
         })
     }
 
+    /// The scale factor used for scaling the variable's data.
+    #[getter]
+    fn scale_factor(&self) -> PyResult<f32> {
+        self.with_reader(|reader| Ok(reader.scale_factor()))
+    }
+
+    /// The add offset used for scaling the variable's data.
+    #[getter]
+    fn add_offset(&self) -> PyResult<f32> {
+        self.with_reader(|reader| Ok(reader.add_offset()))
+    }
+
+    /// Retrieve the complete lookup table for the variable.
+    ///
+    /// The lookup table is a monotonically increasing array of u64 values containing
+    /// n+1 elements, where n is the number of chunks. Each value represents the absolute
+    /// offset in the file of the end of the chunk, and the first value is the start offset
+    /// of the first chunk. The size of chunk j can be calculated as lut[j+1] - lut[j]
+    /// using zero-based indexing.
+    fn get_complete_lut(&self) -> PyResult<Vec<u64>> {
+        let lut =
+            self.with_reader(|reader| reader.get_complete_lut().map_err(convert_omfilesrs_error))?;
+        Ok(lut)
+    }
+
     /// Check if the variable is a scalar.
     ///
     /// Returns:
