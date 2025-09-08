@@ -15,11 +15,13 @@ use omfiles_rs::{
         mmapfile::{MmapFile, Mode},
     },
     core::data_types::{DataType, OmFileArrayDataType, OmFileScalarDataType},
+    errors::OmFilesRsError,
     io::reader::OmFileReader as OmFileReaderRs,
 };
 use pyo3::{prelude::*, types::PyTuple, BoundObject};
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
 use std::{
+    borrow::Cow,
     collections::HashMap,
     fs::File,
     ops::Range,
@@ -579,17 +581,34 @@ enum BackendImpl {
 }
 
 impl OmFileReaderBackend for BackendImpl {
+    // `Cow` can hold either a borrowed slice or an owned Vec, and it
+    // also implements `Deref<Target=[u8]>`, `Send`, and `Sync`,
+    // satisfying all our trait bounds.
+    type Bytes<'a> = Cow<'a, [u8]>;
+
+    // We must implement `get_bytes` manually to handle the type unification.
+    fn get_bytes(&self, offset: u64, count: u64) -> Result<Self::Bytes<'_>, OmFilesRsError> {
+        match self {
+            BackendImpl::Mmap(backend) => {
+                // The mmap backend returns a `&[u8]`. We wrap it in `Cow::Borrowed`.
+                let slice = backend.get_bytes(offset, count)?;
+                Ok(Cow::Borrowed(slice))
+            }
+            BackendImpl::FsSpec(backend) => {
+                // The fsspec backend returns a `Vec<u8>`. We wrap it in `Cow::Owned`.
+                let vec = backend.get_bytes(offset, count)?;
+                Ok(Cow::Owned(vec))
+            }
+        }
+    }
+
     delegate! {
         to match self {
             BackendImpl::Mmap(backend) => backend,
             BackendImpl::FsSpec(backend) => backend,
         } {
             fn count(&self) -> usize;
-            fn needs_prefetch(&self) -> bool;
             fn prefetch_data(&self, offset: usize, count: usize);
-            fn pre_read(&self, offset: usize, count: usize) -> Result<(), omfiles_rs::errors::OmFilesRsError>;
-            fn get_bytes(&self, offset: u64, count: u64) -> Result<&[u8], omfiles_rs::errors::OmFilesRsError>;
-            fn get_bytes_owned(&self, offset: u64, count: u64) -> Result<Vec<u8>, omfiles_rs::errors::OmFilesRsError>;
         }
     }
 }

@@ -103,32 +103,22 @@ impl FsSpecBackend {
 }
 
 impl OmFileReaderBackend for FsSpecBackend {
+    type Bytes<'a> = Vec<u8>;
+
     fn count(&self) -> usize {
         self.file_size as usize
-    }
-
-    fn needs_prefetch(&self) -> bool {
-        false
     }
 
     fn prefetch_data(&self, _offset: usize, _count: usize) {
         // No-op for now
     }
 
-    fn pre_read(
-        &self,
-        _offset: usize,
-        _count: usize,
-    ) -> Result<(), omfiles_rs::errors::OmFilesRsError> {
-        Ok(())
-    }
-
     /// This is a blocking operation that reads bytes from the file!
-    fn get_bytes_owned(
+    fn get_bytes(
         &self,
         offset: u64,
         count: u64,
-    ) -> Result<Vec<u8>, omfiles_rs::errors::OmFilesRsError> {
+    ) -> Result<Self::Bytes<'_>, omfiles_rs::errors::OmFilesRsError> {
         let bytes = Python::with_gil(|py| {
             let bound_fs = self.fs.bind(py);
             // We only use named parameters here, because positional arguments can
@@ -211,7 +201,7 @@ mod tests {
             let backend = FsSpecBackend::new(fs.into(), file_path)?;
             assert_eq!(backend.file_size, 144);
 
-            let bytes = backend.get_bytes_owned(0, 44)?;
+            let bytes = backend.get_bytes(0, 44)?;
             assert_eq!(
                 &bytes,
                 &[
@@ -248,7 +238,7 @@ mod tests {
             // Read back using the FsSpecBackend for reading
             let fs = memory_module.call_method0("MemoryFileSystem")?;
             let read_backend = FsSpecBackend::new(fs.into(), "test_file.om".to_string())?;
-            let bytes = read_backend.get_bytes_owned(0, 44)?;
+            let bytes = read_backend.get_bytes(0, 44)?;
             assert_eq!(
                 &bytes,
                 &[
