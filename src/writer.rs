@@ -7,12 +7,9 @@ use numpy::{
     PyUntypedArray, PyUntypedArrayMethods,
 };
 use omfiles_rs::{
-    core::{
-        compression::CompressionType,
-        data_types::{OmFileArrayDataType, OmFileScalarDataType},
-    },
-    errors::OmFilesRsError,
-    io::writer::{OmFileWriter as OmFileWriterRs, OmFileWriterArrayFinalized, OmOffsetSize},
+    traits::{OmFileArrayDataType, OmFileScalarDataType},
+    writer::{OmFileWriter as OmFileWriterRs, OmFileWriterArrayFinalized},
+    OmCompressionType, OmFilesError, OmOffsetSize,
 };
 use pyo3::{exceptions::PyValueError, prelude::*};
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
@@ -199,7 +196,7 @@ impl OmFileWriter {
             let array = data.downcast::<PyArrayDyn<u16>>()?.readonly();
             self.write_array_internal(array, chunks, scale_factor, add_offset, compression)
         } else {
-            Err(OmFilesRsError::InvalidDataType).map_err(convert_omfilesrs_error)
+            Err(OmFilesError::InvalidDataType).map_err(convert_omfilesrs_error)
         }?;
 
         self.with_writer(|writer| {
@@ -338,7 +335,7 @@ impl OmFileWriter {
         chunks: Vec<u64>,
         scale_factor: f32,
         add_offset: f32,
-        compression: CompressionType,
+        compression: OmCompressionType,
     ) -> PyResult<OmFileWriterArrayFinalized>
     where
         T: Element + OmFileArrayDataType,

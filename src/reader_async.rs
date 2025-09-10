@@ -10,12 +10,10 @@ use numpy::{
     Element,
 };
 use omfiles_rs::{
-    backend::{
-        backends::OmFileReaderBackendAsync,
-        mmapfile::{MmapFile, Mode},
-    },
-    core::data_types::{DataType, OmFileArrayDataType},
-    io::reader_async::OmFileReaderAsync as OmFileReaderAsyncRs,
+    backends::mmapfile::{MmapFile, Mode},
+    reader_async::OmFileReaderAsync as OmFileReaderAsyncRs,
+    traits::{OmArrayVariable, OmFileArrayDataType, OmFileReaderBackendAsync, OmFileVariable},
+    OmDataType,
 };
 use pyo3::{prelude::*, types::PyTuple};
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
@@ -140,7 +138,7 @@ impl OmFileReaderAsync {
         // Get the data type and a cloned backend from the reader
         let data_type = reader.data_type();
         let result = match data_type {
-            DataType::Int8Array => {
+            OmDataType::Int8Array => {
                 let array = read_squeezed_typed_array::<i8>(
                     reader,
                     &read_ranges,
@@ -150,7 +148,7 @@ impl OmFileReaderAsync {
                 .await?;
                 Ok(OmFileTypedArray::Int8(array))
             }
-            DataType::Int16Array => {
+            OmDataType::Int16Array => {
                 let array = read_squeezed_typed_array::<i16>(
                     reader,
                     &read_ranges,
@@ -160,7 +158,7 @@ impl OmFileReaderAsync {
                 .await?;
                 Ok(OmFileTypedArray::Int16(array))
             }
-            DataType::Int32Array => {
+            OmDataType::Int32Array => {
                 let array = read_squeezed_typed_array::<i32>(
                     reader,
                     &read_ranges,
@@ -170,7 +168,7 @@ impl OmFileReaderAsync {
                 .await?;
                 Ok(OmFileTypedArray::Int32(array))
             }
-            DataType::Int64Array => {
+            OmDataType::Int64Array => {
                 let array = read_squeezed_typed_array::<i64>(
                     reader,
                     &read_ranges,
@@ -180,7 +178,7 @@ impl OmFileReaderAsync {
                 .await?;
                 Ok(OmFileTypedArray::Int64(array))
             }
-            DataType::Uint8Array => {
+            OmDataType::Uint8Array => {
                 let array = read_squeezed_typed_array::<u8>(
                     reader,
                     &read_ranges,
@@ -190,7 +188,7 @@ impl OmFileReaderAsync {
                 .await?;
                 Ok(OmFileTypedArray::Uint8(array))
             }
-            DataType::Uint16Array => {
+            OmDataType::Uint16Array => {
                 let array = read_squeezed_typed_array::<u16>(
                     reader,
                     &read_ranges,
@@ -200,7 +198,7 @@ impl OmFileReaderAsync {
                 .await?;
                 Ok(OmFileTypedArray::Uint16(array))
             }
-            DataType::Uint32Array => {
+            OmDataType::Uint32Array => {
                 let array = read_squeezed_typed_array::<u32>(
                     reader,
                     &read_ranges,
@@ -210,7 +208,7 @@ impl OmFileReaderAsync {
                 .await?;
                 Ok(OmFileTypedArray::Uint32(array))
             }
-            DataType::Uint64Array => {
+            OmDataType::Uint64Array => {
                 let array = read_squeezed_typed_array::<u64>(
                     reader,
                     &read_ranges,
@@ -220,7 +218,7 @@ impl OmFileReaderAsync {
                 .await?;
                 Ok(OmFileTypedArray::Uint64(array))
             }
-            DataType::FloatArray => {
+            OmDataType::FloatArray => {
                 let array = read_squeezed_typed_array::<f32>(
                     reader,
                     &read_ranges,
@@ -230,7 +228,7 @@ impl OmFileReaderAsync {
                 .await?;
                 Ok(OmFileTypedArray::Float(array))
             }
-            DataType::DoubleArray => {
+            OmDataType::DoubleArray => {
                 let array = read_squeezed_typed_array::<f64>(
                     reader,
                     &read_ranges,
@@ -319,9 +317,11 @@ async fn read_squeezed_typed_array<T>(
 where
     T: Element + OmFileArrayDataType + Clone + Zero + Send + Sync + 'static,
 {
-    // Just do the Rust async operation
+    let reader = reader
+        .expect_array_with_io_sizes(io_size_max.unwrap_or(65536), io_size_merge.unwrap_or(512))
+        .map_err(convert_omfilesrs_error)?;
     let array = reader
-        .read::<T>(read_ranges, io_size_max, io_size_merge)
+        .read::<T>(read_ranges)
         .await
         .map_err(convert_omfilesrs_error)?;
 
@@ -331,17 +331,19 @@ where
 /// Small helper function to get the correct shape of the data. We need to
 /// be careful with scalars and groups!
 fn get_shape_vec(reader: &OmFileReaderAsyncRs<AsyncBackendImpl>) -> Vec<u64> {
-    if !reader.data_type().is_array() {
-        return vec![];
+    let reader = reader.expect_array();
+    match reader {
+        Ok(reader) => reader.get_dimensions().to_vec(),
+        Err(_) => return vec![],
     }
-    reader.get_dimensions().to_vec()
 }
 
 fn get_chunk_shape(reader: &OmFileReaderAsyncRs<AsyncBackendImpl>) -> Vec<u64> {
-    if !reader.data_type().is_array() {
-        return vec![];
+    let reader = reader.expect_array();
+    match reader {
+        Ok(reader) => reader.get_chunk_dimensions().to_vec(),
+        Err(_) => return vec![],
     }
-    reader.get_chunk_dimensions().to_vec()
 }
 
 enum AsyncBackendImpl {
@@ -356,7 +358,7 @@ impl OmFileReaderBackendAsync for AsyncBackendImpl {
             AsyncBackendImpl::FsSpec(backend) => backend,
         } {
             fn count_async(&self) -> usize;
-            async fn get_bytes_async(&self, offset: u64, count: u64) -> Result<Vec<u8>, omfiles_rs::errors::OmFilesRsError>;
+            async fn get_bytes_async(&self, offset: u64, count: u64) -> Result<Vec<u8>, omfiles_rs::OmFilesError>;
         }
     }
 }

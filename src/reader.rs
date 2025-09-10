@@ -10,13 +10,13 @@ use numpy::{
     Element, PyArrayDescr,
 };
 use omfiles_rs::{
-    backend::{
-        backends::OmFileReaderBackend,
-        mmapfile::{MmapFile, Mode},
+    backends::mmapfile::{MmapFile, Mode},
+    reader::OmFileReader as OmFileReaderRs,
+    traits::{
+        OmArrayVariable, OmFileArrayDataType, OmFileReadable, OmFileReaderBackend,
+        OmFileScalarDataType, OmFileVariable, OmScalarVariable,
     },
-    core::data_types::{DataType, OmFileArrayDataType, OmFileScalarDataType},
-    errors::OmFilesRsError,
-    io::reader::OmFileReader as OmFileReaderRs,
+    OmDataType, OmFilesError,
 };
 use pyo3::{prelude::*, types::PyTuple, BoundObject};
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
@@ -292,7 +292,7 @@ impl OmFileReader {
     fn is_scalar(&self) -> PyResult<bool> {
         self.with_reader(|reader| {
             let data_type = reader.data_type() as u8;
-            Ok(data_type > (DataType::None as u8) && data_type < (DataType::Int8Array as u8))
+            Ok(data_type > (OmDataType::None as u8) && data_type < (OmDataType::Int8Array as u8))
         })
     }
 
@@ -302,7 +302,7 @@ impl OmFileReader {
     ///     bool: True if the variable is a group, False otherwise.
     #[getter]
     fn is_group(&self) -> PyResult<bool> {
-        self.with_reader(|reader| Ok(reader.data_type() == DataType::None))
+        self.with_reader(|reader| Ok(reader.data_type() == OmDataType::None))
     }
 
     /// Get the data type of the data stored in the .om file.
@@ -326,7 +326,11 @@ impl OmFileReader {
     /// Get the compression type of the variable.
     #[getter]
     fn compression(&self) -> PyResult<PyCompressionType> {
-        self.with_reader(|reader| Ok(PyCompressionType::from_omfilesrs(reader.compression())))
+        self.with_reader(|reader| {
+            Ok(PyCompressionType::from_omfilesrs(
+                reader.expect_array().unwrap().compression(),
+            ))
+        })
     }
 
     /// Read data from the open variable.om file using numpy-style indexing.
@@ -367,19 +371,19 @@ impl OmFileReader {
                 );
 
                 let untyped_py_array_or_error = match dtype {
-                    DataType::None => Err(scalar_error),
-                    DataType::Int8 => Err(scalar_error),
-                    DataType::Uint8 => Err(scalar_error),
-                    DataType::Int16 => Err(scalar_error),
-                    DataType::Uint16 => Err(scalar_error),
-                    DataType::Int32 => Err(scalar_error),
-                    DataType::Uint32 => Err(scalar_error),
-                    DataType::Int64 => Err(scalar_error),
-                    DataType::Uint64 => Err(scalar_error),
-                    DataType::Float => Err(scalar_error),
-                    DataType::Double => Err(scalar_error),
-                    DataType::String => Err(scalar_error),
-                    DataType::Int8Array => {
+                    OmDataType::None => Err(scalar_error),
+                    OmDataType::Int8 => Err(scalar_error),
+                    OmDataType::Uint8 => Err(scalar_error),
+                    OmDataType::Int16 => Err(scalar_error),
+                    OmDataType::Uint16 => Err(scalar_error),
+                    OmDataType::Int32 => Err(scalar_error),
+                    OmDataType::Uint32 => Err(scalar_error),
+                    OmDataType::Int64 => Err(scalar_error),
+                    OmDataType::Uint64 => Err(scalar_error),
+                    OmDataType::Float => Err(scalar_error),
+                    OmDataType::Double => Err(scalar_error),
+                    OmDataType::String => Err(scalar_error),
+                    OmDataType::Int8Array => {
                         let array = read_squeezed_typed_array::<i8>(
                             &reader,
                             &read_ranges,
@@ -388,7 +392,7 @@ impl OmFileReader {
                         )?;
                         Ok(OmFileTypedArray::Int8(array))
                     }
-                    DataType::Uint8Array => {
+                    OmDataType::Uint8Array => {
                         let array = read_squeezed_typed_array::<u8>(
                             &reader,
                             &read_ranges,
@@ -397,7 +401,7 @@ impl OmFileReader {
                         )?;
                         Ok(OmFileTypedArray::Uint8(array))
                     }
-                    DataType::Int16Array => {
+                    OmDataType::Int16Array => {
                         let array = read_squeezed_typed_array::<i16>(
                             &reader,
                             &read_ranges,
@@ -406,7 +410,7 @@ impl OmFileReader {
                         )?;
                         Ok(OmFileTypedArray::Int16(array))
                     }
-                    DataType::Uint16Array => {
+                    OmDataType::Uint16Array => {
                         let array = read_squeezed_typed_array::<u16>(
                             &reader,
                             &read_ranges,
@@ -415,7 +419,7 @@ impl OmFileReader {
                         )?;
                         Ok(OmFileTypedArray::Uint16(array))
                     }
-                    DataType::Int32Array => {
+                    OmDataType::Int32Array => {
                         let array = read_squeezed_typed_array::<i32>(
                             &reader,
                             &read_ranges,
@@ -424,7 +428,7 @@ impl OmFileReader {
                         )?;
                         Ok(OmFileTypedArray::Int32(array))
                     }
-                    DataType::Uint32Array => {
+                    OmDataType::Uint32Array => {
                         let array = read_squeezed_typed_array::<u32>(
                             &reader,
                             &read_ranges,
@@ -433,7 +437,7 @@ impl OmFileReader {
                         )?;
                         Ok(OmFileTypedArray::Uint32(array))
                     }
-                    DataType::Int64Array => {
+                    OmDataType::Int64Array => {
                         let array = read_squeezed_typed_array::<i64>(
                             &reader,
                             &read_ranges,
@@ -442,7 +446,7 @@ impl OmFileReader {
                         )?;
                         Ok(OmFileTypedArray::Int64(array))
                     }
-                    DataType::Uint64Array => {
+                    OmDataType::Uint64Array => {
                         let array = read_squeezed_typed_array::<u64>(
                             &reader,
                             &read_ranges,
@@ -451,7 +455,7 @@ impl OmFileReader {
                         )?;
                         Ok(OmFileTypedArray::Uint64(array))
                     }
-                    DataType::FloatArray => {
+                    OmDataType::FloatArray => {
                         let array = read_squeezed_typed_array::<f32>(
                             &reader,
                             &read_ranges,
@@ -460,7 +464,7 @@ impl OmFileReader {
                         )?;
                         Ok(OmFileTypedArray::Float(array))
                     }
-                    DataType::DoubleArray => {
+                    OmDataType::DoubleArray => {
                         let array = read_squeezed_typed_array::<f64>(
                             &reader,
                             &read_ranges,
@@ -469,9 +473,11 @@ impl OmFileReader {
                         )?;
                         Ok(OmFileTypedArray::Double(array))
                     }
-                    DataType::StringArray => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                        "String Arrays not currently supported",
-                    )),
+                    OmDataType::StringArray => {
+                        Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
+                            "String Arrays not currently supported",
+                        ))
+                    }
                 };
 
                 let untyped_py_array = untyped_py_array_or_error?;
@@ -491,17 +497,17 @@ impl OmFileReader {
     fn get_scalar(&self) -> PyResult<PyObject> {
         self.with_reader(|reader| {
             Python::with_gil(|py| match reader.data_type() {
-                DataType::Int8 => self.read_scalar_value::<i8>(py),
-                DataType::Uint8 => self.read_scalar_value::<u8>(py),
-                DataType::Int16 => self.read_scalar_value::<i16>(py),
-                DataType::Uint16 => self.read_scalar_value::<u16>(py),
-                DataType::Int32 => self.read_scalar_value::<i32>(py),
-                DataType::Uint32 => self.read_scalar_value::<u32>(py),
-                DataType::Int64 => self.read_scalar_value::<i64>(py),
-                DataType::Uint64 => self.read_scalar_value::<u64>(py),
-                DataType::Float => self.read_scalar_value::<f32>(py),
-                DataType::Double => self.read_scalar_value::<f64>(py),
-                DataType::String => self.read_scalar_value::<String>(py),
+                OmDataType::Int8 => self.read_scalar_value::<i8>(py),
+                OmDataType::Uint8 => self.read_scalar_value::<u8>(py),
+                OmDataType::Int16 => self.read_scalar_value::<i16>(py),
+                OmDataType::Uint16 => self.read_scalar_value::<u16>(py),
+                OmDataType::Int32 => self.read_scalar_value::<i32>(py),
+                OmDataType::Uint32 => self.read_scalar_value::<u32>(py),
+                OmDataType::Int64 => self.read_scalar_value::<i64>(py),
+                OmDataType::Uint64 => self.read_scalar_value::<u64>(py),
+                OmDataType::Float => self.read_scalar_value::<f32>(py),
+                OmDataType::Double => self.read_scalar_value::<f64>(py),
+                OmDataType::String => self.read_scalar_value::<String>(py),
                 _ => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
                     "Data type is not scalar",
                 )),
@@ -534,7 +540,7 @@ impl OmFileReader {
         T: OmFileScalarDataType + IntoPyObject<'py>,
     {
         self.with_reader(|reader| {
-            let value = reader.read_scalar::<T>();
+            let value = reader.expect_scalar().unwrap().read_scalar::<T>();
 
             value
                 .into_pyobject(py)
@@ -552,7 +558,9 @@ fn read_squeezed_typed_array<T: Element + OmFileArrayDataType + Clone + Zero>(
     io_size_merge: Option<u64>,
 ) -> PyResult<ndarray::ArrayD<T>> {
     let array = reader
-        .read::<T>(read_ranges, io_size_max, io_size_merge)
+        .expect_array_with_io_sizes(io_size_max.unwrap_or(65536), io_size_merge.unwrap_or(512))
+        .map_err(convert_omfilesrs_error)?
+        .read::<T>(read_ranges)
         .map_err(convert_omfilesrs_error)?
         .squeeze();
     Ok(array)
@@ -560,18 +568,20 @@ fn read_squeezed_typed_array<T: Element + OmFileArrayDataType + Clone + Zero>(
 
 /// Small helper function to get the correct shape of the data. We need to
 /// be careful with scalars and groups!
-fn get_shape_vec<Backend>(reader: &OmFileReaderRs<Backend>) -> Vec<u64> {
-    if !reader.data_type().is_array() {
-        return vec![];
+fn get_shape_vec<Backend: OmFileReaderBackend>(reader: &OmFileReaderRs<Backend>) -> Vec<u64> {
+    let reader = reader.expect_array();
+    match reader {
+        Ok(reader) => reader.get_dimensions().to_vec(),
+        Err(_) => return vec![],
     }
-    reader.get_dimensions().to_vec()
 }
 
-fn get_chunk_shape<Backend>(reader: &OmFileReaderRs<Backend>) -> Vec<u64> {
-    if !reader.data_type().is_array() {
-        return vec![];
+fn get_chunk_shape<Backend: OmFileReaderBackend>(reader: &OmFileReaderRs<Backend>) -> Vec<u64> {
+    let reader = reader.expect_array();
+    match reader {
+        Ok(reader) => reader.get_chunk_dimensions().to_vec(),
+        Err(_) => return vec![],
     }
-    reader.get_chunk_dimensions().to_vec()
 }
 
 /// Concrete wrapper type for the backend implementation, delegating to the appropriate backend
@@ -587,7 +597,7 @@ impl OmFileReaderBackend for BackendImpl {
     type Bytes<'a> = Cow<'a, [u8]>;
 
     // We must implement `get_bytes` manually to handle the type unification.
-    fn get_bytes(&self, offset: u64, count: u64) -> Result<Self::Bytes<'_>, OmFilesRsError> {
+    fn get_bytes(&self, offset: u64, count: u64) -> Result<Self::Bytes<'_>, OmFilesError> {
         match self {
             BackendImpl::Mmap(backend) => {
                 // The mmap backend returns a `&[u8]`. We wrap it in `Cow::Borrowed`.
