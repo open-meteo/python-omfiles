@@ -10,13 +10,12 @@ use numpy::{
     Element, PyArrayDescr,
 };
 use omfiles_rs::{
-    backends::mmapfile::{MmapFile, Mode},
     reader::OmFileReader as OmFileReaderRs,
     traits::{
         OmArrayVariable, OmFileArrayDataType, OmFileReadable, OmFileReaderBackend,
         OmFileScalarDataType, OmFileVariable, OmScalarVariable,
     },
-    OmDataType, OmFilesError,
+    OmDataType, OmFilesError, {FileAccessMode, MmapFile},
 };
 use pyo3::{prelude::*, types::PyTuple, BoundObject};
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
@@ -108,7 +107,7 @@ impl OmFileReader {
     fn from_path(file_path: &str) -> PyResult<Self> {
         let file_handle = File::open(file_path)
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyIOError, _>(e.to_string()))?;
-        let backend = BackendImpl::Mmap(MmapFile::new(file_handle, Mode::ReadOnly)?);
+        let backend = BackendImpl::Mmap(MmapFile::new(file_handle, FileAccessMode::ReadOnly)?);
         let reader = OmFileReaderRs::new(Arc::new(backend)).map_err(convert_omfilesrs_error)?;
         let shape = get_shape_vec(&reader);
 

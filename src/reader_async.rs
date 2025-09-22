@@ -10,10 +10,9 @@ use numpy::{
     Element,
 };
 use omfiles_rs::{
-    backends::mmapfile::{MmapFile, Mode},
     reader_async::OmFileReaderAsync as OmFileReaderAsyncRs,
     traits::{OmArrayVariable, OmFileArrayDataType, OmFileReaderBackendAsync, OmFileVariable},
-    OmDataType,
+    OmDataType, {FileAccessMode, MmapFile},
 };
 use pyo3::{prelude::*, types::PyTuple};
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
@@ -94,7 +93,7 @@ impl OmFileReaderAsync {
     async fn from_path(file_path: String) -> PyResult<Self> {
         let file_handle = File::open(file_path)
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyIOError, _>(e.to_string()))?;
-        let backend = AsyncBackendImpl::Mmap(MmapFile::new(file_handle, Mode::ReadOnly)?);
+        let backend = AsyncBackendImpl::Mmap(MmapFile::new(file_handle, FileAccessMode::ReadOnly)?);
         let reader = OmFileReaderAsyncRs::new(Arc::new(backend))
             .await
             .map_err(convert_omfilesrs_error)?;
