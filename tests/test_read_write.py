@@ -220,12 +220,12 @@ def test_child_traversal(temp_hierarchical_om_file):
     with pytest.raises(ValueError):
         _ = reader[:]
 
-    with reader.get_child(0) as var1_reader:
+    with reader.get_child_by_index(0) as var1_reader:
         assert var1_reader.shape == (5, 5)
         assert var1_reader.name == "variable1"
         assert var1_reader.dtype == np.float32
 
-    var2_reader = reader.get_child(1)
+    var2_reader = reader.get_child_by_index(1)
     # verify that closing reader is safe for var2_reader
     reader.close()
     assert var2_reader.shape == (50, 5)
