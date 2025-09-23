@@ -41,7 +41,7 @@ runs:
     - name: Install uv
       uses: astral-sh/setup-uv@v6
       with:
-        version: "0.7.13"
+        version: "0.8.19"
         enable-cache: ${{ inputs.is-musl != 'true' && 'true' || 'false' }}
         cache-dependency-glob: "**/uv.lock"
 
