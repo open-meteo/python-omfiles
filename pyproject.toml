@@ -82,6 +82,7 @@ ignore = [
 ]
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["D"]  # Ignore all docstring errors in tests/
+"examples/*" = ["D"]  # Ignore all docstring errors in examples/
 
 [project.entry-points."xarray.backends"]
 om = "omfiles.xarray:OmXarrayEntrypoint"
