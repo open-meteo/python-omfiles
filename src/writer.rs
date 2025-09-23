@@ -48,10 +48,6 @@ impl OmFileWriter {
     }
 
     #[staticmethod]
-    #[pyo3(
-        text_signature = "(fs_obj, path, /)",
-        signature = (fs_obj, path)
-    )]
     /// Create an OmFileWriter from a fsspec filesystem object.
     ///
     /// Args:
@@ -68,10 +64,6 @@ impl OmFileWriter {
         })
     }
 
-    #[pyo3(
-            text_signature = "(root_variable, /)",
-            signature = (root_variable)
-        )]
     /// Finalize and close the .om file by writing the trailer with the root variable.
     ///
     /// Args:
@@ -271,10 +263,6 @@ impl OmFileWriter {
         Ok(result)
     }
 
-    #[pyo3(
-        text_signature = "(name, children)",
-        signature = (name, children)
-    )]
     /// Create a new group in the .om file.
     ///
     /// This is essentially a variable with no data, which serves as a container for other variables.
