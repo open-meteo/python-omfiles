@@ -394,114 +394,62 @@ impl OmFileReader {
     ///     ValueError: If the requested ranges are invalid or if there's an error reading the data.
     fn read_array<'py>(&self, py: Python<'_>, ranges: ArrayIndex) -> PyResult<OmFileTypedArray> {
         py.allow_threads(|| {
-            let io_size_max = None;
-            let io_size_merge = None;
             let read_ranges = ranges.to_read_range(&self.shape)?;
 
             self.with_reader(|reader| {
                 let dtype = reader.data_type();
 
                 let untyped_py_array_or_error = match dtype {
-                    OmDataType::None => Err(Self::scalar_not_supported_error()),
-                    OmDataType::Int8 => Err(Self::scalar_not_supported_error()),
-                    OmDataType::Uint8 => Err(Self::scalar_not_supported_error()),
-                    OmDataType::Int16 => Err(Self::scalar_not_supported_error()),
-                    OmDataType::Uint16 => Err(Self::scalar_not_supported_error()),
-                    OmDataType::Int32 => Err(Self::scalar_not_supported_error()),
-                    OmDataType::Uint32 => Err(Self::scalar_not_supported_error()),
-                    OmDataType::Int64 => Err(Self::scalar_not_supported_error()),
-                    OmDataType::Uint64 => Err(Self::scalar_not_supported_error()),
-                    OmDataType::Float => Err(Self::scalar_not_supported_error()),
-                    OmDataType::Double => Err(Self::scalar_not_supported_error()),
-                    OmDataType::String => Err(Self::scalar_not_supported_error()),
+                    OmDataType::None
+                    | OmDataType::Int8
+                    | OmDataType::Uint8
+                    | OmDataType::Int16
+                    | OmDataType::Uint16
+                    | OmDataType::Int32
+                    | OmDataType::Uint32
+                    | OmDataType::Int64
+                    | OmDataType::Uint64
+                    | OmDataType::Float
+                    | OmDataType::Double
+                    | OmDataType::String => Err(Self::scalar_not_supported_error()),
                     OmDataType::Int8Array => {
-                        let array = read_squeezed_typed_array::<i8>(
-                            &reader,
-                            &read_ranges,
-                            io_size_max,
-                            io_size_merge,
-                        )?;
+                        let array = read_squeezed_typed_array::<i8>(&reader, &read_ranges)?;
                         Ok(OmFileTypedArray::Int8(array))
                     }
                     OmDataType::Uint8Array => {
-                        let array = read_squeezed_typed_array::<u8>(
-                            &reader,
-                            &read_ranges,
-                            io_size_max,
-                            io_size_merge,
-                        )?;
+                        let array = read_squeezed_typed_array::<u8>(&reader, &read_ranges)?;
                         Ok(OmFileTypedArray::Uint8(array))
                     }
                     OmDataType::Int16Array => {
-                        let array = read_squeezed_typed_array::<i16>(
-                            &reader,
-                            &read_ranges,
-                            io_size_max,
-                            io_size_merge,
-                        )?;
+                        let array = read_squeezed_typed_array::<i16>(&reader, &read_ranges)?;
                         Ok(OmFileTypedArray::Int16(array))
                     }
                     OmDataType::Uint16Array => {
-                        let array = read_squeezed_typed_array::<u16>(
-                            &reader,
-                            &read_ranges,
-                            io_size_max,
-                            io_size_merge,
-                        )?;
+                        let array = read_squeezed_typed_array::<u16>(&reader, &read_ranges)?;
                         Ok(OmFileTypedArray::Uint16(array))
                     }
                     OmDataType::Int32Array => {
-                        let array = read_squeezed_typed_array::<i32>(
-                            &reader,
-                            &read_ranges,
-                            io_size_max,
-                            io_size_merge,
-                        )?;
+                        let array = read_squeezed_typed_array::<i32>(&reader, &read_ranges)?;
                         Ok(OmFileTypedArray::Int32(array))
                     }
                     OmDataType::Uint32Array => {
-                        let array = read_squeezed_typed_array::<u32>(
-                            &reader,
-                            &read_ranges,
-                            io_size_max,
-                            io_size_merge,
-                        )?;
+                        let array = read_squeezed_typed_array::<u32>(&reader, &read_ranges)?;
                         Ok(OmFileTypedArray::Uint32(array))
                     }
                     OmDataType::Int64Array => {
-                        let array = read_squeezed_typed_array::<i64>(
-                            &reader,
-                            &read_ranges,
-                            io_size_max,
-                            io_size_merge,
-                        )?;
+                        let array = read_squeezed_typed_array::<i64>(&reader, &read_ranges)?;
                         Ok(OmFileTypedArray::Int64(array))
                     }
                     OmDataType::Uint64Array => {
-                        let array = read_squeezed_typed_array::<u64>(
-                            &reader,
-                            &read_ranges,
-                            io_size_max,
-                            io_size_merge,
-                        )?;
+                        let array = read_squeezed_typed_array::<u64>(&reader, &read_ranges)?;
                         Ok(OmFileTypedArray::Uint64(array))
                     }
                     OmDataType::FloatArray => {
-                        let array = read_squeezed_typed_array::<f32>(
-                            &reader,
-                            &read_ranges,
-                            io_size_max,
-                            io_size_merge,
-                        )?;
+                        let array = read_squeezed_typed_array::<f32>(&reader, &read_ranges)?;
                         Ok(OmFileTypedArray::Float(array))
                     }
                     OmDataType::DoubleArray => {
-                        let array = read_squeezed_typed_array::<f64>(
-                            &reader,
-                            &read_ranges,
-                            io_size_max,
-                            io_size_merge,
-                        )?;
+                        let array = read_squeezed_typed_array::<f64>(&reader, &read_ranges)?;
                         Ok(OmFileTypedArray::Double(array))
                     }
                     OmDataType::StringArray => {
@@ -554,11 +502,9 @@ impl OmFileReader {
 fn read_squeezed_typed_array<T: Element + OmFileArrayDataType + Clone + Zero>(
     reader: &OmFileReaderRs<impl OmFileReaderBackend>,
     read_ranges: &[Range<u64>],
-    io_size_max: Option<u64>,
-    io_size_merge: Option<u64>,
 ) -> PyResult<ndarray::ArrayD<T>> {
     let array = reader
-        .expect_array_with_io_sizes(io_size_max.unwrap_or(65536), io_size_merge.unwrap_or(512))
+        .expect_array_with_io_sizes(65536, 512)
         .map_err(convert_omfilesrs_error)?
         .read::<T>(read_ranges)
         .map_err(convert_omfilesrs_error)?
