@@ -16,16 +16,11 @@ use pyo3::{exceptions::PyValueError, prelude::*};
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
 use std::{fs::File, sync::Mutex};
 
-enum WriterBackend {
-    File(File),
-    FsSpec(FsSpecWriterBackend),
-}
-
 #[gen_stub_pyclass]
 #[pyclass(module = "omfiles.omfiles")]
 /// A Python wrapper for the Rust OmFileWriter implementation.
 pub struct OmFileWriter {
-    writer: Mutex<Option<OmFileWriterRs<WriterBackend>>>,
+    writer: Mutex<Option<OmFileWriterRs<WriterBackendImpl>>>,
 }
 
 #[gen_stub_pymethods]
@@ -40,7 +35,7 @@ impl OmFileWriter {
     /// Raises:
     /// OSError: If the file cannot be created
     fn new(file_path: &str) -> PyResult<Self> {
-        let file_handle = WriterBackend::File(File::create(file_path)?);
+        let file_handle = WriterBackendImpl::File(File::create(file_path)?);
         let writer = OmFileWriterRs::new(file_handle, 8 * 1024);
         Ok(Self {
             writer: Mutex::new(Some(writer)),
@@ -57,7 +52,7 @@ impl OmFileWriter {
     /// Returns:
     ///     OmFileWriter: A new writer instance
     fn from_fsspec(fs_obj: PyObject, path: String) -> PyResult<Self> {
-        let fsspec_backend = WriterBackend::FsSpec(FsSpecWriterBackend::new(fs_obj, path)?);
+        let fsspec_backend = WriterBackendImpl::FsSpec(FsSpecWriterBackend::new(fs_obj, path)?);
         let writer = OmFileWriterRs::new(fsspec_backend, 8 * 1024);
         Ok(Self {
             writer: Mutex::new(Some(writer)),
@@ -297,7 +292,7 @@ impl OmFileWriter {
     // Helper method for safe writer access
     fn with_writer<F, R>(&self, f: F) -> PyResult<R>
     where
-        F: FnOnce(&mut OmFileWriterRs<WriterBackend>) -> PyResult<R>,
+        F: FnOnce(&mut OmFileWriterRs<WriterBackendImpl>) -> PyResult<R>,
     {
         let mut guard = self.writer.lock().map_err(|e| {
             PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Lock error: {}", e))
@@ -362,11 +357,17 @@ impl OmFileWriter {
     }
 }
 
-impl OmFileWriterBackend for WriterBackend {
+/// Concrete wrapper type for the backend implementation, delegating to the appropriate backend.
+enum WriterBackendImpl {
+    File(File),
+    FsSpec(FsSpecWriterBackend),
+}
+
+impl OmFileWriterBackend for WriterBackendImpl {
     delegate! {
         to match self {
-            WriterBackend::File(backend) => backend,
-            WriterBackend::FsSpec(backend) => backend,
+            WriterBackendImpl::File(backend) => backend,
+            WriterBackendImpl::FsSpec(backend) => backend,
         } {
             fn write(&mut self, data: &[u8]) -> Result<(), OmFilesError>;
             fn synchronize(&self) -> Result<(), OmFilesError>;

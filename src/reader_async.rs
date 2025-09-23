@@ -29,7 +29,7 @@ pub struct OmFileReaderAsync {
     /// particularly when working with memory-mapped files.
     /// The RwLock is used to allow multiple readers to access the reader
     /// concurrently, but only one writer to close it.
-    reader: RwLock<Option<OmFileReaderAsyncRs<AsyncBackendImpl>>>,
+    reader: RwLock<Option<OmFileReaderAsyncRs<AsyncReaderBackendImpl>>>,
     /// Shape of the array data in the file (read-only property)
     shape: Vec<u64>,
     /// Chunk shape of the array data in the file (read-only property)
@@ -64,7 +64,7 @@ impl OmFileReaderAsync {
             Ok(())
         })?;
         let backend = AsyncFsSpecBackend::new(fs_obj, path).await?;
-        let backend = AsyncBackendImpl::FsSpec(backend);
+        let backend = AsyncReaderBackendImpl::FsSpec(backend);
         let reader = OmFileReaderAsyncRs::new(Arc::new(backend))
             .await
             .map_err(convert_omfilesrs_error)?;
@@ -93,7 +93,8 @@ impl OmFileReaderAsync {
     async fn from_path(file_path: String) -> PyResult<Self> {
         let file_handle = File::open(file_path)
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyIOError, _>(e.to_string()))?;
-        let backend = AsyncBackendImpl::Mmap(MmapFile::new(file_handle, FileAccessMode::ReadOnly)?);
+        let backend =
+            AsyncReaderBackendImpl::Mmap(MmapFile::new(file_handle, FileAccessMode::ReadOnly)?);
         let reader = OmFileReaderAsyncRs::new(Arc::new(backend))
             .await
             .map_err(convert_omfilesrs_error)?;
@@ -210,10 +211,10 @@ impl OmFileReaderAsync {
             // Extract the backend before dropping reader
             if let Ok(backend) = Arc::try_unwrap(reader.backend) {
                 match backend {
-                    AsyncBackendImpl::FsSpec(fs_backend) => {
+                    AsyncReaderBackendImpl::FsSpec(fs_backend) => {
                         fs_backend.close()?;
                     }
-                    AsyncBackendImpl::Mmap(_) => {
+                    AsyncReaderBackendImpl::Mmap(_) => {
                         // Will be dropped automatically
                     }
                 }
@@ -246,7 +247,7 @@ impl OmFileReaderAsync {
 }
 
 async fn read_squeezed_typed_array<T>(
-    reader: &OmFileReaderAsyncRs<AsyncBackendImpl>,
+    reader: &OmFileReaderAsyncRs<AsyncReaderBackendImpl>,
     read_ranges: &[Range<u64>],
 ) -> PyResult<ndarray::ArrayD<T>>
 where
@@ -265,7 +266,7 @@ where
 
 /// Small helper function to get the correct shape of the data. We need to
 /// be careful with scalars and groups!
-fn get_shape_vec(reader: &OmFileReaderAsyncRs<AsyncBackendImpl>) -> Vec<u64> {
+fn get_shape_vec(reader: &OmFileReaderAsyncRs<AsyncReaderBackendImpl>) -> Vec<u64> {
     let reader = reader.expect_array();
     match reader {
         Ok(reader) => reader.get_dimensions().to_vec(),
@@ -273,7 +274,7 @@ fn get_shape_vec(reader: &OmFileReaderAsyncRs<AsyncBackendImpl>) -> Vec<u64> {
     }
 }
 
-fn get_chunk_shape(reader: &OmFileReaderAsyncRs<AsyncBackendImpl>) -> Vec<u64> {
+fn get_chunk_shape(reader: &OmFileReaderAsyncRs<AsyncReaderBackendImpl>) -> Vec<u64> {
     let reader = reader.expect_array();
     match reader {
         Ok(reader) => reader.get_chunk_dimensions().to_vec(),
@@ -281,16 +282,16 @@ fn get_chunk_shape(reader: &OmFileReaderAsyncRs<AsyncBackendImpl>) -> Vec<u64> {
     }
 }
 
-enum AsyncBackendImpl {
+enum AsyncReaderBackendImpl {
     FsSpec(AsyncFsSpecBackend),
     Mmap(MmapFile),
 }
 
-impl OmFileReaderBackendAsync for AsyncBackendImpl {
+impl OmFileReaderBackendAsync for AsyncReaderBackendImpl {
     delegate! {
         to match self {
-            AsyncBackendImpl::Mmap(backend) => backend,
-            AsyncBackendImpl::FsSpec(backend) => backend,
+            AsyncReaderBackendImpl::Mmap(backend) => backend,
+            AsyncReaderBackendImpl::FsSpec(backend) => backend,
         } {
             fn count_async(&self) -> usize;
             async fn get_bytes_async(&self, offset: u64, count: u64) -> Result<Vec<u8>, omfiles_rs::OmFilesError>;

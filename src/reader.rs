@@ -62,7 +62,7 @@ pub struct OmFileReader {
     /// particularly when working with memory-mapped files.
     /// The RwLock is used to allow multiple readers to access the reader
     /// concurrently, but only one writer to close it.
-    reader: RwLock<Option<OmFileReaderRs<BackendImpl>>>,
+    reader: RwLock<Option<OmFileReaderRs<ReaderBackendImpl>>>,
     /// Get the shape of the data stored in the .om file.
     ///
     /// Returns:
@@ -71,7 +71,7 @@ pub struct OmFileReader {
 }
 
 impl OmFileReader {
-    fn from_reader(reader: OmFileReaderRs<BackendImpl>) -> PyResult<Self> {
+    fn from_reader(reader: OmFileReaderRs<ReaderBackendImpl>) -> PyResult<Self> {
         let shape = get_shape_vec(&reader);
 
         Ok(Self {
@@ -80,7 +80,7 @@ impl OmFileReader {
         })
     }
 
-    fn from_backend(backend: BackendImpl) -> PyResult<Self> {
+    fn from_backend(backend: ReaderBackendImpl) -> PyResult<Self> {
         let reader = OmFileReaderRs::new(Arc::new(backend)).map_err(convert_omfilesrs_error)?;
         Self::from_reader(reader)
     }
@@ -103,7 +103,7 @@ impl OmFileReader {
 
     fn with_reader<F, R>(&self, f: F) -> PyResult<R>
     where
-        F: FnOnce(&OmFileReaderRs<BackendImpl>) -> PyResult<R>,
+        F: FnOnce(&OmFileReaderRs<ReaderBackendImpl>) -> PyResult<R>,
     {
         let guard = self.reader.try_read().map_err(|e| Self::lock_error(e))?;
         match &*guard {
@@ -174,7 +174,8 @@ impl OmFileReader {
     fn from_path(file_path: &str) -> PyResult<Self> {
         let file_handle = File::open(file_path)
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyIOError, _>(e.to_string()))?;
-        let backend = BackendImpl::Mmap(MmapFile::new(file_handle, FileAccessMode::ReadOnly)?);
+        let backend =
+            ReaderBackendImpl::Mmap(MmapFile::new(file_handle, FileAccessMode::ReadOnly)?);
         Self::from_backend(backend)
     }
 
@@ -197,7 +198,7 @@ impl OmFileReader {
                     ));
             }
 
-            let backend = BackendImpl::FsSpec(FsSpecBackend::new(fs_obj, path)?);
+            let backend = ReaderBackendImpl::FsSpec(FsSpecBackend::new(fs_obj, path)?);
             Self::from_backend(backend)
         })
     }
@@ -299,10 +300,10 @@ impl OmFileReader {
             // Extract the backend before dropping reader
             if let Ok(backend) = Arc::try_unwrap(reader.backend) {
                 match backend {
-                    BackendImpl::FsSpec(fs_backend) => {
+                    ReaderBackendImpl::FsSpec(fs_backend) => {
                         fs_backend.close()?;
                     }
-                    BackendImpl::Mmap(_) => {
+                    ReaderBackendImpl::Mmap(_) => {
                         // Will be dropped automatically
                     }
                 }
@@ -559,12 +560,12 @@ fn get_chunk_shape<Backend: OmFileReaderBackend>(reader: &OmFileReaderRs<Backend
 }
 
 /// Concrete wrapper type for the backend implementation, delegating to the appropriate backend
-enum BackendImpl {
+enum ReaderBackendImpl {
     Mmap(MmapFile),
     FsSpec(FsSpecBackend),
 }
 
-impl OmFileReaderBackend for BackendImpl {
+impl OmFileReaderBackend for ReaderBackendImpl {
     // `Cow` can hold either a borrowed slice or an owned Vec, and it
     // also implements `Deref<Target=[u8]>`, `Send`, and `Sync`,
     // satisfying all our trait bounds.
@@ -573,12 +574,12 @@ impl OmFileReaderBackend for BackendImpl {
     // We must implement `get_bytes` manually to handle the type unification.
     fn get_bytes(&self, offset: u64, count: u64) -> Result<Self::Bytes<'_>, OmFilesError> {
         match self {
-            BackendImpl::Mmap(backend) => {
+            ReaderBackendImpl::Mmap(backend) => {
                 // The mmap backend returns a `&[u8]`. We wrap it in `Cow::Borrowed`.
                 let slice = backend.get_bytes(offset, count)?;
                 Ok(Cow::Borrowed(slice))
             }
-            BackendImpl::FsSpec(backend) => {
+            ReaderBackendImpl::FsSpec(backend) => {
                 // The fsspec backend returns a `Vec<u8>`. We wrap it in `Cow::Owned`.
                 let vec = backend.get_bytes(offset, count)?;
                 Ok(Cow::Owned(vec))
@@ -588,8 +589,8 @@ impl OmFileReaderBackend for BackendImpl {
 
     delegate! {
         to match self {
-            BackendImpl::Mmap(backend) => backend,
-            BackendImpl::FsSpec(backend) => backend,
+            ReaderBackendImpl::Mmap(backend) => backend,
+            ReaderBackendImpl::FsSpec(backend) => backend,
         } {
             fn count(&self) -> usize;
             fn prefetch_data(&self, offset: usize, count: usize);
