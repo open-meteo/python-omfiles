@@ -172,7 +172,7 @@ class OmFileReader:
 
         It is safe to call this method multiple times.
         """
-    def __getitem__(
+    def read_array(
         self, ranges: omfiles.types.BasicSelection
     ) -> numpy.typing.NDArray[
         typing.Union[
@@ -198,9 +198,10 @@ class OmFileReader:
         be a 1D array since dimensions 0 and 2 have size 1.
 
         Args:
-            ranges (omfiles.types.BasicSelection): Index expression that can be either a single slice/integer
+            ranges (:py:data:`omfiles.types.BasicSelection`): Index expression that can be either a single slice/integer
                 or a tuple of slices/integers for multi-dimensional access.
                 Supports NumPy basic indexing including:
+
                     - Integers (e.g., a[1,2])
                     - Slices (e.g., a[1:10])
                     - Ellipsis (...)
@@ -214,6 +215,22 @@ class OmFileReader:
         Raises:
             ValueError: If the requested ranges are invalid or if there's an error reading the data.
         """
+    def __getitem__(
+        self, ranges: omfiles.types.BasicSelection
+    ) -> numpy.typing.NDArray[
+        typing.Union[
+            numpy.float32,
+            numpy.float64,
+            numpy.int32,
+            numpy.int64,
+            numpy.uint32,
+            numpy.uint64,
+            numpy.int8,
+            numpy.uint8,
+            numpy.int16,
+            numpy.uint16,
+        ]
+    ]: ...
     def get_scalar(self) -> typing.Any:
         r"""
         Get the scalar value of the variable.
@@ -298,7 +315,7 @@ class OmFileReaderAsync:
         Read data from the array concurrently based on specified ranges.
 
         Args:
-            ranges (omfiles.types.BasicSelection): Index or slice object specifying the ranges to read.
+            ranges (:py:data:`omfiles.types.BasicSelection`): Index or slice object specifying the ranges to read.
 
         Returns:
             OmFileTypedArray: Array data of the appropriate numpy type.

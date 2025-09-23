@@ -110,7 +110,7 @@ impl OmFileReaderAsync {
     /// Read data from the array concurrently based on specified ranges.
     ///
     /// Args:
-    ///     ranges (omfiles.types.BasicSelection): Index or slice object specifying the ranges to read.
+    ///     ranges (:py:data:`omfiles.types.BasicSelection`): Index or slice object specifying the ranges to read.
     ///
     /// Returns:
     ///     OmFileTypedArray: Array data of the appropriate numpy type.

@@ -376,9 +376,10 @@ impl OmFileReader {
     /// be a 1D array since dimensions 0 and 2 have size 1.
     ///
     /// Args:
-    ///     ranges (omfiles.types.BasicSelection): Index expression that can be either a single slice/integer
+    ///     ranges (:py:data:`omfiles.types.BasicSelection`): Index expression that can be either a single slice/integer
     ///         or a tuple of slices/integers for multi-dimensional access.
     ///         Supports NumPy basic indexing including:
+    ///
     ///             - Integers (e.g., a[1,2])
     ///             - Slices (e.g., a[1:10])
     ///             - Ellipsis (...)
@@ -391,7 +392,7 @@ impl OmFileReader {
     ///
     /// Raises:
     ///     ValueError: If the requested ranges are invalid or if there's an error reading the data.
-    fn __getitem__<'py>(&self, py: Python<'_>, ranges: ArrayIndex) -> PyResult<OmFileTypedArray> {
+    fn read_array<'py>(&self, py: Python<'_>, ranges: ArrayIndex) -> PyResult<OmFileTypedArray> {
         py.allow_threads(|| {
             let io_size_max = None;
             let io_size_merge = None;
@@ -515,6 +516,10 @@ impl OmFileReader {
                 return Ok(untyped_py_array);
             })
         })
+    }
+
+    fn __getitem__<'py>(&self, py: Python<'_>, ranges: ArrayIndex) -> PyResult<OmFileTypedArray> {
+        self.read_array(py, ranges)
     }
 
     /// Get the scalar value of the variable.
@@ -644,7 +649,7 @@ mod tests {
             },
         ]);
         let data = Python::with_gil(|py| {
-            let data = reader.__getitem__(py, ranges).expect("Could not get item!");
+            let data = reader.read_array(py, ranges).expect("Could not get item!");
             let data = match data {
                 OmFileTypedArray::Float(data) => data,
                 _ => panic!("Unexpected data type"),
