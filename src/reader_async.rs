@@ -119,8 +119,6 @@ impl OmFileReaderAsync {
     ///     ValueError: If the reader is closed.
     ///     TypeError: If the data type is not supported.
     async fn read_concurrent<'py>(&self, ranges: ArrayIndex) -> PyResult<OmFileTypedArray> {
-        let io_size_max = None;
-        let io_size_merge = None;
         // Convert the Python ranges to Rust ranges
         let read_ranges = ranges.to_read_range(&self.shape)?;
 
@@ -138,103 +136,43 @@ impl OmFileReaderAsync {
         let data_type = reader.data_type();
         let result = match data_type {
             OmDataType::Int8Array => {
-                let array = read_squeezed_typed_array::<i8>(
-                    reader,
-                    &read_ranges,
-                    io_size_max,
-                    io_size_merge,
-                )
-                .await?;
+                let array = read_squeezed_typed_array::<i8>(reader, &read_ranges).await?;
                 Ok(OmFileTypedArray::Int8(array))
             }
             OmDataType::Int16Array => {
-                let array = read_squeezed_typed_array::<i16>(
-                    reader,
-                    &read_ranges,
-                    io_size_max,
-                    io_size_merge,
-                )
-                .await?;
+                let array = read_squeezed_typed_array::<i16>(reader, &read_ranges).await?;
                 Ok(OmFileTypedArray::Int16(array))
             }
             OmDataType::Int32Array => {
-                let array = read_squeezed_typed_array::<i32>(
-                    reader,
-                    &read_ranges,
-                    io_size_max,
-                    io_size_merge,
-                )
-                .await?;
+                let array = read_squeezed_typed_array::<i32>(reader, &read_ranges).await?;
                 Ok(OmFileTypedArray::Int32(array))
             }
             OmDataType::Int64Array => {
-                let array = read_squeezed_typed_array::<i64>(
-                    reader,
-                    &read_ranges,
-                    io_size_max,
-                    io_size_merge,
-                )
-                .await?;
+                let array = read_squeezed_typed_array::<i64>(reader, &read_ranges).await?;
                 Ok(OmFileTypedArray::Int64(array))
             }
             OmDataType::Uint8Array => {
-                let array = read_squeezed_typed_array::<u8>(
-                    reader,
-                    &read_ranges,
-                    io_size_max,
-                    io_size_merge,
-                )
-                .await?;
+                let array = read_squeezed_typed_array::<u8>(reader, &read_ranges).await?;
                 Ok(OmFileTypedArray::Uint8(array))
             }
             OmDataType::Uint16Array => {
-                let array = read_squeezed_typed_array::<u16>(
-                    reader,
-                    &read_ranges,
-                    io_size_max,
-                    io_size_merge,
-                )
-                .await?;
+                let array = read_squeezed_typed_array::<u16>(reader, &read_ranges).await?;
                 Ok(OmFileTypedArray::Uint16(array))
             }
             OmDataType::Uint32Array => {
-                let array = read_squeezed_typed_array::<u32>(
-                    reader,
-                    &read_ranges,
-                    io_size_max,
-                    io_size_merge,
-                )
-                .await?;
+                let array = read_squeezed_typed_array::<u32>(reader, &read_ranges).await?;
                 Ok(OmFileTypedArray::Uint32(array))
             }
             OmDataType::Uint64Array => {
-                let array = read_squeezed_typed_array::<u64>(
-                    reader,
-                    &read_ranges,
-                    io_size_max,
-                    io_size_merge,
-                )
-                .await?;
+                let array = read_squeezed_typed_array::<u64>(reader, &read_ranges).await?;
                 Ok(OmFileTypedArray::Uint64(array))
             }
             OmDataType::FloatArray => {
-                let array = read_squeezed_typed_array::<f32>(
-                    reader,
-                    &read_ranges,
-                    io_size_max,
-                    io_size_merge,
-                )
-                .await?;
+                let array = read_squeezed_typed_array::<f32>(reader, &read_ranges).await?;
                 Ok(OmFileTypedArray::Float(array))
             }
             OmDataType::DoubleArray => {
-                let array = read_squeezed_typed_array::<f64>(
-                    reader,
-                    &read_ranges,
-                    io_size_max,
-                    io_size_merge,
-                )
-                .await?;
+                let array = read_squeezed_typed_array::<f64>(reader, &read_ranges).await?;
                 Ok(OmFileTypedArray::Double(array))
             }
             _ => {
@@ -310,14 +248,12 @@ impl OmFileReaderAsync {
 async fn read_squeezed_typed_array<T>(
     reader: &OmFileReaderAsyncRs<AsyncBackendImpl>,
     read_ranges: &[Range<u64>],
-    io_size_max: Option<u64>,
-    io_size_merge: Option<u64>,
 ) -> PyResult<ndarray::ArrayD<T>>
 where
     T: Element + OmFileArrayDataType + Clone + Zero + Send + Sync + 'static,
 {
     let reader = reader
-        .expect_array_with_io_sizes(io_size_max.unwrap_or(65536), io_size_merge.unwrap_or(512))
+        .expect_array_with_io_sizes(65536, 512)
         .map_err(convert_omfilesrs_error)?;
     let array = reader
         .read::<T>(read_ranges)
