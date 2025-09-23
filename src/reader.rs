@@ -88,8 +88,12 @@ impl OmFileReader {
         PyErr::new::<PyValueError, _>("I/O operation on closed reader")
     }
 
-    fn scalar_not_supported_error() -> PyErr {
-        PyErr::new::<PyValueError, _>("Scalar data types are not supported")
+    fn only_arrays_error() -> PyErr {
+        PyErr::new::<PyValueError, _>("Only arrays are supported")
+    }
+
+    fn only_scalars_error() -> PyErr {
+        PyErr::new::<PyValueError, _>("Only scalars are supported")
     }
 
     fn with_reader<F, R>(&self, f: F) -> PyResult<R>
@@ -108,7 +112,10 @@ impl OmFileReader {
         T: OmFileScalarDataType + IntoPyObject<'py>,
     {
         self.with_reader(|reader| {
-            let value = reader.expect_scalar().unwrap().read_scalar::<T>();
+            let scalar_reader = reader
+                .expect_scalar()
+                .map_err(|_| Self::only_scalars_error())?;
+            let value = scalar_reader.read_scalar::<T>();
 
             value
                 .into_pyobject(py)
@@ -368,7 +375,10 @@ impl OmFileReader {
     fn compression(&self) -> PyResult<PyCompressionType> {
         self.with_reader(|reader| {
             Ok(PyCompressionType::from_omfilesrs(
-                reader.expect_array().unwrap().compression(),
+                reader
+                    .expect_array()
+                    .map_err(|_| Self::only_arrays_error())?
+                    .compression(),
             ))
         })
     }
@@ -417,7 +427,7 @@ impl OmFileReader {
                     | OmDataType::Uint64
                     | OmDataType::Float
                     | OmDataType::Double
-                    | OmDataType::String => Err(Self::scalar_not_supported_error()),
+                    | OmDataType::String => Err(Self::only_arrays_error()),
                     OmDataType::Int8Array => {
                         let array = read_squeezed_typed_array::<i8>(&reader, &read_ranges)?;
                         Ok(OmFileTypedArray::Int8(array))
@@ -497,9 +507,7 @@ impl OmFileReader {
                 OmDataType::Float => self.read_scalar_value::<f32>(py),
                 OmDataType::Double => self.read_scalar_value::<f64>(py),
                 OmDataType::String => self.read_scalar_value::<String>(py),
-                _ => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                    "Data type is not scalar",
-                )),
+                _ => Err(Self::only_scalars_error()),
             })
         })
     }
