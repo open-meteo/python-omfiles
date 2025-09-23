@@ -2,12 +2,13 @@ use crate::{
     compression::PyCompressionType, errors::convert_omfilesrs_error,
     fsspec_backend::FsSpecWriterBackend, hierarchy::OmVariable,
 };
+use delegate::delegate;
 use numpy::{
     dtype, Element, PyArrayDescrMethods, PyArrayDyn, PyArrayMethods, PyReadonlyArrayDyn,
     PyUntypedArray, PyUntypedArrayMethods,
 };
 use omfiles_rs::{
-    traits::{OmFileArrayDataType, OmFileScalarDataType},
+    traits::{OmFileArrayDataType, OmFileScalarDataType, OmFileWriterBackend},
     writer::{OmFileWriter as OmFileWriterRs, OmFileWriterArrayFinalized},
     OmCompressionType, OmFilesError, OmOffsetSize,
 };
@@ -16,15 +17,15 @@ use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
 use std::{fs::File, sync::Mutex};
 
 enum WriterBackend {
-    File(OmFileWriterRs<File>),
-    FsSpec(OmFileWriterRs<FsSpecWriterBackend>),
+    File(File),
+    FsSpec(FsSpecWriterBackend),
 }
 
 #[gen_stub_pyclass]
 #[pyclass(module = "omfiles.omfiles")]
 /// A Python wrapper for the Rust OmFileWriter implementation.
 pub struct OmFileWriter {
-    writer: Mutex<Option<WriterBackend>>,
+    writer: Mutex<Option<OmFileWriterRs<WriterBackend>>>,
 }
 
 #[gen_stub_pymethods]
@@ -39,10 +40,10 @@ impl OmFileWriter {
     /// Raises:
     /// OSError: If the file cannot be created
     fn new(file_path: &str) -> PyResult<Self> {
-        let file_handle = File::create(file_path)?;
+        let file_handle = WriterBackend::File(File::create(file_path)?);
         let writer = OmFileWriterRs::new(file_handle, 8 * 1024);
         Ok(Self {
-            writer: Mutex::new(Some(WriterBackend::File(writer))),
+            writer: Mutex::new(Some(writer)),
         })
     }
 
@@ -60,10 +61,10 @@ impl OmFileWriter {
     /// Returns:
     ///     OmFileWriter: A new writer instance
     fn from_fsspec(fs_obj: PyObject, path: String) -> PyResult<Self> {
-        let fsspec_backend = FsSpecWriterBackend::new(fs_obj, path)?;
+        let fsspec_backend = WriterBackend::FsSpec(FsSpecWriterBackend::new(fs_obj, path)?);
         let writer = OmFileWriterRs::new(fsspec_backend, 8 * 1024);
         Ok(Self {
-            writer: Mutex::new(Some(WriterBackend::FsSpec(writer))),
+            writer: Mutex::new(Some(writer)),
         })
     }
 
@@ -89,10 +90,7 @@ impl OmFileWriter {
         })?;
 
         if let Some(writer) = guard.as_mut() {
-            let result = match writer {
-                WriterBackend::File(w) => w.write_trailer(root_variable.into()),
-                WriterBackend::FsSpec(w) => w.write_trailer(root_variable.into()),
-            };
+            let result = writer.write_trailer(root_variable.into());
             result.map_err(convert_omfilesrs_error)?;
             // Take ownership and drop to ensure proper file closure
             guard.take();
@@ -200,11 +198,9 @@ impl OmFileWriter {
         }?;
 
         self.with_writer(|writer| {
-            let offset_size = match writer {
-                WriterBackend::File(w) => w.write_array(array_meta, name, &children),
-                WriterBackend::FsSpec(w) => w.write_array(array_meta, name, &children),
-            }
-            .map_err(convert_omfilesrs_error)?;
+            let offset_size = writer
+                .write_array(array_meta, name, &children)
+                .map_err(convert_omfilesrs_error)?;
 
             Ok(OmVariable {
                 name: name.to_string(),
@@ -296,11 +292,9 @@ impl OmFileWriter {
         let children: Vec<OmOffsetSize> = children.iter().map(Into::into).collect();
 
         self.with_writer(|writer| {
-            let offset_size = match writer {
-                WriterBackend::File(w) => w.write_none(name, &children),
-                WriterBackend::FsSpec(w) => w.write_none(name, &children),
-            }
-            .map_err(convert_omfilesrs_error)?;
+            let offset_size = writer
+                .write_none(name, &children)
+                .map_err(convert_omfilesrs_error)?;
 
             Ok(OmVariable {
                 name: name.to_string(),
@@ -315,7 +309,7 @@ impl OmFileWriter {
     // Helper method for safe writer access
     fn with_writer<F, R>(&self, f: F) -> PyResult<R>
     where
-        F: FnOnce(&mut WriterBackend) -> PyResult<R>,
+        F: FnOnce(&mut OmFileWriterRs<WriterBackend>) -> PyResult<R>,
     {
         let mut guard = self.writer.lock().map_err(|e| {
             PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Lock error: {}", e))
@@ -346,31 +340,17 @@ impl OmFileWriter {
             .map(|x| *x as u64)
             .collect::<Vec<u64>>();
 
-        self.with_writer(|writer| match writer {
-            WriterBackend::File(w) => {
-                let mut array_writer = w
-                    .prepare_array::<T>(dimensions, chunks, compression, scale_factor, add_offset)
-                    .map_err(convert_omfilesrs_error)?;
+        self.with_writer(|writer| {
+            let mut array_writer = writer
+                .prepare_array::<T>(dimensions, chunks, compression, scale_factor, add_offset)
+                .map_err(convert_omfilesrs_error)?;
 
-                array_writer
-                    .write_data(data.as_array(), None, None)
-                    .map_err(convert_omfilesrs_error)?;
+            array_writer
+                .write_data(data.as_array(), None, None)
+                .map_err(convert_omfilesrs_error)?;
 
-                let variable_meta = array_writer.finalize();
-                Ok(variable_meta)
-            }
-            WriterBackend::FsSpec(w) => {
-                let mut array_writer = w
-                    .prepare_array::<T>(dimensions, chunks, compression, scale_factor, add_offset)
-                    .map_err(convert_omfilesrs_error)?;
-
-                array_writer
-                    .write_data(data.as_array(), None, None)
-                    .map_err(convert_omfilesrs_error)?;
-
-                let variable_meta = array_writer.finalize();
-                Ok(variable_meta)
-            }
+            let variable_meta = array_writer.finalize();
+            Ok(variable_meta)
         })
     }
 
@@ -381,11 +361,9 @@ impl OmFileWriter {
         children: &[OmOffsetSize],
     ) -> PyResult<OmVariable> {
         self.with_writer(|writer| {
-            let offset_size = match writer {
-                WriterBackend::File(w) => w.write_scalar(value, name, children),
-                WriterBackend::FsSpec(w) => w.write_scalar(value, name, children),
-            }
-            .map_err(convert_omfilesrs_error)?;
+            let offset_size = writer
+                .write_scalar(value, name, children)
+                .map_err(convert_omfilesrs_error)?;
 
             Ok(OmVariable {
                 name: name.to_string(),
@@ -393,6 +371,18 @@ impl OmFileWriter {
                 size: offset_size.size,
             })
         })
+    }
+}
+
+impl OmFileWriterBackend for WriterBackend {
+    delegate! {
+        to match self {
+            WriterBackend::File(backend) => backend,
+            WriterBackend::FsSpec(backend) => backend,
+        } {
+            fn write(&mut self, data: &[u8]) -> Result<(), OmFilesError>;
+            fn synchronize(&self) -> Result<(), OmFilesError>;
+        }
     }
 }
 
