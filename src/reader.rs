@@ -413,12 +413,7 @@ impl OmFileReader {
     /// Args:
     ///     ranges (:py:data:`omfiles.types.BasicSelection`): Index expression that can be either a single slice/integer
     ///         or a tuple of slices/integers for multi-dimensional access.
-    ///         Supports NumPy basic indexing including:
-    ///
-    ///             - Integers (e.g., a[1,2])
-    ///             - Slices (e.g., a[1:10])
-    ///             - Ellipsis (...)
-    ///             - None/newaxis
+    ///         Supports NumPy basic indexing including Integers, Slices, Ellipsis, and None/newaxis.
     ///
     /// Returns:
     ///     ndarray: NDArray containing the requested data with squeezed singleton dimensions.
