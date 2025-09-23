@@ -318,16 +318,22 @@ impl OmFileReader {
         })
     }
 
+    /// Check if the variable is an array.
+    ///
+    /// Returns:
+    ///     bool: True if the variable is an array, False otherwise.
+    #[getter]
+    fn is_array(&self) -> PyResult<bool> {
+        self.with_reader(|reader| Ok(reader.data_type().is_array()))
+    }
+
     /// Check if the variable is a scalar.
     ///
     /// Returns:
     ///     bool: True if the variable is a scalar, False otherwise.
     #[getter]
     fn is_scalar(&self) -> PyResult<bool> {
-        self.with_reader(|reader| {
-            let data_type = reader.data_type() as u8;
-            Ok(data_type > (OmDataType::None as u8) && data_type < (OmDataType::Int8Array as u8))
-        })
+        self.with_reader(|reader| Ok(reader.data_type().is_scalar()))
     }
 
     /// Check if the variable is a group (a variable with data type None).
