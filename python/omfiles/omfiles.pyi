@@ -185,9 +185,13 @@ class OmFileReader:
 
         It is safe to call this method multiple times.
         """
-    def get_child(self, index: builtins.int) -> OmFileReader:
+    def get_child_by_index(self, index: builtins.int) -> OmFileReader:
         r"""
         Get a child reader at the specified index.
+        """
+    def get_child_by_name(self, name: builtins.str) -> OmFileReader:
+        r"""
+        Get a child reader by name.
         """
     def read_array(
         self, ranges: omfiles.types.BasicSelection
@@ -407,6 +411,12 @@ class OmFileWriter:
     ) -> OmVariable:
         r"""
         Write a numpy array to the .om file with specified chunking and scaling parameters.
+
+        ``scale_factor`` and ``add_offset`` are only respected and required for float32
+        and float64 data types. Recommended compression is "pfor_delta_2d" as it achieves
+        best compression ratios (on spatio-temporally correlated data), but it will be lossy
+        when applied to floating-point data types because of the scale-offset encoding applied
+        to convert float values to integer values.
 
         Args:
             data: Input array to be written. Supported dtypes are:

@@ -396,9 +396,17 @@ impl OmFileReader {
     }
 
     /// Get a child reader at the specified index.
-    fn get_child(&self, index: u32) -> PyResult<Self> {
+    fn get_child_by_index(&self, index: u32) -> PyResult<Self> {
         self.with_reader(|reader| {
             let child = reader.get_child(index).unwrap();
+            Self::from_reader(child)
+        })
+    }
+
+    /// Get a child reader by name.
+    fn get_child_by_name(&self, name: &str) -> PyResult<Self> {
+        self.with_reader(|reader| {
+            let child = reader.get_child_by_name(name).unwrap();
             Self::from_reader(child)
         })
     }
