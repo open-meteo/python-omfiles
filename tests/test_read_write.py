@@ -207,3 +207,28 @@ def test_reader_close(temp_om_file):
             [20.0, 21.0, 22.0, 23.0, 24.0],
         ],
     )
+
+
+def test_child_traversal(temp_hierarchical_om_file):
+    reader = omfiles.OmFileReader(temp_hierarchical_om_file)
+
+    assert reader.num_children == 2
+    with pytest.raises(ValueError):
+        _ = reader.compression
+    with pytest.raises(ValueError):
+        _ = reader.get_scalar()
+    with pytest.raises(ValueError):
+        _ = reader[:]
+
+    with reader.get_child(0) as var1_reader:
+        assert var1_reader.shape == (5, 5)
+        assert var1_reader.name == "variable1"
+        assert var1_reader.dtype == np.float32
+
+    var2_reader = reader.get_child(1)
+    # verify that closing reader is safe for var2_reader
+    reader.close()
+    assert var2_reader.shape == (50, 5)
+    assert var2_reader.name == "variable2"
+    assert var2_reader.dtype == np.int64
+    np.testing.assert_array_equal(var2_reader[:], np.arange(50 * 5).reshape(50, 5) * 2)

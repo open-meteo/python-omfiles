@@ -53,6 +53,14 @@ class OmFileReader:
         The chunk shape of the variable.
         """
     @property
+    def is_array(self) -> builtins.bool:
+        r"""
+        Check if the variable is an array.
+
+        Returns:
+            bool: True if the variable is an array, False otherwise.
+        """
+    @property
     def is_scalar(self) -> builtins.bool:
         r"""
         Check if the variable is a scalar.
@@ -88,6 +96,11 @@ class OmFileReader:
     def compression(self) -> builtins.str:
         r"""
         Get the compression type of the variable.
+        """
+    @property
+    def num_children(self) -> builtins.int:
+        r"""
+        Number of children of the variable.
         """
     def __new__(cls, source: typing.Any) -> OmFileReader:
         r"""
@@ -171,6 +184,10 @@ class OmFileReader:
         After closing, any operation on the reader will raise a ValueError.
 
         It is safe to call this method multiple times.
+        """
+    def get_child(self, index: builtins.int) -> OmFileReader:
+        r"""
+        Get a child reader at the specified index.
         """
     def read_array(
         self, ranges: omfiles.types.BasicSelection
