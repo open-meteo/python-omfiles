@@ -145,9 +145,6 @@ class OmFileReader:
 
         Returns:
             OmFileReader: Self for use in context manager.
-
-        Raises:
-            ValueError: If the reader is already closed.
         """
     def __exit__(
         self,

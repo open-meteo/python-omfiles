@@ -17,7 +17,12 @@ use omfiles_rs::{
     },
     OmDataType, OmFilesError, {FileAccessMode, MmapFile},
 };
-use pyo3::{prelude::*, types::PyTuple, BoundObject};
+use pyo3::{
+    exceptions::{PyRuntimeError, PyValueError},
+    prelude::*,
+    types::PyTuple,
+    BoundObject,
+};
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
 use std::{
     borrow::Cow,
@@ -64,6 +69,56 @@ pub struct OmFileReader {
     shape: Vec<u64>,
 }
 
+impl OmFileReader {
+    fn from_backend(backend: BackendImpl) -> PyResult<Self> {
+        let reader = OmFileReaderRs::new(Arc::new(backend)).map_err(convert_omfilesrs_error)?;
+        let shape = get_shape_vec(&reader);
+
+        Ok(Self {
+            reader: RwLock::new(Some(reader)),
+            shape,
+        })
+    }
+
+    fn lock_error<T>(e: std::sync::TryLockError<T>) -> PyErr {
+        PyErr::new::<PyRuntimeError, _>(format!("Failed to acquire lock on reader: {}", e))
+    }
+
+    fn closed_error() -> PyErr {
+        PyErr::new::<PyValueError, _>("I/O operation on closed reader")
+    }
+
+    fn scalar_not_supported_error() -> PyErr {
+        PyErr::new::<PyValueError, _>("Scalar data types are not supported")
+    }
+
+    fn with_reader<F, R>(&self, f: F) -> PyResult<R>
+    where
+        F: FnOnce(&OmFileReaderRs<BackendImpl>) -> PyResult<R>,
+    {
+        let guard = self.reader.try_read().map_err(|e| Self::lock_error(e))?;
+        match &*guard {
+            Some(reader) => f(reader),
+            None => Err(Self::closed_error()),
+        }
+    }
+
+    fn read_scalar_value<'py, T>(&self, py: Python<'py>) -> PyResult<PyObject>
+    where
+        T: OmFileScalarDataType + IntoPyObject<'py>,
+    {
+        self.with_reader(|reader| {
+            let value = reader.expect_scalar().unwrap().read_scalar::<T>();
+
+            value
+                .into_pyobject(py)
+                .map(BoundObject::into_any)
+                .map(BoundObject::unbind)
+                .map_err(Into::into)
+        })
+    }
+}
+
 #[gen_stub_pymethods]
 #[pymethods]
 impl OmFileReader {
@@ -108,13 +163,7 @@ impl OmFileReader {
         let file_handle = File::open(file_path)
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyIOError, _>(e.to_string()))?;
         let backend = BackendImpl::Mmap(MmapFile::new(file_handle, FileAccessMode::ReadOnly)?);
-        let reader = OmFileReaderRs::new(Arc::new(backend)).map_err(convert_omfilesrs_error)?;
-        let shape = get_shape_vec(&reader);
-
-        Ok(Self {
-            reader: RwLock::new(Some(reader)),
-            shape,
-        })
+        Self::from_backend(backend)
     }
 
     /// Create an OmFileReader from a fsspec fs object.
@@ -137,13 +186,7 @@ impl OmFileReader {
             }
 
             let backend = BackendImpl::FsSpec(FsSpecBackend::new(fs_obj, path)?);
-            let reader = OmFileReaderRs::new(Arc::new(backend)).map_err(convert_omfilesrs_error)?;
-            let shape = get_shape_vec(&reader);
-
-            Ok(Self {
-                reader: RwLock::new(Some(reader)),
-                shape,
-            })
+            Self::from_backend(backend)
         })
     }
 
@@ -195,9 +238,6 @@ impl OmFileReader {
     ///
     /// Returns:
     ///     OmFileReader: Self for use in context manager.
-    ///
-    /// Raises:
-    ///     ValueError: If the reader is already closed.
     fn __enter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
         slf
     }
@@ -228,10 +268,7 @@ impl OmFileReader {
     ///     bool: True if the reader is closed, False otherwise.
     #[getter]
     fn closed(&self) -> PyResult<bool> {
-        let guard = self.reader.try_read().map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Lock error: {}", e))
-        })?;
-
+        let guard = self.reader.try_read().map_err(|e| Self::lock_error(e))?;
         Ok(guard.is_none())
     }
 
@@ -243,9 +280,7 @@ impl OmFileReader {
     /// It is safe to call this method multiple times.
     fn close(&self) -> PyResult<()> {
         // Need write access to take the reader
-        let mut guard = self.reader.try_write().map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Lock error: {}", e))
-        })?;
+        let mut guard = self.reader.try_write().map_err(|e| Self::lock_error(e))?;
 
         // takes the reader, leaving None in the RwLock
         if let Some(reader) = guard.take() {
@@ -365,23 +400,19 @@ impl OmFileReader {
             self.with_reader(|reader| {
                 let dtype = reader.data_type();
 
-                let scalar_error = PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                    "Scalar data types are not supported",
-                );
-
                 let untyped_py_array_or_error = match dtype {
-                    OmDataType::None => Err(scalar_error),
-                    OmDataType::Int8 => Err(scalar_error),
-                    OmDataType::Uint8 => Err(scalar_error),
-                    OmDataType::Int16 => Err(scalar_error),
-                    OmDataType::Uint16 => Err(scalar_error),
-                    OmDataType::Int32 => Err(scalar_error),
-                    OmDataType::Uint32 => Err(scalar_error),
-                    OmDataType::Int64 => Err(scalar_error),
-                    OmDataType::Uint64 => Err(scalar_error),
-                    OmDataType::Float => Err(scalar_error),
-                    OmDataType::Double => Err(scalar_error),
-                    OmDataType::String => Err(scalar_error),
+                    OmDataType::None => Err(Self::scalar_not_supported_error()),
+                    OmDataType::Int8 => Err(Self::scalar_not_supported_error()),
+                    OmDataType::Uint8 => Err(Self::scalar_not_supported_error()),
+                    OmDataType::Int16 => Err(Self::scalar_not_supported_error()),
+                    OmDataType::Uint16 => Err(Self::scalar_not_supported_error()),
+                    OmDataType::Int32 => Err(Self::scalar_not_supported_error()),
+                    OmDataType::Uint32 => Err(Self::scalar_not_supported_error()),
+                    OmDataType::Int64 => Err(Self::scalar_not_supported_error()),
+                    OmDataType::Uint64 => Err(Self::scalar_not_supported_error()),
+                    OmDataType::Float => Err(Self::scalar_not_supported_error()),
+                    OmDataType::Double => Err(Self::scalar_not_supported_error()),
+                    OmDataType::String => Err(Self::scalar_not_supported_error()),
                     OmDataType::Int8Array => {
                         let array = read_squeezed_typed_array::<i8>(
                             &reader,
@@ -511,41 +542,6 @@ impl OmFileReader {
                     "Data type is not scalar",
                 )),
             })
-        })
-    }
-}
-
-impl OmFileReader {
-    fn with_reader<F, R>(&self, f: F) -> PyResult<R>
-    where
-        F: FnOnce(&OmFileReaderRs<BackendImpl>) -> PyResult<R>,
-    {
-        let guard = self.reader.try_read().map_err(|_| {
-            PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                "Trying to read from a reader which is being closed",
-            )
-        })?;
-        if let Some(reader) = &*guard {
-            f(reader)
-        } else {
-            Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                "I/O operation on closed reader or file",
-            ))
-        }
-    }
-
-    fn read_scalar_value<'py, T>(&self, py: Python<'py>) -> PyResult<PyObject>
-    where
-        T: OmFileScalarDataType + IntoPyObject<'py>,
-    {
-        self.with_reader(|reader| {
-            let value = reader.expect_scalar().unwrap().read_scalar::<T>();
-
-            value
-                .into_pyobject(py)
-                .map(BoundObject::into_any)
-                .map(BoundObject::unbind)
-                .map_err(Into::into)
         })
     }
 }
