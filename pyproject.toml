@@ -36,13 +36,16 @@ documentation = [
     "sphinx-autodoc-typehints>=3.2.0",
     "sphinx-rtd-theme>=3.0.2",
 ]
-dev = [
+test = [
     "pytest>=6.1",
     "pytest-asyncio",
     "psutil",
-    "maturin>=1.7,<2.0",
-    {include-group = "documentation"},
     "omfiles[all]",
+]
+dev = [
+    "maturin>=1.7,<2.0",
+    {include-group = "test"},
+    {include-group = "documentation"},
 ]
 
 [tool.maturin]

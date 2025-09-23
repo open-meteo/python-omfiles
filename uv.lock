@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.9"
 resolution-markers = [
     "python_full_version >= '3.12'",
@@ -1184,6 +1184,12 @@ documentation = [
     { name = "sphinx-autodoc-typehints", marker = "python_full_version >= '3.11'" },
     { name = "sphinx-rtd-theme", marker = "python_full_version >= '3.11'" },
 ]
+test = [
+    { name = "omfiles", extra = ["all"] },
+    { name = "psutil" },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+]
 
 [package.metadata]
 requires-dist = [
@@ -1216,6 +1222,12 @@ documentation = [
     { name = "sphinx", marker = "python_full_version >= '3.11'", specifier = ">=8.2.0" },
     { name = "sphinx-autodoc-typehints", marker = "python_full_version >= '3.11'", specifier = ">=3.2.0" },
     { name = "sphinx-rtd-theme", marker = "python_full_version >= '3.11'", specifier = ">=3.0.2" },
+]
+test = [
+    { name = "omfiles", extras = ["all"] },
+    { name = "psutil" },
+    { name = "pytest", specifier = ">=6.1" },
+    { name = "pytest-asyncio" },
 ]
 
 [[package]]
