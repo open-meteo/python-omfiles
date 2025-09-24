@@ -98,24 +98,24 @@ def test_write_hierarchical_file(empty_temp_om_file):
     assert read_root.dtype == np.float32
 
     # Get child readers
-    child_metadata = reader.get_flat_variable_metadata()
+    child_metadata = reader._get_flat_variable_metadata()
 
     # Verify child1 data
-    child1_reader = reader.init_from_variable(child_metadata["root/child1"])
+    child1_reader = reader._init_from_variable(child_metadata["root/child1"])
     read_child1 = child1_reader[:]
     np.testing.assert_array_almost_equal(read_child1, child1_data, decimal=4)
     assert read_child1.shape == (5, 5)
     assert read_child1.dtype == np.float32
 
     # Verify child2 data
-    child2_reader = reader.init_from_variable(child_metadata["root/child2"])
+    child2_reader = reader._init_from_variable(child_metadata["root/child2"])
     read_child2 = child2_reader[:]
     np.testing.assert_array_almost_equal(read_child2, child2_data, decimal=4)
     assert read_child2.shape == (3, 3)
     assert read_child2.dtype == np.float32
 
     # Verify metadata attributes
-    metadata_reader = reader.init_from_variable(child_metadata["root/child1/metadata1"])
+    metadata_reader = reader._init_from_variable(child_metadata["root/child1/metadata1"])
 
     metadata = metadata_reader.read_scalar()
     assert metadata == 42.0
@@ -187,7 +187,7 @@ def test_reader_close(temp_om_file):
         assert "closed" in str(e).lower()
 
     try:
-        _ = reader.get_flat_variable_metadata()
+        _ = reader._get_flat_variable_metadata()
         assert False, "Expecting an error when calling methods on a closed reader"
     except ValueError as e:
         assert "closed" in str(e).lower()
@@ -213,8 +213,9 @@ def test_child_traversal(temp_hierarchical_om_file):
     reader = omfiles.OmFileReader(temp_hierarchical_om_file)
 
     assert reader.num_children == 2
+    assert reader.dtype == np.void
     with pytest.raises(ValueError):
-        _ = reader.compression
+        _ = reader.compression_name
     with pytest.raises(ValueError):
         _ = reader.read_scalar()
     with pytest.raises(ValueError):
@@ -223,6 +224,7 @@ def test_child_traversal(temp_hierarchical_om_file):
     with reader.get_child_by_index(0) as var1_reader:
         assert var1_reader.shape == (5, 5)
         assert var1_reader.name == "variable1"
+        assert var1_reader.compression_name == "pfor_delta_2d"
         assert var1_reader.dtype == np.float32
 
     var2_reader = reader.get_child_by_index(1)

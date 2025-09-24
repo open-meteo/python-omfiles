@@ -207,7 +207,7 @@ impl OmFileReader {
     ///
     /// Returns:
     ///     dict: Dictionary mapping variable names to their metadata.
-    fn get_flat_variable_metadata(&self) -> PyResult<HashMap<String, OmVariable>> {
+    fn _get_flat_variable_metadata(&self) -> PyResult<HashMap<String, OmVariable>> {
         self.with_reader(|reader| {
             let metadata = reader.get_flat_variable_metadata();
             Ok(metadata
@@ -233,7 +233,7 @@ impl OmFileReader {
     ///
     /// Returns:
     ///     OmFileReader: A new reader for the specified variable.
-    fn init_from_variable(&self, variable: OmVariable) -> PyResult<Self> {
+    fn _init_from_variable(&self, variable: OmVariable) -> PyResult<Self> {
         self.with_reader(|reader| {
             let child_reader = reader
                 .init_child_from_offset_size(variable.into())
@@ -315,6 +315,9 @@ impl OmFileReader {
     }
 
     /// The shape of the variable.
+    ///
+    /// Returns:
+    ///     tuple[int, …]: The shape of the variable as a tuple.
     #[getter]
     fn shape<'py>(&self, py: Python<'py>) -> PyResult<pyo3::Bound<'py, PyTuple>> {
         let tup = PyTuple::new(py, &self.shape)?;
@@ -322,6 +325,9 @@ impl OmFileReader {
     }
 
     /// The chunk shape of the variable.
+    ///
+    /// Returns:
+    ///     tuple[int, …]: The chunk shape of the variable as a tuple.
     #[getter]
     fn chunks<'py>(&self, py: Python<'py>) -> PyResult<pyo3::Bound<'py, PyTuple>> {
         self.with_reader(|reader| {
@@ -377,8 +383,11 @@ impl OmFileReader {
     }
 
     /// Get the compression type of the variable.
+    ///
+    /// Returns:
+    ///     str: Compression type of the variable.
     #[getter]
-    fn compression(&self) -> PyResult<PyCompressionType> {
+    fn compression_name(&self) -> PyResult<PyCompressionType> {
         self.with_reader(|reader| {
             Ok(PyCompressionType::from_omfilesrs(
                 reader
@@ -390,12 +399,18 @@ impl OmFileReader {
     }
 
     /// Number of children of the variable.
+    ///
+    /// Returns:
+    ///     int: Number of children of the variable.
     #[getter]
     fn num_children(&self) -> PyResult<u32> {
         self.with_reader(|reader| Ok(reader.number_of_children()))
     }
 
     /// Get a child reader at the specified index.
+    ///
+    /// Returns:
+    ///     OmFileReader: Child reader at the specified index if exists.
     fn get_child_by_index(&self, index: u32) -> PyResult<Self> {
         self.with_reader(|reader| {
             let child = reader.get_child(index).unwrap();
@@ -404,6 +419,9 @@ impl OmFileReader {
     }
 
     /// Get a child reader by name.
+    ///
+    /// Returns:
+    ///     OmFileReader: Child reader with the specified name if exists.
     fn get_child_by_name(&self, name: &str) -> PyResult<Self> {
         self.with_reader(|reader| {
             let child = reader.get_child_by_name(name).unwrap();
@@ -425,7 +443,7 @@ impl OmFileReader {
     ///         Supports NumPy basic indexing including Integers, Slices, Ellipsis, and None/newaxis.
     ///
     /// Returns:
-    ///     ndarray: NDArray containing the requested data with squeezed singleton dimensions.
+    ///     numpy.ndarray: NDArray containing the requested data with squeezed singleton dimensions.
     ///         The data type of the array matches the data type stored in the file
     ///         (int8, uint8, int16, uint16, int32, uint32, int64, uint64, float32, or float64).
     ///

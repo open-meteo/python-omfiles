@@ -46,11 +46,17 @@ class OmFileReader:
     def shape(self) -> tuple:
         r"""
         The shape of the variable.
+
+        Returns:
+            tuple[int, …]: The shape of the variable as a tuple.
         """
     @property
     def chunks(self) -> tuple:
         r"""
         The chunk shape of the variable.
+
+        Returns:
+            tuple[int, …]: The chunk shape of the variable as a tuple.
         """
     @property
     def is_array(self) -> builtins.bool:
@@ -93,14 +99,20 @@ class OmFileReader:
             str: Name of the variable or an empty string if not available.
         """
     @property
-    def compression(self) -> builtins.str:
+    def compression_name(self) -> builtins.str:
         r"""
         Get the compression type of the variable.
+
+        Returns:
+            str: Compression type of the variable.
         """
     @property
     def num_children(self) -> builtins.int:
         r"""
         Number of children of the variable.
+
+        Returns:
+            int: Number of children of the variable.
         """
     def __new__(cls, source: typing.Any) -> OmFileReader:
         r"""
@@ -135,14 +147,14 @@ class OmFileReader:
         Returns:
             OmFileReader: A new reader instance.
         """
-    def get_flat_variable_metadata(self) -> builtins.dict[builtins.str, OmVariable]:
+    def _get_flat_variable_metadata(self) -> builtins.dict[builtins.str, OmVariable]:
         r"""
         Get a mapping of variable names to their file offsets and sizes.
 
         Returns:
             dict: Dictionary mapping variable names to their metadata.
         """
-    def init_from_variable(self, variable: OmVariable) -> OmFileReader:
+    def _init_from_variable(self, variable: OmVariable) -> OmFileReader:
         r"""
         Initialize a new OmFileReader from a child variable.
 
@@ -188,10 +200,16 @@ class OmFileReader:
     def get_child_by_index(self, index: builtins.int) -> OmFileReader:
         r"""
         Get a child reader at the specified index.
+
+        Returns:
+            OmFileReader: Child reader at the specified index if exists.
         """
     def get_child_by_name(self, name: builtins.str) -> OmFileReader:
         r"""
         Get a child reader by name.
+
+        Returns:
+            OmFileReader: Child reader with the specified name if exists.
         """
     def read_array(
         self, ranges: omfiles.types.BasicSelection
@@ -224,7 +242,7 @@ class OmFileReader:
                 Supports NumPy basic indexing including Integers, Slices, Ellipsis, and None/newaxis.
 
         Returns:
-            ndarray: NDArray containing the requested data with squeezed singleton dimensions.
+            numpy.ndarray: NDArray containing the requested data with squeezed singleton dimensions.
                 The data type of the array matches the data type stored in the file
                 (int8, uint8, int16, uint16, int32, uint32, int64, uint64, float32, or float64).
 
@@ -252,7 +270,7 @@ class OmFileReader:
         Read the scalar value of the variable.
 
         Returns:
-            object: The scalar value as a Python object (str, int, or float).
+            numpy.scalars: The scalar value as a Python object (str, int, or float).
 
         Raises:
             ValueError: If the variable is not a scalar.
@@ -389,7 +407,7 @@ class OmFileWriter:
         Finalize and close the .om file by writing the trailer with the root variable.
 
         Args:
-            root_variable: The OmVariable that serves as the root/entry point of the file hierarchy.
+            root_variable (:py:data:`omfiles.OmVariable`): The OmVariable that serves as the root/entry point of the file hierarchy.
                            All other variables should be accessible through this root variable.
 
         Returns:
@@ -430,7 +448,7 @@ class OmFileWriter:
             children: List of child variables (default: [])
 
         Returns:
-            OmVariable representing the written group in the file structure
+            :py:data:`omfiles.OmVariable` representing the written group in the file structure
 
         Raises:
             ValueError: If the data type is unsupported or if parameters are invalid
@@ -448,7 +466,7 @@ class OmFileWriter:
             children: List of child variables (default: None)
 
         Returns:
-            OmVariable representing the written scalar in the file structure
+            :py:data:`omfiles.OmVariable` representing the written scalar in the file structure
 
         Raises:
             ValueError: If the value type is unsupported (e.g., booleans)
@@ -465,7 +483,7 @@ class OmFileWriter:
             children: List of child variables
 
         Returns:
-            OmVariable representing the written group in the file structure
+            :py:data:`omfiles.OmVariable` representing the written group in the file structure
 
         Raises:
             RuntimeError: If there's an error writing to the file

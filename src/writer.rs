@@ -158,7 +158,7 @@ impl OmFileWriter {
     /// Finalize and close the .om file by writing the trailer with the root variable.
     ///
     /// Args:
-    ///     root_variable: The OmVariable that serves as the root/entry point of the file hierarchy.
+    ///     root_variable (:py:data:`omfiles.OmVariable`): The OmVariable that serves as the root/entry point of the file hierarchy.
     ///                    All other variables should be accessible through this root variable.
     ///
     /// Returns:
@@ -214,7 +214,7 @@ impl OmFileWriter {
     ///     children: List of child variables (default: [])
     ///
     /// Returns:
-    ///     OmVariable representing the written group in the file structure
+    ///     :py:data:`omfiles.OmVariable` representing the written group in the file structure
     ///
     /// Raises:
     ///     ValueError: If the data type is unsupported or if parameters are invalid
@@ -306,7 +306,7 @@ impl OmFileWriter {
     ///     children: List of child variables (default: None)
     ///
     /// Returns:
-    ///     OmVariable representing the written scalar in the file structure
+    ///     :py:data:`omfiles.OmVariable` representing the written scalar in the file structure
     ///
     /// Raises:
     ///     ValueError: If the value type is unsupported (e.g., booleans)
@@ -360,7 +360,7 @@ impl OmFileWriter {
     ///     children: List of child variables
     ///
     /// Returns:
-    ///     OmVariable representing the written group in the file structure
+    ///     :py:data:`omfiles.OmVariable` representing the written group in the file structure
     ///
     /// Raises:
     ///     RuntimeError: If there's an error writing to the file

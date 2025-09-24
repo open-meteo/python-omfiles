@@ -53,7 +53,7 @@ class OmDataStore(AbstractDataStore):
 
     def __init__(self, root_variable: OmFileReader):
         self.root_variable = root_variable
-        self.variables_store = self.root_variable.get_flat_variable_metadata()
+        self.variables_store = self.root_variable._get_flat_variable_metadata()
 
     def get_variables(self):
         return FrozenDict(self._get_datasets_for_variable(self.root_variable))
@@ -66,7 +66,7 @@ class OmDataStore(AbstractDataStore):
         attrs = {}
         direct_children = self._find_direct_children_in_store(path)
         for k, variable in direct_children.items():
-            child_reader = reader.init_from_variable(variable)
+            child_reader = reader._init_from_variable(variable)
             if child_reader.is_scalar:
                 attrs[k] = child_reader.read_scalar()
         return attrs
@@ -81,7 +81,7 @@ class OmDataStore(AbstractDataStore):
         }
 
     def _is_group(self, variable):
-        return self.root_variable.init_from_variable(variable).is_group
+        return self.root_variable._init_from_variable(variable).is_group
 
     def _get_known_dimensions(self):
         """
@@ -94,7 +94,7 @@ class OmDataStore(AbstractDataStore):
         # Scan all variables for dimension names
         for var_key in self.variables_store:
             var = self.variables_store[var_key]
-            reader = self.root_variable.init_from_variable(var)
+            reader = self.root_variable._init_from_variable(var)
             if reader is None or reader.is_group or reader.is_scalar:
                 continue
 
@@ -113,7 +113,7 @@ class OmDataStore(AbstractDataStore):
         direct_children = self._find_direct_children_in_store("")
 
         for k, variable in direct_children.items():
-            child_reader = reader.init_from_variable(variable)
+            child_reader = reader._init_from_variable(variable)
             if not (child_reader.is_scalar or child_reader.is_group):
                 # This is an array variable
                 backend_array = OmBackendArray(reader=child_reader)
