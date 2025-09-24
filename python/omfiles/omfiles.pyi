@@ -247,9 +247,9 @@ class OmFileReader:
             numpy.uint16,
         ]
     ]: ...
-    def get_scalar(self) -> typing.Any:
+    def read_scalar(self) -> typing.Any:
         r"""
-        Get the scalar value of the variable.
+        Read the scalar value of the variable.
 
         Returns:
             object: The scalar value as a Python object (str, int, or float).

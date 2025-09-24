@@ -511,14 +511,14 @@ impl OmFileReader {
         self.read_array(py, ranges)
     }
 
-    /// Get the scalar value of the variable.
+    /// Read the scalar value of the variable.
     ///
     /// Returns:
     ///     object: The scalar value as a Python object (str, int, or float).
     ///
     /// Raises:
     ///     ValueError: If the variable is not a scalar.
-    fn get_scalar(&self) -> PyResult<PyObject> {
+    fn read_scalar(&self) -> PyResult<PyObject> {
         self.with_reader(|reader| {
             Python::with_gil(|py| match reader.data_type() {
                 OmDataType::Int8 => self.read_scalar_value::<i8>(py),

@@ -117,7 +117,7 @@ def test_write_hierarchical_file(empty_temp_om_file):
     # Verify metadata attributes
     metadata_reader = reader.init_from_variable(child_metadata["root/child1/metadata1"])
 
-    metadata = metadata_reader.get_scalar()
+    metadata = metadata_reader.read_scalar()
     assert metadata == 42.0
     assert metadata_reader.dtype == np.float64
 
@@ -216,7 +216,7 @@ def test_child_traversal(temp_hierarchical_om_file):
     with pytest.raises(ValueError):
         _ = reader.compression
     with pytest.raises(ValueError):
-        _ = reader.get_scalar()
+        _ = reader.read_scalar()
     with pytest.raises(ValueError):
         _ = reader[:]
 

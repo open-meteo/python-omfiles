@@ -68,7 +68,7 @@ class OmDataStore(AbstractDataStore):
         for k, variable in direct_children.items():
             child_reader = reader.init_from_variable(variable)
             if child_reader.is_scalar:
-                attrs[k] = child_reader.get_scalar()
+                attrs[k] = child_reader.read_scalar()
         return attrs
 
     def _find_direct_children_in_store(self, path: str):
