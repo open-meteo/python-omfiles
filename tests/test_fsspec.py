@@ -97,7 +97,7 @@ def test_s3_read_with_cache(s3_backend_with_cache, s3_test_file):
 @pytest.mark.asyncio
 async def test_s3_concurrent_read(s3_backend_async, s3_test_file):
     reader = await omfiles.OmFileReaderAsync.from_fsspec(s3_backend_async, s3_test_file)
-    data = await reader.read_concurrent((slice(57812, 60000), slice(0, 100)))
+    data = await reader.read_array((slice(57812, 60000), slice(0, 100)))
     expected = [18.0, 17.7, 17.65, 17.45, 17.15, 17.6, 18.7, 20.75, 21.7, 22.65]
     np.testing.assert_array_almost_equal(data[0, :10], expected)
 

@@ -138,7 +138,7 @@ async def test_read_concurrent(temp_om_file):
     reader = await omfiles.OmFileReaderAsync.from_path(temp_om_file)
 
     # Test basic concurrent read
-    data = await reader.read_concurrent((slice(0, 5), ...))
+    data = await reader.read_array((slice(0, 5), ...))
     assert data.shape == (5, 5)
     assert data.dtype == np.float32
     np.testing.assert_array_equal(
@@ -155,7 +155,7 @@ async def test_read_concurrent(temp_om_file):
     reader.close()
     # Test read_concurrent with a closed reader
     try:
-        _ = await reader.read_concurrent((slice(0, 5), ...))
+        _ = await reader.read_array((slice(0, 5), ...))
         assert False, "Expected ValueError when reading from closed reader"
     except ValueError as e:
         assert "closed" in str(e).lower()
