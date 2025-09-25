@@ -6,8 +6,8 @@ use crate::{
 use delegate::delegate;
 use num_traits::Zero;
 use numpy::{
-    ndarray::{self},
-    Element,
+    ndarray::{self, Array0},
+    Element, PyArray0,
 };
 use omfiles_rs::{
     reader::OmFileArray as OmFileArrayRs,
@@ -112,7 +112,23 @@ impl OmFileReader {
         }
     }
 
-    fn read_scalar_value<'py, T>(&self, py: Python<'py>) -> PyResult<PyObject>
+    fn read_string_scalar(&self, py: Python<'_>) -> PyResult<PyObject> {
+        self.with_reader(|reader| {
+            let scalar_reader = reader
+                .expect_scalar()
+                .map_err(|_| Self::only_scalars_error())?;
+
+            let value = scalar_reader.read_scalar::<String>();
+
+            value
+                .into_pyobject(py)
+                .map(BoundObject::into_any)
+                .map(BoundObject::unbind)
+                .map_err(Into::into)
+        })
+    }
+
+    fn read_numeric_scalar<'py, T: Element + Clone>(&self, py: Python<'py>) -> PyResult<PyObject>
     where
         T: OmFileScalarDataType + IntoPyObject<'py>,
     {
@@ -120,13 +136,12 @@ impl OmFileReader {
             let scalar_reader = reader
                 .expect_scalar()
                 .map_err(|_| Self::only_scalars_error())?;
-            let value = scalar_reader.read_scalar::<T>();
 
-            value
-                .into_pyobject(py)
-                .map(BoundObject::into_any)
-                .map(BoundObject::unbind)
-                .map_err(Into::into)
+            let value = scalar_reader.read_scalar::<T>();
+            let array_base = Array0::from_elem([], value.unwrap());
+            let py_scalar = PyArray0::from_owned_array(py, array_base);
+
+            return Ok(py_scalar.into_any().unbind());
         })
     }
 }
@@ -367,7 +382,7 @@ impl OmFileReader {
     /// Get the data type of the data stored in the .om file.
     ///
     /// Returns:
-    ///     Union[numpy.dtype, type]: Data type of the data.
+    ///     numpy.dtype | type: Data type of the data.
     #[getter]
     fn dtype<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         self.with_reader(|reader| describe_dtype(py, &reader.data_type()))
@@ -444,14 +459,11 @@ impl OmFileReader {
     /// be a 1D array since dimensions 0 and 2 have size 1.
     ///
     /// Args:
-    ///     ranges (:py:data:`omfiles.types.BasicSelection`): Index expression that can be either a single slice/integer
-    ///         or a tuple of slices/integers for multi-dimensional access.
-    ///         Supports NumPy basic indexing including Integers, Slices, Ellipsis, and None/newaxis.
+    ///     ranges (:py:data:`omfiles.types.BasicSelection`): Index expression to select data from the array.
+    ///         Supports basic numpy indexing.
     ///
     /// Returns:
-    ///     numpy.ndarray: NDArray containing the requested data with squeezed singleton dimensions.
-    ///         The data type of the array matches the data type stored in the file
-    ///         (int8, uint8, int16, uint16, int32, uint32, int64, uint64, float32, or float64).
+    ///     numpy.typing.NDArray[numpy.int8 | numpy.int16 | numpy.int32 | numpy.int64 | numpy.uint8 | numpy.uint16 | numpy.uint32 | numpy.uint64 | numpy.float32 | numpy.float64]: NDArray containing the requested data with squeezed singleton dimensions.
     ///
     /// Raises:
     ///     ValueError: If the requested ranges are invalid or if there's an error reading the data.
@@ -545,17 +557,17 @@ impl OmFileReader {
     fn read_scalar(&self) -> PyResult<PyObject> {
         self.with_reader(|reader| {
             Python::with_gil(|py| match reader.data_type() {
-                OmDataType::Int8 => self.read_scalar_value::<i8>(py),
-                OmDataType::Uint8 => self.read_scalar_value::<u8>(py),
-                OmDataType::Int16 => self.read_scalar_value::<i16>(py),
-                OmDataType::Uint16 => self.read_scalar_value::<u16>(py),
-                OmDataType::Int32 => self.read_scalar_value::<i32>(py),
-                OmDataType::Uint32 => self.read_scalar_value::<u32>(py),
-                OmDataType::Int64 => self.read_scalar_value::<i64>(py),
-                OmDataType::Uint64 => self.read_scalar_value::<u64>(py),
-                OmDataType::Float => self.read_scalar_value::<f32>(py),
-                OmDataType::Double => self.read_scalar_value::<f64>(py),
-                OmDataType::String => self.read_scalar_value::<String>(py),
+                OmDataType::Int8 => self.read_numeric_scalar::<i8>(py),
+                OmDataType::Uint8 => self.read_numeric_scalar::<u8>(py),
+                OmDataType::Int16 => self.read_numeric_scalar::<i16>(py),
+                OmDataType::Uint16 => self.read_numeric_scalar::<u16>(py),
+                OmDataType::Int32 => self.read_numeric_scalar::<i32>(py),
+                OmDataType::Uint32 => self.read_numeric_scalar::<u32>(py),
+                OmDataType::Int64 => self.read_numeric_scalar::<i64>(py),
+                OmDataType::Uint64 => self.read_numeric_scalar::<u64>(py),
+                OmDataType::Float => self.read_numeric_scalar::<f32>(py),
+                OmDataType::Double => self.read_numeric_scalar::<f64>(py),
+                OmDataType::String => self.read_string_scalar(py),
                 _ => Err(Self::only_scalars_error()),
             })
         })
