@@ -1,4 +1,5 @@
 import tempfile
+from types import NoneType
 
 import numpy as np
 import omfiles
@@ -73,7 +74,7 @@ def test_write_hierarchical_file(empty_temp_om_file):
     # Write attributes and get their variables
     meta1_var = writer.write_scalar(42.0, name="metadata1")
     meta2_var = writer.write_scalar(123, name="metadata2")
-    meta3_var = writer.write_scalar(3.14, name="metadata3")
+    meta3_var = writer.write_scalar("blub", name="metadata3")
 
     # Write child1 array with attribute children
     child1_var = writer.write_array(
@@ -115,16 +116,21 @@ def test_write_hierarchical_file(empty_temp_om_file):
     assert read_child2.dtype == np.float32
 
     # Verify metadata attributes
-    metadata_reader = reader._init_from_variable(child_metadata["root/child1/metadata1"])
-
-    metadata = metadata_reader.read_scalar()
+    metadata_reader0 = child1_reader.get_child_by_index(0)
+    metadata = metadata_reader0.read_scalar()
     assert metadata == 42.0
-    assert metadata_reader.dtype == np.float64
+    assert metadata_reader0.dtype == np.float64
+
+    metadata_reader2 = child1_reader.get_child_by_index(2)
+    metadata = metadata_reader2.read_scalar()
+    assert metadata == "blub"
+    assert metadata_reader2.dtype == str
 
     reader.close()
     child1_reader.close()
     child2_reader.close()
-    metadata_reader.close()
+    metadata_reader0.close()
+    metadata_reader2.close()
 
 
 @pytest.mark.asyncio
@@ -213,13 +219,16 @@ def test_child_traversal(temp_hierarchical_om_file):
     reader = omfiles.OmFileReader(temp_hierarchical_om_file)
 
     assert reader.num_children == 2
-    assert reader.dtype == np.void
+    assert reader.dtype == NoneType
     with pytest.raises(ValueError):
         _ = reader.compression_name
     with pytest.raises(ValueError):
         _ = reader.read_scalar()
     with pytest.raises(ValueError):
         _ = reader[:]
+    with pytest.raises(ValueError):
+        # only 0 and 1 are valid indices
+        _ = reader.get_child_by_index(2)
 
     with reader.get_child_by_index(0) as var1_reader:
         assert var1_reader.shape == (5, 5)

@@ -1,5 +1,5 @@
 use crate::{
-    array_index::ArrayIndex, compression::PyCompressionType, data_type::get_numpy_dtype,
+    array_index::ArrayIndex, compression::PyCompressionType, data_type::describe_dtype,
     errors::convert_omfilesrs_error, fsspec_backend::FsSpecBackend, hierarchy::OmVariable,
     typed_array::OmFileTypedArray,
 };
@@ -7,7 +7,7 @@ use delegate::delegate;
 use num_traits::Zero;
 use numpy::{
     ndarray::{self},
-    Element, PyArrayDescr,
+    Element,
 };
 use omfiles_rs::{
     reader::OmFileArray as OmFileArrayRs,
@@ -367,10 +367,10 @@ impl OmFileReader {
     /// Get the data type of the data stored in the .om file.
     ///
     /// Returns:
-    ///     numpy.dtype: Numpy data type of the data.
+    ///     Union[numpy.dtype, str]: Numpy data type of the data.
     #[getter]
-    fn dtype<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyArrayDescr>> {
-        self.with_reader(|reader| get_numpy_dtype(py, &reader.data_type()))
+    fn dtype<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        self.with_reader(|reader| describe_dtype(py, &reader.data_type()))
     }
 
     /// Get the name of the variable stored in the .om file.
@@ -412,9 +412,12 @@ impl OmFileReader {
     /// Returns:
     ///     OmFileReader: Child reader at the specified index if exists.
     fn get_child_by_index(&self, index: u32) -> PyResult<Self> {
-        self.with_reader(|reader| {
-            let child = reader.get_child(index).unwrap();
-            Self::from_reader(child)
+        self.with_reader(|reader| match reader.get_child(index) {
+            Some(child) => Self::from_reader(child),
+            None => Err(PyValueError::new_err(format!(
+                "Child at index {} does not exist",
+                index
+            ))),
         })
     }
 
@@ -423,9 +426,12 @@ impl OmFileReader {
     /// Returns:
     ///     OmFileReader: Child reader with the specified name if exists.
     fn get_child_by_name(&self, name: &str) -> PyResult<Self> {
-        self.with_reader(|reader| {
-            let child = reader.get_child_by_name(name).unwrap();
-            Self::from_reader(child)
+        self.with_reader(|reader| match reader.get_child_by_name(name) {
+            Some(child) => Self::from_reader(child),
+            None => Err(PyValueError::new_err(format!(
+                "Child with name '{}' does not exist",
+                name
+            ))),
         })
     }
 
