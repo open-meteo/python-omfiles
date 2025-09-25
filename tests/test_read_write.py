@@ -102,14 +102,14 @@ def test_write_hierarchical_file(empty_temp_om_file):
     child_metadata = reader._get_flat_variable_metadata()
 
     # Verify child1 data
-    child1_reader = reader._init_from_variable(child_metadata["root/child1"])
+    child1_reader = reader._init_from_variable(child_metadata["/root/child1"])
     read_child1 = child1_reader[:]
     np.testing.assert_array_almost_equal(read_child1, child1_data, decimal=4)
     assert read_child1.shape == (5, 5)
     assert read_child1.dtype == np.float32
 
     # Verify child2 data
-    child2_reader = reader._init_from_variable(child_metadata["root/child2"])
+    child2_reader = reader._init_from_variable(child_metadata["/root/child2"])
     read_child2 = child2_reader[:]
     np.testing.assert_array_almost_equal(read_child2, child2_data, decimal=4)
     assert read_child2.shape == (3, 3)
