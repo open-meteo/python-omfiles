@@ -367,7 +367,7 @@ impl OmFileReader {
     /// Get the data type of the data stored in the .om file.
     ///
     /// Returns:
-    ///     Union[numpy.dtype, str]: Numpy data type of the data.
+    ///     Union[numpy.dtype, type]: Data type of the data.
     #[getter]
     fn dtype<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         self.with_reader(|reader| describe_dtype(py, &reader.data_type()))
@@ -379,7 +379,7 @@ impl OmFileReader {
     ///     str: Name of the variable or an empty string if not available.
     #[getter]
     fn name(&self) -> PyResult<String> {
-        self.with_reader(|reader| Ok(reader.get_name().unwrap_or("".to_string())))
+        self.with_reader(|reader| Ok(reader.name().to_string()))
     }
 
     /// Get the compression type of the variable.
@@ -412,7 +412,7 @@ impl OmFileReader {
     /// Returns:
     ///     OmFileReader: Child reader at the specified index if exists.
     fn get_child_by_index(&self, index: u32) -> PyResult<Self> {
-        self.with_reader(|reader| match reader.get_child(index) {
+        self.with_reader(|reader| match reader.get_child_by_index(index) {
             Some(child) => Self::from_reader(child),
             None => Err(PyValueError::new_err(format!(
                 "Child at index {} does not exist",
