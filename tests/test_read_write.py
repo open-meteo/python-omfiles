@@ -1,5 +1,4 @@
 import tempfile
-from types import NoneType
 
 import numpy as np
 import omfiles
@@ -219,7 +218,7 @@ def test_child_traversal(temp_hierarchical_om_file):
     reader = omfiles.OmFileReader(temp_hierarchical_om_file)
 
     assert reader.num_children == 2
-    assert reader.dtype == NoneType
+    assert reader.dtype == type(None)
     with pytest.raises(ValueError):
         _ = reader.compression_name
     with pytest.raises(ValueError):
