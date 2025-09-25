@@ -56,11 +56,14 @@ class OmDataStore(AbstractDataStore):
         self.variables_store = self.root_variable._get_flat_variable_metadata()
 
     def get_variables(self):
-        return FrozenDict(self._get_datasets_for_variable(self.root_variable))
+        datasets = self._get_datasets(self.root_variable)
+        # Remove all leading slashes from keys
+        datasets_no_leading_slash = {(k.lstrip("/")): v for k, v in datasets.items()}
+        return FrozenDict(datasets_no_leading_slash)
 
     def get_attrs(self):
         # Global attributes are attributes directly under the root variable.
-        return FrozenDict(self._get_attributes_for_variable(self.root_variable, self.root_variable.name))
+        return FrozenDict(self._get_attributes_for_variable(self.root_variable, f"/{self.root_variable.name}"))
 
     def _get_attributes_for_variable(self, reader: OmFileReader, path: str):
         attrs = {}
@@ -72,7 +75,7 @@ class OmDataStore(AbstractDataStore):
         return attrs
 
     def _find_direct_children_in_store(self, path: str):
-        prefix = "" if path == "" or path is None else path + "/"
+        prefix = path + "/"
 
         return {
             key[len(prefix) :]: variable
@@ -82,6 +85,14 @@ class OmDataStore(AbstractDataStore):
 
     def _is_group(self, variable):
         return self.root_variable._init_from_variable(variable).is_group
+
+    def _get_known_arrays(self):
+        arrays = {}
+        for var_key, var in self.variables_store.items():
+            reader = self.root_variable._init_from_variable(var)
+            if reader.is_array:
+                arrays[var_key] = var
+        return arrays
 
     def _get_known_dimensions(self):
         """
@@ -108,41 +119,35 @@ class OmDataStore(AbstractDataStore):
 
         return dimensions
 
-    def _get_datasets_for_variable(self, reader: OmFileReader):
+    def _get_datasets(self, reader: OmFileReader):
         datasets = {}
-        direct_children = self._find_direct_children_in_store("")
 
-        for k, variable in direct_children.items():
+        for var_key, variable in self._get_known_arrays().items():
             child_reader = reader._init_from_variable(variable)
-            if not (child_reader.is_scalar or child_reader.is_group):
-                # This is an array variable
-                backend_array = OmBackendArray(reader=child_reader)
-                shape = backend_array.reader.shape
+            backend_array = OmBackendArray(reader=child_reader)
+            shape = backend_array.reader.shape
 
-                # Get attributes to check for dimension information
-                attrs = self._get_attributes_for_variable(child_reader, k)
-                attrs_for_var = {attr_k: attr_v for attr_k, attr_v in attrs.items() if attr_k != DIMENSION_KEY}
+            # Get attributes to check for dimension information
+            attrs = self._get_attributes_for_variable(child_reader, var_key)
+            attrs_for_var = {attr_k: attr_v for attr_k, attr_v in attrs.items() if attr_k != DIMENSION_KEY}
 
-                # Look for dimension names in the _ARRAY_DIMENSIONS attribute
-                if DIMENSION_KEY in attrs:
-                    dim_names = attrs[DIMENSION_KEY]
-                    if isinstance(dim_names, str):
-                        # Dimensions are stored as a comma-separated string, split them
-                        dim_names = dim_names.split(",")
-                else:
-                    # Default to generic dimension names if not specified
-                    dim_names = [f"dim{i}" for i in range(len(shape))]
+            # Look for dimension names in the _ARRAY_DIMENSIONS attribute
+            if DIMENSION_KEY in attrs:
+                dim_names = attrs[DIMENSION_KEY]
+                if isinstance(dim_names, str):
+                    # Dimensions are stored as a comma-separated string, split them
+                    dim_names = dim_names.split(",")
+            else:
+                # Default to generic dimension names if not specified
+                dim_names = [f"dim{i}" for i in range(len(shape))]
 
-                # Check if this variable is itself a dimension variable
-                variable_name = k.split("/")[-1]  # Get the actual name without parent path
+            # Check if this variable is itself a dimension variable
+            variable_name = var_key.split("/")[-1]
+            if len(shape) == 1 and variable_name in self._get_known_dimensions():
+                dim_names = [variable_name]
 
-                # If this variable is a 1D array and its name matches a dimension name, use its own name
-                if len(shape) == 1 and variable_name in self._get_known_dimensions():
-                    dim_names = [variable_name]
-
-                data = indexing.LazilyIndexedArray(backend_array)
-                datasets[k] = Variable(dims=dim_names, data=data, attrs=attrs_for_var, encoding=None, fastpath=True)
-
+            data = indexing.LazilyIndexedArray(backend_array)
+            datasets[var_key] = Variable(dims=dim_names, data=data, attrs=attrs_for_var, encoding=None, fastpath=True)
         return datasets
 
     def close(self):
