@@ -150,6 +150,11 @@ async def test_read_async(temp_om_file):
             ],
         )
 
+    # Test that not awaiting results before closing the reader is safe
+    with await omfiles.OmFileReaderAsync.from_path(temp_om_file) as reader_we_dont_await:
+        for _ in range(100):
+            data = reader_we_dont_await.read_array((...))
+
     reader = await omfiles.OmFileReaderAsync.from_path(temp_om_file)
     reader.close()
     # Test read_array with a closed reader
