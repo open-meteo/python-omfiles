@@ -32,28 +32,15 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-/// An OmFileReader class for reading .om files.
+/// An OmFileReader class for reading .om files synchronously.
 ///
-/// A reader object can have an arbitrary number of child readers, each representing
-/// a multidimensional variable or a scalar variable (an attribute). Thus, this class
-/// implements a tree-like structure for multi-dimensional data access.
+/// An OmFileReader object can represent a multidimensional array variable, a scalar variable (an attribute), or a group.
+/// An OmFileReader can have an arbitrary number of child readers, each representing a child node in a tree-hierarchy.
+/// Supports reading from local files via memory mapping or from remote files through fsspec compatibility.
 ///
 /// Variables in OM-Files do not have named dimensions! That means you have to know
 /// what the dimensions represent in advance or you need to explicitly encode them as
 /// some kind of attribute.
-///
-/// Most likely we will adopt the xarray convention which is implemented for zarr
-/// which requires multi-dimensional variables to have an attribute called
-/// _ARRAY_DIMENSIONS that contains a list of dimension names.
-/// These dimension names should be encoded somewhere in the .om file hierarchy
-/// as attributes.
-///
-/// Therefore, it might be useful to differentiate in some way between
-/// hdf5-like groups and datasets/n-dim arrays in an om-file.
-///
-/// Group: Can contain datasets/arrays, attributes, and other groups.
-/// Dataset: Data-array, might have associated attributes.
-/// Attribute: A named data value associated with a group or dataset.
 #[gen_stub_pyclass]
 #[pyclass(module = "omfiles.omfiles")]
 pub struct OmFileReader {

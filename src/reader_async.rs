@@ -27,10 +27,15 @@ use pyo3::{
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
 use std::{fs::File, ops::Range, sync::Arc};
 
-/// A reader for OM files with async access.
+/// An OmFileReaderAsync class for reading .om files asynchronously.
 ///
-/// Provides asynchronous access to multi-dimensional array data stored in OM files.
+/// An OmFileReaderAsync object can represent a multidimensional array variable, a scalar variable (an attribute), or a group.
+/// An OmFileReaderAsync can have an arbitrary number of child readers, each representing a child node in a tree-hierarchy.
 /// Supports reading from local files via memory mapping or from remote files through fsspec compatibility.
+///
+/// Variables in OM-Files do not have named dimensions! That means you have to know
+/// what the dimensions represent in advance or you need to explicitly encode them as
+/// some kind of attribute.
 #[gen_stub_pyclass]
 #[pyclass(module = "omfiles.omfiles")]
 pub struct OmFileReaderAsync {
