@@ -772,7 +772,7 @@ dependencies = [
 [[package]]
 name = "omfiles"
 version = "0.1.0"
-source = "git+https://github.com/open-meteo/rust-omfiles?rev=a52077cd82f1597cc84895ccc087cd18d6964dba#a52077cd82f1597cc84895ccc087cd18d6964dba"
+source = "git+https://github.com/open-meteo/rust-omfiles?rev=91c7a1bfc01c5394332eb1b9b9a035f61554bf07#91c7a1bfc01c5394332eb1b9b9a035f61554bf07"
 dependencies = [
  "async-executor",
  "async-lock",
