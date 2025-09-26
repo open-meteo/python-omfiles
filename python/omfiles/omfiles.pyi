@@ -495,9 +495,17 @@ class OmFileWriter:
 
         Args:
             file_path: Path where the .om file will be created
+        """
+    @staticmethod
+    def at_path(path: builtins.str) -> OmFileWriter:
+        r"""
+        Initialize an OmFileWriter to write to a file at the specified path.
 
-        Raises:
-        OSError: If the file cannot be created
+        Args:
+            path: Path where the .om file will be created
+
+        Returns:
+            OmFileWriter: A new writer instance
         """
     @staticmethod
     def from_fsspec(fs_obj: typing.Any, path: builtins.str) -> OmFileWriter:

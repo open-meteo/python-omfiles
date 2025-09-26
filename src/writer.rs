@@ -22,9 +22,9 @@ use std::{
     sync::{Mutex, PoisonError},
 };
 
+/// A Python wrapper for the Rust OmFileWriter implementation.
 #[gen_stub_pyclass]
 #[pyclass(module = "omfiles.omfiles")]
-/// A Python wrapper for the Rust OmFileWriter implementation.
 pub struct OmFileWriter {
     writer: Mutex<Option<OmFileWriterRs<WriterBackendImpl>>>,
 }
@@ -122,23 +122,31 @@ impl OmFileWriter {
 #[gen_stub_pymethods]
 #[pymethods]
 impl OmFileWriter {
-    #[new]
     /// Initialize an OmFileWriter.
     ///
     /// Args:
     ///     file_path: Path where the .om file will be created
-    ///
-    /// Raises:
-    /// OSError: If the file cannot be created
+    #[new]
     fn new(file_path: &str) -> PyResult<Self> {
-        let file_handle = WriterBackendImpl::File(File::create(file_path)?);
+        Self::at_path(file_path)
+    }
+
+    /// Initialize an OmFileWriter to write to a file at the specified path.
+    ///
+    /// Args:
+    ///     path: Path where the .om file will be created
+    ///
+    /// Returns:
+    ///     OmFileWriter: A new writer instance
+    #[staticmethod]
+    fn at_path(path: &str) -> PyResult<Self> {
+        let file_handle = WriterBackendImpl::File(File::create(path)?);
         let writer = OmFileWriterRs::new(file_handle, 8 * 1024);
         Ok(Self {
             writer: Mutex::new(Some(writer)),
         })
     }
 
-    #[staticmethod]
     /// Create an OmFileWriter from a fsspec filesystem object.
     ///
     /// Args:
@@ -147,6 +155,7 @@ impl OmFileWriter {
     ///
     /// Returns:
     ///     OmFileWriter: A new writer instance
+    #[staticmethod]
     fn from_fsspec(fs_obj: PyObject, path: String) -> PyResult<Self> {
         let fsspec_backend = WriterBackendImpl::FsSpec(FsSpecWriterBackend::new(fs_obj, path)?);
         let writer = OmFileWriterRs::new(fsspec_backend, 8 * 1024);
@@ -182,18 +191,14 @@ impl OmFileWriter {
         Ok(())
     }
 
-    #[getter]
     /// Check if the writer is closed.
+    #[getter]
     fn closed(&self) -> PyResult<bool> {
         let guard = self.writer.lock().map_err(|e| Self::lock_error(e))?;
 
         Ok(guard.is_none())
     }
 
-    #[pyo3(
-            text_signature = "(data, chunks, scale_factor=1.0, add_offset=0.0, compression='pfor_delta_2d', name='data', children=[])",
-            signature = (data, chunks, scale_factor=None, add_offset=None, compression=None, name=None, children=None)
-        )]
     /// Write a numpy array to the .om file with specified chunking and scaling parameters.
     ///
     /// ``scale_factor`` and ``add_offset`` are only respected and required for float32
@@ -218,6 +223,10 @@ impl OmFileWriter {
     ///
     /// Raises:
     ///     ValueError: If the data type is unsupported or if parameters are invalid
+    #[pyo3(
+        text_signature = "(data, chunks, scale_factor=1.0, add_offset=0.0, compression='pfor_delta_2d', name='data', children=[])",
+        signature = (data, chunks, scale_factor=None, add_offset=None, compression=None, name=None, children=None)
+    )]
     fn write_array(
         &mut self,
         data: &Bound<'_, PyUntypedArray>,
@@ -293,10 +302,6 @@ impl OmFileWriter {
         })
     }
 
-    #[pyo3(
-        text_signature = "(value, name, children=None)",
-        signature = (value, name, children=None)
-    )]
     /// Write a scalar value to the .om file.
     ///
     /// Args:
@@ -311,6 +316,10 @@ impl OmFileWriter {
     /// Raises:
     ///     ValueError: If the value type is unsupported (e.g., booleans)
     ///     RuntimeError: If there's an error writing to the file
+    #[pyo3(
+        text_signature = "(value, name, children=None)",
+        signature = (value, name, children=None)
+    )]
     fn write_scalar(
         &mut self,
         value: &Bound<PyAny>,
