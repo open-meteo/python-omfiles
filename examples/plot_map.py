@@ -8,7 +8,6 @@
 #     "s3fs",
 #     "matplotlib",
 #     "cartopy",
-#     "numpy",
 # ]
 # ///
 
