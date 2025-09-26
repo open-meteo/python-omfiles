@@ -16,6 +16,7 @@ omfiles
 .. automodule:: omfiles
     :members:
     :undoc-members:
+    :special-members:
     :show-inheritance:
 
 omfiles.types
