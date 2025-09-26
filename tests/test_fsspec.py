@@ -39,29 +39,29 @@ def s3_spatial_test_file():
 
 @pytest.fixture
 def s3_backend():
-    return S3FileSystem(anon=True, default_block_size=256, default_cache_type="none")
+    return S3FileSystem(anon=True, default_block_size=65536, default_cache_type="none")
 
 
 @pytest.fixture
 def s3_backend_with_cache():
-    s3_fs = S3FileSystem(anon=True, default_block_size=256, default_cache_type="none")
+    s3_fs = S3FileSystem(anon=True, default_block_size=65536, default_cache_type="none")
     from fsspec.implementations.cached import CachingFileSystem
 
     return CachingFileSystem(
-        fs=s3_fs, cache_check=3600, block_size=256, cache_storage="cache", check_files=False, same_names=True
+        fs=s3_fs, cache_check=3600, block_size=65536, cache_storage="cache", check_files=False, same_names=True
     )
 
 
 @pytest.fixture
 async def s3_backend_async():
-    return S3FileSystem(anon=True, asynchronous=True, default_block_size=256, default_cache_type="none")
+    return S3FileSystem(anon=True, asynchronous=True, default_block_size=65536, default_cache_type="none")
 
 
 def s3_url_as_cached_fs(s3_path, cache_storage: str = "cache", same_names: bool = True, block_size: int = 65536):
     backend = fsspec.open(
         f"blockcache::s3://{s3_path}",
         mode="rb",
-        s3={"anon": True, "default_block_size": block_size},
+        s3={"anon": True, "default_block_size": block_size, "asynchronous": True},
         blockcache={"cache_storage": cache_storage, "same_names": same_names},
     )
     return backend
@@ -96,11 +96,12 @@ def test_local_read(local_fs, temp_om_file):
     np.testing.assert_array_equal(data, np.arange(25).reshape(5, 5))
 
 
-def test_s3_read(s3_backend, s3_test_file):
-    reader = omfiles.OmFileReader.from_fsspec(s3_backend, s3_test_file)
-    data = reader[57812:60000, 0:100]
-    expected = [18.0, 17.7, 17.65, 17.45, 17.15, 17.6, 18.7, 20.75, 21.7, 22.65]
-    np.testing.assert_array_almost_equal(data[0, :10], expected)
+# Test is slow, because no caching is used.
+# def test_s3_read(s3_backend, s3_test_file):
+#     reader = omfiles.OmFileReader.from_fsspec(s3_backend, s3_test_file)
+#     data = reader[57812:60000, 0:100]
+#     expected = [18.0, 17.7, 17.65, 17.45, 17.15, 17.6, 18.7, 20.75, 21.7, 22.65]
+#     np.testing.assert_array_almost_equal(data[0, :10], expected)
 
 
 def test_s3_read_with_cache(s3_backend_with_cache, s3_test_file):
@@ -110,8 +111,10 @@ def test_s3_read_with_cache(s3_backend_with_cache, s3_test_file):
     np.testing.assert_array_almost_equal(data[0, :10], expected)
 
 
+# This test is slow, because currently async caching is not supported in fsspec
+# https://github.com/fsspec/filesystem_spec/issues/1772
 @pytest.mark.asyncio
-async def test_s3_concurrent_read(s3_backend_async, s3_test_file):
+async def test_s3_read_async(s3_backend_async, s3_test_file):
     reader = await omfiles.OmFileReaderAsync.from_fsspec(s3_backend_async, s3_test_file)
     data = await reader.read_array((slice(57812, 60000), slice(0, 100)))
     expected = [18.0, 17.7, 17.65, 17.45, 17.15, 17.6, 18.7, 20.75, 21.7, 22.65]
