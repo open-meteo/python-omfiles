@@ -32,17 +32,20 @@ all = [
 
 [dependency-groups]
 documentation = [
-    "sphinx>=7.4.7",
-    "sphinx-autodoc-typehints>=2.3.0",
+    "sphinx>=8.2.0",
+    "sphinx-autodoc-typehints>=3.2.0",
     "sphinx-rtd-theme>=3.0.2",
 ]
-dev = [
+test = [
     "pytest>=6.1",
     "pytest-asyncio",
     "psutil",
-    "maturin>=1.7,<2.0",
-    {include-group = "documentation"},
     "omfiles[all]",
+]
+dev = [
+    "maturin>=1.7,<2.0",
+    {include-group = "test"},
+    {include-group = "documentation"},
 ]
 
 [tool.maturin]
@@ -55,6 +58,9 @@ features = ["pyo3/extension-module"] # Define extension module in pyproject.toml
 cache-keys = [{file = "pyproject.toml"}, {file = "rust/Cargo.toml"}, {file = "**/*.rs"}]
 # Uncomment to build rust code in development mode
 # config-settings = { build-args = '--profile=dev' }
+
+[tool.uv.dependency-groups]
+documentation = {requires-python = ">=3.11"}
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
@@ -76,6 +82,7 @@ ignore = [
 ]
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["D"]  # Ignore all docstring errors in tests/
+"examples/*" = ["D"]  # Ignore all docstring errors in examples/
 
 [project.entry-points."xarray.backends"]
 om = "omfiles.xarray:OmXarrayEntrypoint"

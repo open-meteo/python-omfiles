@@ -46,11 +46,25 @@ class OmFileReader:
     def shape(self) -> tuple:
         r"""
         The shape of the variable.
+
+        Returns:
+            tuple[int, …]: The shape of the variable as a tuple.
         """
     @property
     def chunks(self) -> tuple:
         r"""
         The chunk shape of the variable.
+
+        Returns:
+            tuple[int, …]: The chunk shape of the variable as a tuple.
+        """
+    @property
+    def is_array(self) -> builtins.bool:
+        r"""
+        Check if the variable is an array.
+
+        Returns:
+            bool: True if the variable is an array, False otherwise.
         """
     @property
     def is_scalar(self) -> builtins.bool:
@@ -69,12 +83,12 @@ class OmFileReader:
             bool: True if the variable is a group, False otherwise.
         """
     @property
-    def dtype(self) -> numpy.dtype:
+    def dtype(self) -> typing.Any:
         r"""
         Get the data type of the data stored in the .om file.
 
         Returns:
-            numpy.dtype: Numpy data type of the data.
+            numpy.dtype | type: Data type of the data.
         """
     @property
     def name(self) -> builtins.str:
@@ -85,9 +99,20 @@ class OmFileReader:
             str: Name of the variable or an empty string if not available.
         """
     @property
-    def compression(self) -> builtins.str:
+    def compression_name(self) -> builtins.str:
         r"""
         Get the compression type of the variable.
+
+        Returns:
+            str: Compression type of the variable.
+        """
+    @property
+    def num_children(self) -> builtins.int:
+        r"""
+        Number of children of the variable.
+
+        Returns:
+            int: Number of children of the variable.
         """
     def __new__(cls, source: typing.Any) -> OmFileReader:
         r"""
@@ -122,14 +147,14 @@ class OmFileReader:
         Returns:
             OmFileReader: A new reader instance.
         """
-    def get_flat_variable_metadata(self) -> builtins.dict[builtins.str, OmVariable]:
+    def _get_flat_variable_metadata(self) -> builtins.dict[builtins.str, OmVariable]:
         r"""
         Get a mapping of variable names to their file offsets and sizes.
 
         Returns:
             dict: Dictionary mapping variable names to their metadata.
         """
-    def init_from_variable(self, variable: OmVariable) -> OmFileReader:
+    def _init_from_variable(self, variable: OmVariable) -> OmFileReader:
         r"""
         Initialize a new OmFileReader from a child variable.
 
@@ -145,9 +170,6 @@ class OmFileReader:
 
         Returns:
             OmFileReader: Self for use in context manager.
-
-        Raises:
-            ValueError: If the reader is already closed.
         """
     def __exit__(
         self,
@@ -175,7 +197,21 @@ class OmFileReader:
 
         It is safe to call this method multiple times.
         """
-    def __getitem__(
+    def get_child_by_index(self, index: builtins.int) -> OmFileReader:
+        r"""
+        Get a child reader at the specified index.
+
+        Returns:
+            OmFileReader: Child reader at the specified index if exists.
+        """
+    def get_child_by_name(self, name: builtins.str) -> OmFileReader:
+        r"""
+        Get a child reader by name.
+
+        Returns:
+            OmFileReader: Child reader with the specified name if exists.
+        """
+    def read_array(
         self, ranges: omfiles.types.BasicSelection
     ) -> numpy.typing.NDArray[
         typing.Union[
@@ -201,25 +237,34 @@ class OmFileReader:
         be a 1D array since dimensions 0 and 2 have size 1.
 
         Args:
-            ranges (omfiles.types.BasicSelection): Index expression that can be either a single slice/integer
-                or a tuple of slices/integers for multi-dimensional access.
-                Supports NumPy basic indexing including:
-                    - Integers (e.g., a[1,2])
-                    - Slices (e.g., a[1:10])
-                    - Ellipsis (...)
-                    - None/newaxis
+            ranges (:py:data:`omfiles.types.BasicSelection`): Index expression to select data from the array.
+                Supports basic numpy indexing.
 
         Returns:
-            ndarray: NDArray containing the requested data with squeezed singleton dimensions.
-                The data type of the array matches the data type stored in the file
-                (int8, uint8, int16, uint16, int32, uint32, int64, uint64, float32, or float64).
+            numpy.typing.NDArray[numpy.int8 | numpy.int16 | numpy.int32 | numpy.int64 | numpy.uint8 | numpy.uint16 | numpy.uint32 | numpy.uint64 | numpy.float32 | numpy.float64]: NDArray containing the requested data with squeezed singleton dimensions.
 
         Raises:
             ValueError: If the requested ranges are invalid or if there's an error reading the data.
         """
-    def get_scalar(self) -> typing.Any:
+    def __getitem__(
+        self, ranges: omfiles.types.BasicSelection
+    ) -> numpy.typing.NDArray[
+        typing.Union[
+            numpy.float32,
+            numpy.float64,
+            numpy.int32,
+            numpy.int64,
+            numpy.uint32,
+            numpy.uint64,
+            numpy.int8,
+            numpy.uint8,
+            numpy.int16,
+            numpy.uint16,
+        ]
+    ]: ...
+    def read_scalar(self) -> typing.Any:
         r"""
-        Get the scalar value of the variable.
+        Read the scalar value of the variable.
 
         Returns:
             object: The scalar value as a Python object (str, int, or float).
@@ -236,12 +281,20 @@ class OmFileReaderAsync:
     Supports reading from local files via memory mapping or from remote files through fsspec compatibility.
     """
     @property
+    def closed(self) -> builtins.bool:
+        r"""
+        Check if the reader is closed.
+
+        Returns:
+            bool: True if the reader is closed, False otherwise.
+        """
+    @property
     def shape(self) -> tuple:
         r"""
         The shape of the variable.
 
         Returns:
-            tuple: The shape of the array.
+            tuple[int, …]: The shape of the variable as a tuple.
         """
     @property
     def chunks(self) -> tuple:
@@ -249,7 +302,63 @@ class OmFileReaderAsync:
         The chunk shape of the variable.
 
         Returns:
-            tuple: The chunk shape of the array.
+            tuple[int, …]: The chunk shape of the variable as a tuple.
+        """
+    @property
+    def is_array(self) -> builtins.bool:
+        r"""
+        Check if the variable is an array.
+
+        Returns:
+            bool: True if the variable is an array, False otherwise.
+        """
+    @property
+    def is_scalar(self) -> builtins.bool:
+        r"""
+        Check if the variable is a scalar.
+
+        Returns:
+            bool: True if the variable is a scalar, False otherwise.
+        """
+    @property
+    def is_group(self) -> builtins.bool:
+        r"""
+        Check if the variable is a group (a variable with data type None).
+
+        Returns:
+            bool: True if the variable is a group, False otherwise.
+        """
+    @property
+    def dtype(self) -> typing.Any:
+        r"""
+        Get the data type of the data stored in the .om file.
+
+        Returns:
+            numpy.dtype | type: Data type of the data.
+        """
+    @property
+    def name(self) -> builtins.str:
+        r"""
+        Get the name of the variable stored in the .om file.
+
+        Returns:
+            str: Name of the variable or an empty string if not available.
+        """
+    @property
+    def compression_name(self) -> builtins.str:
+        r"""
+        Get the compression type of the variable.
+
+        Returns:
+            str: Compression type of the variable.
+        """
+    @property
+    def num_children(self) -> builtins.int:
+        r"""
+        Number of children of the variable.
+
+        Returns:
+            int: Number of children of the variable.
         """
     @staticmethod
     async def from_fsspec(fs_obj: typing.Any, path: builtins.str) -> OmFileReaderAsync:
@@ -281,7 +390,57 @@ class OmFileReaderAsync:
         Raises:
             IOError: If the file cannot be opened or read.
         """
-    async def read_concurrent(
+    def __enter__(self) -> OmFileReaderAsync:
+        r"""
+        Enter a context manager block.
+
+        Returns:
+            OmFileReaderAsync: Self for use in context manager.
+        """
+    def __exit__(
+        self,
+        _exc_type: typing.Optional[typing.Any] = None,
+        _exc_value: typing.Optional[typing.Any] = None,
+        _traceback: typing.Optional[typing.Any] = None,
+    ) -> builtins.bool:
+        r"""
+        Exit a context manager block, closing the reader.
+
+        Args:
+            _exc_type (type, optional): The exception type, if an exception was raised.
+            _exc_value (Exception, optional): The exception value, if an exception was raised.
+            _traceback (traceback, optional): The traceback, if an exception was raised.
+
+        Returns:
+            bool: False (exceptions are not suppressed).
+        """
+    def close(self) -> None:
+        r"""
+        Close the reader and release any resources.
+
+        Properly closes the underlying file resources.
+
+        Returns:
+            None
+
+        Raises:
+            RuntimeError: If the reader cannot be closed due to concurrent access.
+        """
+    async def get_child_by_index(self, index: builtins.int) -> OmFileReaderAsync:
+        r"""
+        Get a child reader at the specified index.
+
+        Returns:
+            OmFileReaderAsync: Child reader at the specified index if exists.
+        """
+    async def get_child_by_name(self, name: builtins.str) -> OmFileReaderAsync:
+        r"""
+        Get a child reader by name.
+
+        Returns:
+            OmFileReaderAsync: Child reader with the specified name if exists.
+        """
+    async def read_array(
         self, ranges: omfiles.types.BasicSelection
     ) -> numpy.typing.NDArray[
         typing.Union[
@@ -301,7 +460,7 @@ class OmFileReaderAsync:
         Read data from the array concurrently based on specified ranges.
 
         Args:
-            ranges (omfiles.types.BasicSelection): Index or slice object specifying the ranges to read.
+            ranges (:py:data:`omfiles.types.BasicSelection`): Index or slice object specifying the ranges to read.
 
         Returns:
             OmFileTypedArray: Array data of the appropriate numpy type.
@@ -310,17 +469,15 @@ class OmFileReaderAsync:
             ValueError: If the reader is closed.
             TypeError: If the data type is not supported.
         """
-    def close(self) -> None:
+    def read_scalar(self) -> typing.Any:
         r"""
-        Close the reader and release any resources.
-
-        Properly closes the underlying file resources.
+        Read the scalar value of the variable.
 
         Returns:
-            None
+            object: The scalar value as a Python object (str, int, or float).
 
         Raises:
-            RuntimeError: If the reader cannot be closed due to concurrent access.
+            ValueError: If the variable is not a scalar.
         """
 
 class OmFileWriter:
@@ -338,9 +495,17 @@ class OmFileWriter:
 
         Args:
             file_path: Path where the .om file will be created
+        """
+    @staticmethod
+    def at_path(path: builtins.str) -> OmFileWriter:
+        r"""
+        Initialize an OmFileWriter to write to a file at the specified path.
 
-        Raises:
-        OSError: If the file cannot be created
+        Args:
+            path: Path where the .om file will be created
+
+        Returns:
+            OmFileWriter: A new writer instance
         """
     @staticmethod
     def from_fsspec(fs_obj: typing.Any, path: builtins.str) -> OmFileWriter:
@@ -359,7 +524,7 @@ class OmFileWriter:
         Finalize and close the .om file by writing the trailer with the root variable.
 
         Args:
-            root_variable: The OmVariable that serves as the root/entry point of the file hierarchy.
+            root_variable (:py:data:`omfiles.OmVariable`): The OmVariable that serves as the root/entry point of the file hierarchy.
                            All other variables should be accessible through this root variable.
 
         Returns:
@@ -382,6 +547,12 @@ class OmFileWriter:
         r"""
         Write a numpy array to the .om file with specified chunking and scaling parameters.
 
+        ``scale_factor`` and ``add_offset`` are only respected and required for float32
+        and float64 data types. Recommended compression is "pfor_delta_2d" as it achieves
+        best compression ratios (on spatio-temporally correlated data), but it will be lossy
+        when applied to floating-point data types because of the scale-offset encoding applied
+        to convert float values to integer values.
+
         Args:
             data: Input array to be written. Supported dtypes are:
                   float32, float64, int8, uint8, int16, uint16, int32, uint32, int64, uint64,
@@ -394,7 +565,7 @@ class OmFileWriter:
             children: List of child variables (default: [])
 
         Returns:
-            OmVariable representing the written group in the file structure
+            :py:data:`omfiles.OmVariable` representing the written group in the file structure
 
         Raises:
             ValueError: If the data type is unsupported or if parameters are invalid
@@ -412,7 +583,7 @@ class OmFileWriter:
             children: List of child variables (default: None)
 
         Returns:
-            OmVariable representing the written scalar in the file structure
+            :py:data:`omfiles.OmVariable` representing the written scalar in the file structure
 
         Raises:
             ValueError: If the value type is unsupported (e.g., booleans)
@@ -429,7 +600,7 @@ class OmFileWriter:
             children: List of child variables
 
         Returns:
-            OmVariable representing the written group in the file structure
+            :py:data:`omfiles.OmVariable` representing the written group in the file structure
 
         Raises:
             RuntimeError: If there's an error writing to the file

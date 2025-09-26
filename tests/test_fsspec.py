@@ -2,6 +2,7 @@ import os
 import tempfile
 import threading
 
+import fsspec
 import numpy as np
 import numpy.typing as npt
 import omfiles
@@ -32,23 +33,28 @@ def s3_test_file():
 
 
 @pytest.fixture
+def s3_spatial_test_file():
+    return "openmeteo/data_spatial/dwd_icon/2025/09/23/0000Z/2025-09-30T0000.om"
+
+
+@pytest.fixture
 def s3_backend():
-    return S3FileSystem(anon=True, default_block_size=256, default_cache_type="none")
+    return S3FileSystem(anon=True, default_block_size=65536, default_cache_type="none")
 
 
 @pytest.fixture
 def s3_backend_with_cache():
-    s3_fs = S3FileSystem(anon=True, default_block_size=256, default_cache_type="none")
+    s3_fs = S3FileSystem(anon=True, default_block_size=65536, default_cache_type="none")
     from fsspec.implementations.cached import CachingFileSystem
 
     return CachingFileSystem(
-        fs=s3_fs, cache_check=3600, block_size=256, cache_storage="cache", check_files=False, same_names=True
+        fs=s3_fs, cache_check=3600, block_size=65536, cache_storage="cache", check_files=False, same_names=True
     )
 
 
 @pytest.fixture
 async def s3_backend_async():
-    return S3FileSystem(anon=True, asynchronous=True, default_block_size=256, default_cache_type="none")
+    return S3FileSystem(anon=True, asynchronous=True, default_block_size=65536, default_cache_type="none")
 
 
 # --- Helpers ---
@@ -80,11 +86,12 @@ def test_local_read(local_fs, temp_om_file):
     np.testing.assert_array_equal(data, np.arange(25).reshape(5, 5))
 
 
-def test_s3_read(s3_backend, s3_test_file):
-    reader = omfiles.OmFileReader.from_fsspec(s3_backend, s3_test_file)
-    data = reader[57812:60000, 0:100]
-    expected = [18.0, 17.7, 17.65, 17.45, 17.15, 17.6, 18.7, 20.75, 21.7, 22.65]
-    np.testing.assert_array_almost_equal(data[0, :10], expected)
+# Test is slow, because no caching is used.
+# def test_s3_read(s3_backend, s3_test_file):
+#     reader = omfiles.OmFileReader.from_fsspec(s3_backend, s3_test_file)
+#     data = reader[57812:60000, 0:100]
+#     expected = [18.0, 17.7, 17.65, 17.45, 17.15, 17.6, 18.7, 20.75, 21.7, 22.65]
+#     np.testing.assert_array_almost_equal(data[0, :10], expected)
 
 
 def test_s3_read_with_cache(s3_backend_with_cache, s3_test_file):
@@ -94,19 +101,40 @@ def test_s3_read_with_cache(s3_backend_with_cache, s3_test_file):
     np.testing.assert_array_almost_equal(data[0, :10], expected)
 
 
+# This test is slow, because currently async caching is not supported in fsspec
+# https://github.com/fsspec/filesystem_spec/issues/1772
 @pytest.mark.asyncio
-async def test_s3_concurrent_read(s3_backend_async, s3_test_file):
+async def test_s3_read_async(s3_backend_async, s3_test_file):
     reader = await omfiles.OmFileReaderAsync.from_fsspec(s3_backend_async, s3_test_file)
-    data = await reader.read_concurrent((slice(57812, 60000), slice(0, 100)))
+    data = await reader.read_array((slice(57812, 60000), slice(0, 100)))
     expected = [18.0, 17.7, 17.65, 17.45, 17.15, 17.6, 18.7, 20.75, 21.7, 22.65]
     np.testing.assert_array_almost_equal(data[0, :10], expected)
 
 
 @filter_numpy_size_warning
-@pytest.mark.xfail(reason="Om Files on S3 currently have no names assigned for the variables")
-def test_s3_xarray(s3_backend_with_cache):
-    ds = xr.open_dataset(s3_backend_with_cache, engine="om")
+def test_s3_xarray(s3_spatial_test_file):
+    # The way described in the xarray documentation does not really use the caching mechanism
+    # https://tutorial.xarray.dev/intermediate/remote_data/remote-data.html#reading-data-from-cloud-storage
+    # fs = fsspec.filesystem("s3", anon=True)
+    # fsspec_caching = {
+    #     "cache_type": "blockcache",  # block cache stores blocks of fixed size and uses eviction using a LRU strategy.
+    #     "block_size": 8
+    #     * 1024
+    #     * 1024,  # size in bytes per block, adjust depends on the file size but the recommended size is in the MB
+    # }
+    # backend = fs.open(s3_spatial_test_file, **fsspec_caching)
+
+    backend = fsspec.open(
+        f"blockcache::s3://{s3_spatial_test_file}",
+        mode="rb",
+        s3={"anon": True, "default_block_size": 65536},
+        blockcache={"cache_storage": "cache", "same_names": True},
+    )
+
+    ds = xr.open_dataset(backend, engine="om")  # type: ignore
+    # ds = xr.open_dataset(backend, engine="om")
     assert any(ds.variables.keys())
+    np.testing.assert_array_almost_equal(ds["wind_gusts_10m"][100, 200].values, np.array([3.8]))
 
 
 def test_fsspec_reader_close(local_fs, temp_om_file):

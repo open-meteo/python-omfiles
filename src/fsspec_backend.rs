@@ -1,7 +1,5 @@
-use omfiles_rs::backend::backends::{
-    OmFileReaderBackend, OmFileReaderBackendAsync, OmFileWriterBackend,
-};
-use omfiles_rs::errors::OmFilesRsError;
+use omfiles_rs::traits::{OmFileReaderBackend, OmFileReaderBackendAsync, OmFileWriterBackend};
+use omfiles_rs::OmFilesError;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 use pyo3::Python;
@@ -50,7 +48,7 @@ impl OmFileReaderBackendAsync for AsyncFsSpecBackend {
     // This function calls an async read_bytes method on the Python file object
     // and transforms it into a future that can be awaited
     // This allows us to execute multiple asynchronous operations concurrently
-    async fn get_bytes_async(&self, offset: u64, count: u64) -> Result<Vec<u8>, OmFilesRsError> {
+    async fn get_bytes_async(&self, offset: u64, count: u64) -> Result<Vec<u8>, OmFilesError> {
         let fut = Python::with_gil(|py| {
             let bound_fs = self.fs.bind(py);
             // We only use named parameters here, because positional arguments can
@@ -62,14 +60,14 @@ impl OmFileReaderBackendAsync for AsyncFsSpecBackend {
             let coroutine = bound_fs.call_method("_cat_file", (), Some(&kwargs))?;
             into_future(coroutine)
         })
-        .map_err(|e| OmFilesRsError::DecoderError(format!("Python I/O error {}", e)))?;
+        .map_err(|e| OmFilesError::DecoderError(format!("Python I/O error {}", e)))?;
 
         let bytes_obj = fut
             .await
-            .map_err(|e| OmFilesRsError::DecoderError(format!("Python I/O error {}", e)))?;
+            .map_err(|e| OmFilesError::DecoderError(format!("Python I/O error {}", e)))?;
 
         let bytes = Python::with_gil(|py| bytes_obj.extract::<Vec<u8>>(py))
-            .map_err(|e| OmFilesRsError::DecoderError(format!("Python I/O error: {}", e)));
+            .map_err(|e| OmFilesError::DecoderError(format!("Python I/O error: {}", e)));
         bytes
     }
 }
@@ -103,32 +101,22 @@ impl FsSpecBackend {
 }
 
 impl OmFileReaderBackend for FsSpecBackend {
+    type Bytes<'a> = Vec<u8>;
+
     fn count(&self) -> usize {
         self.file_size as usize
-    }
-
-    fn needs_prefetch(&self) -> bool {
-        false
     }
 
     fn prefetch_data(&self, _offset: usize, _count: usize) {
         // No-op for now
     }
 
-    fn pre_read(
-        &self,
-        _offset: usize,
-        _count: usize,
-    ) -> Result<(), omfiles_rs::errors::OmFilesRsError> {
-        Ok(())
-    }
-
     /// This is a blocking operation that reads bytes from the file!
-    fn get_bytes_owned(
+    fn get_bytes(
         &self,
         offset: u64,
         count: u64,
-    ) -> Result<Vec<u8>, omfiles_rs::errors::OmFilesRsError> {
+    ) -> Result<Self::Bytes<'_>, omfiles_rs::OmFilesError> {
         let bytes = Python::with_gil(|py| {
             let bound_fs = self.fs.bind(py);
             // We only use named parameters here, because positional arguments can
@@ -141,7 +129,7 @@ impl OmFileReaderBackend for FsSpecBackend {
                 .call_method("cat_file", (), Some(&kwargs))?
                 .extract::<Vec<u8>>()
         })
-        .map_err(|e| OmFilesRsError::DecoderError(format!("Python I/O error {}", e)))?;
+        .map_err(|e| OmFilesError::DecoderError(format!("Python I/O error {}", e)))?;
         Ok(bytes)
     }
 }
@@ -165,7 +153,7 @@ impl FsSpecWriterBackend {
 }
 
 impl OmFileWriterBackend for FsSpecWriterBackend {
-    fn write(&mut self, data: &[u8]) -> Result<(), OmFilesRsError> {
+    fn write(&mut self, data: &[u8]) -> Result<(), OmFilesError> {
         Python::with_gil(|py| {
             let bound_file = self.open_fs.bind(py);
             let py_bytes = pyo3::types::PyBytes::new(py, data);
@@ -175,11 +163,11 @@ impl OmFileWriterBackend for FsSpecWriterBackend {
             Ok(())
         })
         .map_err(|e: pyo3::PyErr| {
-            OmFilesRsError::DecoderError(format!("Failed to write to fsspec backend: {}", e))
+            OmFilesError::DecoderError(format!("Failed to write to fsspec backend: {}", e))
         })
     }
 
-    fn synchronize(&self) -> Result<(), OmFilesRsError> {
+    fn synchronize(&self) -> Result<(), OmFilesError> {
         // Fsspec operations are typically synchronized upon completion of the write call.
         // If a specific fs has an explicit sync method, it would be called here.
         // For many backends, calling `flush` on an opened file handle might be equivalent.
@@ -211,7 +199,7 @@ mod tests {
             let backend = FsSpecBackend::new(fs.into(), file_path)?;
             assert_eq!(backend.file_size, 144);
 
-            let bytes = backend.get_bytes_owned(0, 44)?;
+            let bytes = backend.get_bytes(0, 44)?;
             assert_eq!(
                 &bytes,
                 &[
@@ -248,7 +236,7 @@ mod tests {
             // Read back using the FsSpecBackend for reading
             let fs = memory_module.call_method0("MemoryFileSystem")?;
             let read_backend = FsSpecBackend::new(fs.into(), "test_file.om".to_string())?;
-            let bytes = read_backend.get_bytes_owned(0, 44)?;
+            let bytes = read_backend.get_bytes(0, 44)?;
             assert_eq!(
                 &bytes,
                 &[

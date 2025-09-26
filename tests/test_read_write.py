@@ -73,7 +73,7 @@ def test_write_hierarchical_file(empty_temp_om_file):
     # Write attributes and get their variables
     meta1_var = writer.write_scalar(42.0, name="metadata1")
     meta2_var = writer.write_scalar(123, name="metadata2")
-    meta3_var = writer.write_scalar(3.14, name="metadata3")
+    meta3_var = writer.write_scalar("blub", name="metadata3")
 
     # Write child1 array with attribute children
     child1_var = writer.write_array(
@@ -98,59 +98,68 @@ def test_write_hierarchical_file(empty_temp_om_file):
     assert read_root.dtype == np.float32
 
     # Get child readers
-    child_metadata = reader.get_flat_variable_metadata()
+    child_metadata = reader._get_flat_variable_metadata()
 
     # Verify child1 data
-    child1_reader = reader.init_from_variable(child_metadata["root/child1"])
+    child1_reader = reader._init_from_variable(child_metadata["/root/child1"])
     read_child1 = child1_reader[:]
     np.testing.assert_array_almost_equal(read_child1, child1_data, decimal=4)
     assert read_child1.shape == (5, 5)
     assert read_child1.dtype == np.float32
 
     # Verify child2 data
-    child2_reader = reader.init_from_variable(child_metadata["root/child2"])
+    child2_reader = reader._init_from_variable(child_metadata["/root/child2"])
     read_child2 = child2_reader[:]
     np.testing.assert_array_almost_equal(read_child2, child2_data, decimal=4)
     assert read_child2.shape == (3, 3)
     assert read_child2.dtype == np.float32
 
     # Verify metadata attributes
-    metadata_reader = reader.init_from_variable(child_metadata["root/child1/metadata1"])
-
-    metadata = metadata_reader.get_scalar()
+    metadata_reader0 = child1_reader.get_child_by_index(0)
+    metadata = metadata_reader0.read_scalar()
     assert metadata == 42.0
-    assert metadata_reader.dtype == np.float64
+    assert metadata_reader0.dtype == np.float64
+
+    metadata_reader2 = child1_reader.get_child_by_index(2)
+    metadata = metadata_reader2.read_scalar()
+    assert metadata == "blub"
+    assert metadata_reader2.dtype == str
 
     reader.close()
     child1_reader.close()
     child2_reader.close()
-    metadata_reader.close()
+    metadata_reader0.close()
+    metadata_reader2.close()
 
 
 @pytest.mark.asyncio
-async def test_read_concurrent(temp_om_file):
-    """Test the concurrent reading functionality of OmFileReader."""
+async def test_read_async(temp_om_file):
+    with await omfiles.OmFileReaderAsync.from_path(temp_om_file) as reader:
+        # Test basic async read
+        data = await reader.read_array((slice(0, 5), ...))
+        assert data.shape == (5, 5)
+        assert data.dtype == np.float32
+        np.testing.assert_array_equal(
+            data,
+            [
+                [0.0, 1.0, 2.0, 3.0, 4.0],
+                [5.0, 6.0, 7.0, 8.0, 9.0],
+                [10.0, 11.0, 12.0, 13.0, 14.0],
+                [15.0, 16.0, 17.0, 18.0, 19.0],
+                [20.0, 21.0, 22.0, 23.0, 24.0],
+            ],
+        )
+
+    # Test that not awaiting results before closing the reader is safe
+    with await omfiles.OmFileReaderAsync.from_path(temp_om_file) as reader_we_dont_await:
+        for _ in range(100):
+            data = reader_we_dont_await.read_array((...))
+
     reader = await omfiles.OmFileReaderAsync.from_path(temp_om_file)
-
-    # Test basic concurrent read
-    data = await reader.read_concurrent((slice(0, 5), ...))
-    assert data.shape == (5, 5)
-    assert data.dtype == np.float32
-    np.testing.assert_array_equal(
-        data,
-        [
-            [0.0, 1.0, 2.0, 3.0, 4.0],
-            [5.0, 6.0, 7.0, 8.0, 9.0],
-            [10.0, 11.0, 12.0, 13.0, 14.0],
-            [15.0, 16.0, 17.0, 18.0, 19.0],
-            [20.0, 21.0, 22.0, 23.0, 24.0],
-        ],
-    )
-
     reader.close()
-    # Test read_concurrent with a closed reader
+    # Test read_array with a closed reader
     try:
-        _ = await reader.read_concurrent((slice(0, 5), ...))
+        _ = await reader.read_array((slice(0, 5), ...))
         assert False, "Expected ValueError when reading from closed reader"
     except ValueError as e:
         assert "closed" in str(e).lower()
@@ -187,7 +196,7 @@ def test_reader_close(temp_om_file):
         assert "closed" in str(e).lower()
 
     try:
-        _ = reader.get_flat_variable_metadata()
+        _ = reader._get_flat_variable_metadata()
         assert False, "Expecting an error when calling methods on a closed reader"
     except ValueError as e:
         assert "closed" in str(e).lower()
@@ -207,3 +216,33 @@ def test_reader_close(temp_om_file):
             [20.0, 21.0, 22.0, 23.0, 24.0],
         ],
     )
+
+
+def test_child_traversal(temp_hierarchical_om_file):
+    reader = omfiles.OmFileReader(temp_hierarchical_om_file)
+
+    assert reader.num_children == 2
+    assert reader.dtype == type(None)
+    with pytest.raises(ValueError):
+        _ = reader.compression_name
+    with pytest.raises(ValueError):
+        _ = reader.read_scalar()
+    with pytest.raises(ValueError):
+        _ = reader[:]
+    with pytest.raises(ValueError):
+        # only 0 and 1 are valid indices
+        _ = reader.get_child_by_index(2)
+
+    with reader.get_child_by_index(0) as var1_reader:
+        assert var1_reader.shape == (5, 5)
+        assert var1_reader.name == "variable1"
+        assert var1_reader.compression_name == "pfor_delta_2d"
+        assert var1_reader.dtype == np.float32
+
+    var2_reader = reader.get_child_by_index(1)
+    # verify that closing reader is safe for var2_reader
+    reader.close()
+    assert var2_reader.shape == (50, 5)
+    assert var2_reader.name == "variable2"
+    assert var2_reader.dtype == np.int64
+    np.testing.assert_array_equal(var2_reader[:], np.arange(50 * 5).reshape(50, 5) * 2)
