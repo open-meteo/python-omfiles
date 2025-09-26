@@ -14,7 +14,6 @@ mod test_utils;
 mod typed_array;
 mod writer;
 
-/// A Python module implemented in Rust.
 #[pymodule(gil_used = false)]
 fn omfiles<'py>(m: &Bound<'py, PyModule>) -> PyResult<()> {
     m.add_class::<reader::OmFileReader>()?;

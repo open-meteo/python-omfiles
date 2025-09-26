@@ -2,6 +2,7 @@ import os
 import tempfile
 import threading
 
+import fsspec
 import numpy as np
 import numpy.typing as npt
 import omfiles
@@ -32,6 +33,11 @@ def s3_test_file():
 
 
 @pytest.fixture
+def s3_spatial_test_file():
+    return "openmeteo/data_spatial/dwd_icon/2025/09/23/0000Z/2025-09-30T0000.om"
+
+
+@pytest.fixture
 def s3_backend():
     return S3FileSystem(anon=True, default_block_size=256, default_cache_type="none")
 
@@ -49,6 +55,16 @@ def s3_backend_with_cache():
 @pytest.fixture
 async def s3_backend_async():
     return S3FileSystem(anon=True, asynchronous=True, default_block_size=256, default_cache_type="none")
+
+
+def s3_url_as_cached_fs(s3_path, cache_storage: str = "cache", same_names: bool = True, block_size: int = 65536):
+    backend = fsspec.open(
+        f"blockcache::s3://{s3_path}",
+        mode="rb",
+        s3={"anon": True, "default_block_size": block_size},
+        blockcache={"cache_storage": cache_storage, "same_names": same_names},
+    )
+    return backend
 
 
 # --- Helpers ---
@@ -103,10 +119,12 @@ async def test_s3_concurrent_read(s3_backend_async, s3_test_file):
 
 
 @filter_numpy_size_warning
-@pytest.mark.xfail(reason="Om Files on S3 currently have no names assigned for the variables")
-def test_s3_xarray(s3_backend_with_cache):
-    ds = xr.open_dataset(s3_backend_with_cache, engine="om")
+def test_s3_xarray(s3_spatial_test_file):
+    backend = s3_url_as_cached_fs(s3_spatial_test_file)
+
+    ds = xr.open_dataset(backend, engine="om")
     assert any(ds.variables.keys())
+    np.testing.assert_array_almost_equal(ds["wind_gusts_10m"][100, 200].values, np.array([3.8]))
 
 
 def test_fsspec_reader_close(local_fs, temp_om_file):
