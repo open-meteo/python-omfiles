@@ -61,7 +61,7 @@ def s3_url_as_cached_fs(s3_path, cache_storage: str = "cache", same_names: bool 
     backend = fsspec.open(
         f"blockcache::s3://{s3_path}",
         mode="rb",
-        s3={"anon": True, "default_block_size": block_size, "asynchronous": True},
+        s3={"anon": True, "default_block_size": block_size},
         blockcache={"cache_storage": cache_storage, "same_names": same_names},
     )
     return backend
