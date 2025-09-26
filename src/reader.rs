@@ -10,13 +10,12 @@ use numpy::{
     Element, PyArray0,
 };
 use omfiles_rs::{
-    reader::OmFileArray as OmFileArrayRs,
-    reader::OmFileReader as OmFileReaderRs,
+    reader::{OmFileArray as OmFileArrayRs, OmFileReader as OmFileReaderRs},
     traits::{
         OmArrayVariable, OmFileArrayDataType, OmFileReadable, OmFileReaderBackend,
-        OmFileScalarDataType, OmFileVariable, OmScalarVariable,
+        OmFileScalarDataType, OmFileVariable, OmFileVariableMetadataTree, OmScalarVariable,
     },
-    OmDataType, OmFilesError, {FileAccessMode, MmapFile},
+    FileAccessMode, MmapFile, OmDataType, OmFilesError,
 };
 use pyo3::{
     exceptions::{PyRuntimeError, PyValueError},
@@ -224,7 +223,7 @@ impl OmFileReader {
     ///     dict: Dictionary mapping variable names to their metadata.
     fn _get_flat_variable_metadata(&self) -> PyResult<HashMap<String, OmVariable>> {
         self.with_reader(|reader| {
-            let metadata = reader.get_flat_variable_metadata();
+            let metadata = reader._get_flat_variable_metadata();
             Ok(metadata
                 .into_iter()
                 .map(|(key, offset_size)| {
@@ -251,7 +250,7 @@ impl OmFileReader {
     fn _init_from_variable(&self, variable: OmVariable) -> PyResult<Self> {
         self.with_reader(|reader| {
             let child_reader = reader
-                .init_child_from_offset_size(variable.into())
+                ._init_child_from_offset_size(variable.into())
                 .map_err(convert_omfilesrs_error)?;
 
             let shape = get_shape_vec(&child_reader);
