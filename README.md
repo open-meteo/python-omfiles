@@ -21,7 +21,7 @@ pip install omfiles
 - Support for [fsspec](https://github.com/fsspec/filesystem_spec) and [xarray](https://github.com/pydata/xarray)
 - Chunked data access behind the scenes
 
-### Reading arrays
+### Reading
 
 #### Basic reading
 
@@ -88,7 +88,7 @@ with OmFileReader(backend) as root:
     print(f"Are the two temperature subsets equal? {are_equal}")
 ```
 
-### Writing Arrays
+### Writing
 
 #### Simple Array
 ```python
