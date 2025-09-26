@@ -57,16 +57,6 @@ async def s3_backend_async():
     return S3FileSystem(anon=True, asynchronous=True, default_block_size=65536, default_cache_type="none")
 
 
-def s3_url_as_cached_fs(s3_path, cache_storage: str = "cache", same_names: bool = True, block_size: int = 65536):
-    backend = fsspec.open(
-        f"blockcache::s3://{s3_path}",
-        mode="rb",
-        s3={"anon": True, "default_block_size": block_size},
-        blockcache={"cache_storage": cache_storage, "same_names": same_names},
-    )
-    return backend
-
-
 # --- Helpers ---
 
 
@@ -123,9 +113,26 @@ async def test_s3_read_async(s3_backend_async, s3_test_file):
 
 @filter_numpy_size_warning
 def test_s3_xarray(s3_spatial_test_file):
-    backend = s3_url_as_cached_fs(s3_spatial_test_file)
+    # The way described in the xarray documentation does not really use the caching mechanism
+    # https://tutorial.xarray.dev/intermediate/remote_data/remote-data.html#reading-data-from-cloud-storage
+    # fs = fsspec.filesystem("s3", anon=True)
+    # fsspec_caching = {
+    #     "cache_type": "blockcache",  # block cache stores blocks of fixed size and uses eviction using a LRU strategy.
+    #     "block_size": 8
+    #     * 1024
+    #     * 1024,  # size in bytes per block, adjust depends on the file size but the recommended size is in the MB
+    # }
+    # backend = fs.open(s3_spatial_test_file, **fsspec_caching)
 
-    ds = xr.open_dataset(backend, engine="om")
+    backend = fsspec.open(
+        f"blockcache::s3://{s3_spatial_test_file}",
+        mode="rb",
+        s3={"anon": True, "default_block_size": 65536},
+        blockcache={"cache_storage": "cache", "same_names": True},
+    )
+
+    ds = xr.open_dataset(backend, engine="om")  # type: ignore
+    # ds = xr.open_dataset(backend, engine="om")
     assert any(ds.variables.keys())
     np.testing.assert_array_almost_equal(ds["wind_gusts_10m"][100, 200].values, np.array([3.8]))
 
