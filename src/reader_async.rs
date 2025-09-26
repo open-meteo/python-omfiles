@@ -104,7 +104,7 @@ impl OmFileReaderAsync {
         }
     }
 
-    fn read_string_scalar(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn read_string_scalar(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         self.with_reader(|reader| {
             let scalar_reader = reader
                 .expect_scalar()
@@ -120,7 +120,7 @@ impl OmFileReaderAsync {
         })
     }
 
-    fn read_numeric_scalar<'py, T: Element + Clone>(&self, py: Python<'py>) -> PyResult<PyObject>
+    fn read_numeric_scalar<'py, T: Element + Clone>(&self, py: Python<'py>) -> PyResult<Py<PyAny>>
     where
         T: OmFileScalarDataType + IntoPyObject<'py>,
     {
@@ -154,8 +154,8 @@ impl OmFileReaderAsync {
     ///     TypeError: If the provided file object is not a valid fsspec file.
     ///     IOError: If there's an error reading the file.
     #[staticmethod]
-    async fn from_fsspec(fs_obj: PyObject, path: String) -> PyResult<Self> {
-        Python::with_gil(|py| {
+    async fn from_fsspec(fs_obj: Py<PyAny>, path: String) -> PyResult<Self> {
+        Python::attach(|py| {
             let bound_object = fs_obj.bind(py);
 
             if !bound_object.hasattr("_cat_file")? && !bound_object.hasattr("_size")? {
@@ -209,9 +209,9 @@ impl OmFileReaderAsync {
     #[pyo3(signature = (_exc_type=None, _exc_value=None, _traceback=None))]
     fn __exit__(
         &self,
-        _exc_type: Option<PyObject>,
-        _exc_value: Option<PyObject>,
-        _traceback: Option<PyObject>,
+        _exc_type: Option<Py<PyAny>>,
+        _exc_value: Option<Py<PyAny>>,
+        _traceback: Option<Py<PyAny>>,
     ) -> PyResult<bool> {
         self.close()?;
         Ok(false)
@@ -485,9 +485,9 @@ impl OmFileReaderAsync {
     ///
     /// Raises:
     ///     ValueError: If the variable is not a scalar.
-    fn read_scalar(&self) -> PyResult<PyObject> {
+    fn read_scalar(&self) -> PyResult<Py<PyAny>> {
         self.with_reader(|reader| {
-            Python::with_gil(|py| match reader.data_type() {
+            Python::attach(|py| match reader.data_type() {
                 OmDataType::Int8 => self.read_numeric_scalar::<i8>(py),
                 OmDataType::Uint8 => self.read_numeric_scalar::<u8>(py),
                 OmDataType::Int16 => self.read_numeric_scalar::<i16>(py),

@@ -28,7 +28,7 @@ def filter_numpy_size_warning(func):
     Decorator to filter out numpy size changed warnings.
 
     for some reason xr.open_dataset triggers a warning:
-    "RuntimeWarning: numpy.ndarray size changed, may indicate binary incompatibility. Expected 16 from C header, got 96 from PyObject"
+    "RuntimeWarning: numpy.ndarray size changed, may indicate binary incompatibility. Expected 16 from C header, got 96 from Py<PyAny>"
     We will just filter it out for now...
     https://github.com/pydata/xarray/issues/7259
     """

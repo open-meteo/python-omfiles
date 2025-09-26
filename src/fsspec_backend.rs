@@ -7,7 +7,7 @@ use pyo3_async_runtimes::async_std::into_future;
 
 /// An asynchronous backend for reading files using fsspec.
 pub struct AsyncFsSpecBackend {
-    fs: PyObject,
+    fs: Py<PyAny>,
     path: String,
     file_size: u64,
 }
@@ -16,15 +16,15 @@ impl AsyncFsSpecBackend {
     /// Create a new asynchronous backend for reading files using fsspec.
     /// This init expects any AbstractFileSystem as a fs object and a path
     /// to the file to be read.
-    pub async fn new(fs: PyObject, path: String) -> PyResult<Self> {
-        let fut = Python::with_gil(|py| {
+    pub async fn new(fs: Py<PyAny>, path: String) -> PyResult<Self> {
+        let fut = Python::attach(|py| {
             let bound_fs = fs.bind(py);
             let coroutine = bound_fs.call_method1("_size", (path.clone(),))?;
             into_future(coroutine)
         })?;
         let size_result = fut.await?;
 
-        let size = Python::with_gil(|py| size_result.bind(py).extract::<u64>())?;
+        let size = Python::attach(|py| size_result.bind(py).extract::<u64>())?;
 
         Ok(Self {
             fs,
@@ -49,7 +49,7 @@ impl OmFileReaderBackendAsync for AsyncFsSpecBackend {
     // and transforms it into a future that can be awaited
     // This allows us to execute multiple asynchronous operations concurrently
     async fn get_bytes_async(&self, offset: u64, count: u64) -> Result<Vec<u8>, OmFilesError> {
-        let fut = Python::with_gil(|py| {
+        let fut = Python::attach(|py| {
             let bound_fs = self.fs.bind(py);
             // We only use named parameters here, because positional arguments can
             // be different between different implementations of the super class!
@@ -66,21 +66,21 @@ impl OmFileReaderBackendAsync for AsyncFsSpecBackend {
             .await
             .map_err(|e| OmFilesError::DecoderError(format!("Python I/O error {}", e)))?;
 
-        let bytes = Python::with_gil(|py| bytes_obj.extract::<Vec<u8>>(py))
+        let bytes = Python::attach(|py| bytes_obj.extract::<Vec<u8>>(py))
             .map_err(|e| OmFilesError::DecoderError(format!("Python I/O error: {}", e)));
         bytes
     }
 }
 
 pub struct FsSpecBackend {
-    fs: PyObject,
+    fs: Py<PyAny>,
     path: String,
     file_size: u64,
 }
 
 impl FsSpecBackend {
-    pub fn new(fs: PyObject, path: String) -> PyResult<Self> {
-        let size = Python::with_gil(|py| {
+    pub fn new(fs: Py<PyAny>, path: String) -> PyResult<Self> {
+        let size = Python::attach(|py| {
             let bound_fs = fs.bind(py);
             bound_fs
                 .call_method1("size", (path.clone(),))?
@@ -117,7 +117,7 @@ impl OmFileReaderBackend for FsSpecBackend {
         offset: u64,
         count: u64,
     ) -> Result<Self::Bytes<'_>, omfiles_rs::OmFilesError> {
-        let bytes = Python::with_gil(|py| {
+        let bytes = Python::attach(|py| {
             let bound_fs = self.fs.bind(py);
             // We only use named parameters here, because positional arguments can
             // be different between different implementations of the super class!
@@ -136,14 +136,14 @@ impl OmFileReaderBackend for FsSpecBackend {
 
 /// An fsspec writer backend that implements OmFileWriterBackend.
 pub struct FsSpecWriterBackend {
-    _fs: PyObject,
-    open_fs: PyObject,
+    _fs: Py<PyAny>,
+    open_fs: Py<PyAny>,
 }
 
 impl FsSpecWriterBackend {
     /// Create a new fsspec writer backend.
-    pub fn new(fs: PyObject, path: String) -> PyResult<Self> {
-        let open_fs = Python::with_gil(|py| -> PyResult<PyObject> {
+    pub fn new(fs: Py<PyAny>, path: String) -> PyResult<Self> {
+        let open_fs = Python::attach(|py| -> PyResult<Py<PyAny>> {
             let bound_fs = fs.bind(py);
             let open_file = bound_fs.call_method1("open", (path, "wb"))?.unbind();
             Ok(open_file)
@@ -154,7 +154,7 @@ impl FsSpecWriterBackend {
 
 impl OmFileWriterBackend for FsSpecWriterBackend {
     fn write(&mut self, data: &[u8]) -> Result<(), OmFilesError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let bound_file = self.open_fs.bind(py);
             let py_bytes = pyo3::types::PyBytes::new(py, data);
             // We need to write to the open_fs. Otherwise fsspec does not
@@ -190,9 +190,9 @@ mod tests {
         let file_name = "test_fsspec_backend.om";
         let file_path = format!("test_files/{}", file_name);
         create_test_binary_file!(file_name)?;
-        pyo3::prepare_freethreaded_python();
+        Python::initialize();
 
-        Python::with_gil(|py| -> Result<(), Box<dyn Error>> {
+        Python::attach(|py| -> Result<(), Box<dyn Error>> {
             let fsspec = py.import("fsspec")?;
             let fs = fsspec.call_method1("filesystem", ("file",))?;
 
@@ -217,9 +217,9 @@ mod tests {
 
     #[test]
     fn test_fsspec_writer_backend() -> Result<(), Box<dyn Error>> {
-        pyo3::prepare_freethreaded_python();
+        Python::initialize();
 
-        Python::with_gil(|py| -> Result<(), Box<dyn Error>> {
+        Python::attach(|py| -> Result<(), Box<dyn Error>> {
             let memory_module = py.import("fsspec.implementations.memory")?;
             let fs = memory_module.call_method0("MemoryFileSystem")?;
 

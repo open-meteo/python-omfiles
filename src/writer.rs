@@ -156,7 +156,7 @@ impl OmFileWriter {
     /// Returns:
     ///     OmFileWriter: A new writer instance
     #[staticmethod]
-    fn from_fsspec(fs_obj: PyObject, path: String) -> PyResult<Self> {
+    fn from_fsspec(fs_obj: Py<PyAny>, path: String) -> PyResult<Self> {
         let fsspec_backend = WriterBackendImpl::FsSpec(FsSpecWriterBackend::new(fs_obj, path)?);
         let writer = OmFileWriterRs::new(fsspec_backend, 8 * 1024);
         Ok(Self {
@@ -416,9 +416,9 @@ mod tests {
 
     #[test]
     fn test_write_array() -> Result<(), Box<dyn std::error::Error>> {
-        pyo3::prepare_freethreaded_python();
+        Python::initialize();
 
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             // Test parameters
             let file_path = "test_data.om";
             let dimensions = vec![10, 20];
@@ -453,9 +453,9 @@ mod tests {
 
     #[test]
     fn test_fsspec_writer() -> Result<(), Box<dyn std::error::Error>> {
-        pyo3::prepare_freethreaded_python();
+        Python::initialize();
 
-        Python::with_gil(|py| -> Result<(), Box<dyn std::error::Error>> {
+        Python::attach(|py| -> Result<(), Box<dyn std::error::Error>> {
             let fsspec = py.import("fsspec")?;
             let fs = fsspec.call_method1("filesystem", ("memory",))?;
 
