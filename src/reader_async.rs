@@ -189,6 +189,34 @@ impl OmFileReaderAsync {
         Self::from_backend(backend).await
     }
 
+    /// Enter a context manager block.
+    ///
+    /// Returns:
+    ///     OmFileReaderAsync: Self for use in context manager.
+    fn __enter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
+    }
+
+    /// Exit a context manager block, closing the reader.
+    ///
+    /// Args:
+    ///     _exc_type (type, optional): The exception type, if an exception was raised.
+    ///     _exc_value (Exception, optional): The exception value, if an exception was raised.
+    ///     _traceback (traceback, optional): The traceback, if an exception was raised.
+    ///
+    /// Returns:
+    ///     bool: False (exceptions are not suppressed).
+    #[pyo3(signature = (_exc_type=None, _exc_value=None, _traceback=None))]
+    fn __exit__(
+        &self,
+        _exc_type: Option<PyObject>,
+        _exc_value: Option<PyObject>,
+        _traceback: Option<PyObject>,
+    ) -> PyResult<bool> {
+        self.close()?;
+        Ok(false)
+    }
+
     /// Check if the reader is closed.
     ///
     /// Returns:
@@ -331,7 +359,7 @@ impl OmFileReaderAsync {
     /// Get a child reader at the specified index.
     ///
     /// Returns:
-    ///     OmFileReader: Child reader at the specified index if exists.
+    ///     OmFileReaderAsync: Child reader at the specified index if exists.
     async fn get_child_by_index(&self, index: u32) -> PyResult<Self> {
         self.with_reader_async(
             |reader: &Arc<OmFileReaderAsyncRs<AsyncReaderBackendImpl>>| {
@@ -353,7 +381,7 @@ impl OmFileReaderAsync {
     /// Get a child reader by name.
     ///
     /// Returns:
-    ///     OmFileReader: Child reader with the specified name if exists.
+    ///     OmFileReaderAsync: Child reader with the specified name if exists.
     async fn get_child_by_name(&self, name: String) -> PyResult<Self> {
         self.with_reader_async(
             |reader: &Arc<OmFileReaderAsyncRs<AsyncReaderBackendImpl>>| {

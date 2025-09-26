@@ -133,27 +133,26 @@ def test_write_hierarchical_file(empty_temp_om_file):
 
 
 @pytest.mark.asyncio
-async def test_read_concurrent(temp_om_file):
-    """Test the concurrent reading functionality of OmFileReader."""
+async def test_read_async(temp_om_file):
+    with await omfiles.OmFileReaderAsync.from_path(temp_om_file) as reader:
+        # Test basic async read
+        data = await reader.read_array((slice(0, 5), ...))
+        assert data.shape == (5, 5)
+        assert data.dtype == np.float32
+        np.testing.assert_array_equal(
+            data,
+            [
+                [0.0, 1.0, 2.0, 3.0, 4.0],
+                [5.0, 6.0, 7.0, 8.0, 9.0],
+                [10.0, 11.0, 12.0, 13.0, 14.0],
+                [15.0, 16.0, 17.0, 18.0, 19.0],
+                [20.0, 21.0, 22.0, 23.0, 24.0],
+            ],
+        )
+
     reader = await omfiles.OmFileReaderAsync.from_path(temp_om_file)
-
-    # Test basic concurrent read
-    data = await reader.read_array((slice(0, 5), ...))
-    assert data.shape == (5, 5)
-    assert data.dtype == np.float32
-    np.testing.assert_array_equal(
-        data,
-        [
-            [0.0, 1.0, 2.0, 3.0, 4.0],
-            [5.0, 6.0, 7.0, 8.0, 9.0],
-            [10.0, 11.0, 12.0, 13.0, 14.0],
-            [15.0, 16.0, 17.0, 18.0, 19.0],
-            [20.0, 21.0, 22.0, 23.0, 24.0],
-        ],
-    )
-
     reader.close()
-    # Test read_concurrent with a closed reader
+    # Test read_array with a closed reader
     try:
         _ = await reader.read_array((slice(0, 5), ...))
         assert False, "Expected ValueError when reading from closed reader"

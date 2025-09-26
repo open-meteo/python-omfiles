@@ -390,6 +390,30 @@ class OmFileReaderAsync:
         Raises:
             IOError: If the file cannot be opened or read.
         """
+    def __enter__(self) -> OmFileReaderAsync:
+        r"""
+        Enter a context manager block.
+
+        Returns:
+            OmFileReaderAsync: Self for use in context manager.
+        """
+    def __exit__(
+        self,
+        _exc_type: typing.Optional[typing.Any] = None,
+        _exc_value: typing.Optional[typing.Any] = None,
+        _traceback: typing.Optional[typing.Any] = None,
+    ) -> builtins.bool:
+        r"""
+        Exit a context manager block, closing the reader.
+
+        Args:
+            _exc_type (type, optional): The exception type, if an exception was raised.
+            _exc_value (Exception, optional): The exception value, if an exception was raised.
+            _traceback (traceback, optional): The traceback, if an exception was raised.
+
+        Returns:
+            bool: False (exceptions are not suppressed).
+        """
     def close(self) -> None:
         r"""
         Close the reader and release any resources.
@@ -407,14 +431,14 @@ class OmFileReaderAsync:
         Get a child reader at the specified index.
 
         Returns:
-            OmFileReader: Child reader at the specified index if exists.
+            OmFileReaderAsync: Child reader at the specified index if exists.
         """
     async def get_child_by_name(self, name: builtins.str) -> OmFileReaderAsync:
         r"""
         Get a child reader by name.
 
         Returns:
-            OmFileReader: Child reader with the specified name if exists.
+            OmFileReaderAsync: Child reader with the specified name if exists.
         """
     async def read_array(
         self, ranges: omfiles.types.BasicSelection
