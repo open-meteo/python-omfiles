@@ -111,7 +111,7 @@ impl OmFileReader {
         }
     }
 
-    fn read_string_scalar(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn read_string_scalar(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         self.with_reader(|reader| {
             let scalar_reader = reader
                 .expect_scalar()
@@ -127,7 +127,7 @@ impl OmFileReader {
         })
     }
 
-    fn read_numeric_scalar<'py, T: Element + Clone>(&self, py: Python<'py>) -> PyResult<PyObject>
+    fn read_numeric_scalar<'py, T: Element + Clone>(&self, py: Python<'py>) -> PyResult<Py<PyAny>>
     where
         T: OmFileScalarDataType + IntoPyObject<'py>,
     {
@@ -156,8 +156,8 @@ impl OmFileReader {
     /// Raises:
     ///     ValueError: If the file cannot be opened or is invalid.
     #[new]
-    fn new(source: PyObject) -> PyResult<Self> {
-        Python::with_gil(|py| {
+    fn new(source: Py<PyAny>) -> PyResult<Self> {
+        Python::attach(|py| {
             if let Ok(path) = source.extract::<String>(py) {
                 // If source is a string, treat it as a file path
                 Self::from_path(&path)
@@ -202,8 +202,8 @@ impl OmFileReader {
     /// Returns:
     ///     OmFileReader: A new reader instance.
     #[staticmethod]
-    fn from_fsspec(fs_obj: PyObject, path: String) -> PyResult<Self> {
-        Python::with_gil(|py| {
+    fn from_fsspec(fs_obj: Py<PyAny>, path: String) -> PyResult<Self> {
+        Python::attach(|py| {
             let bound_object = fs_obj.bind(py);
 
             if !bound_object.hasattr("cat_file")? || !bound_object.hasattr("size")? {
@@ -281,9 +281,9 @@ impl OmFileReader {
     #[pyo3(signature = (_exc_type=None, _exc_value=None, _traceback=None))]
     fn __exit__(
         &self,
-        _exc_type: Option<PyObject>,
-        _exc_value: Option<PyObject>,
-        _traceback: Option<PyObject>,
+        _exc_type: Option<Py<PyAny>>,
+        _exc_value: Option<Py<PyAny>>,
+        _traceback: Option<Py<PyAny>>,
     ) -> PyResult<bool> {
         self.close()?;
         Ok(false)
@@ -467,7 +467,7 @@ impl OmFileReader {
     /// Raises:
     ///     ValueError: If the requested ranges are invalid or if there's an error reading the data.
     fn read_array<'py>(&self, py: Python<'_>, ranges: ArrayIndex) -> PyResult<OmFileTypedArray> {
-        py.allow_threads(|| {
+        py.detach(|| {
             self.with_reader(|reader| {
                 let array_reader = reader
                     .expect_array_with_io_sizes(65536, 512)
@@ -553,9 +553,9 @@ impl OmFileReader {
     ///
     /// Raises:
     ///     ValueError: If the variable is not a scalar.
-    fn read_scalar(&self) -> PyResult<PyObject> {
+    fn read_scalar(&self) -> PyResult<Py<PyAny>> {
         self.with_reader(|reader| {
-            Python::with_gil(|py| match reader.data_type() {
+            Python::attach(|py| match reader.data_type() {
                 OmDataType::Int8 => self.read_numeric_scalar::<i8>(py),
                 OmDataType::Uint8 => self.read_numeric_scalar::<u8>(py),
                 OmDataType::Int16 => self.read_numeric_scalar::<i16>(py),
@@ -651,7 +651,7 @@ mod tests {
     fn test_read_simple_v3_data() -> Result<(), Box<dyn std::error::Error>> {
         create_test_binary_file!("read_test.om")?;
         let file_path = "test_files/read_test.om";
-        pyo3::prepare_freethreaded_python();
+        Python::initialize();
 
         let reader = OmFileReader::from_path(file_path).unwrap();
         let ranges = ArrayIndex(vec![
@@ -666,7 +666,7 @@ mod tests {
                 step: None,
             },
         ]);
-        let data = Python::with_gil(|py| {
+        let data = Python::attach(|py| {
             let data = reader.read_array(py, ranges).expect("Could not get item!");
             let data = match data {
                 OmFileTypedArray::Float(data) => data,

@@ -236,7 +236,7 @@ def test_fsspec_roundtrip(memory_fs):
 
 
 def test_fsspec_multithreaded_read(memory_fs):
-    """Test that it is safe to release the GIL when using a PyObject (fsspec) as a storage backend."""
+    """Test that it is safe to release the GIL when using a Py<PyAny> (fsspec) as a storage backend."""
     num_threads = 16
     slice_size = 10
     data = np.arange(num_threads * slice_size * 10).reshape(num_threads * slice_size, 10).astype(np.float32)
