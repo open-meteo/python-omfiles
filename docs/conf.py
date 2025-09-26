@@ -20,6 +20,7 @@ extensions = [
     "sphinx.ext.intersphinx",
     "sphinx.ext.napoleon",
     "sphinx_autodoc_typehints",
+    "myst_parser",
 ]
 
 intersphinx_mapping = {
