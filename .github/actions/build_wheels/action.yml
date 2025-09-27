@@ -64,9 +64,10 @@ runs:
         # setting PYTHONHOME and PYTHONPATH seem to be the best solution for macOS at the moment
         # https://github.com/PyO3/pyo3/issues/1741#issuecomment-955805634
         export PYTHONHOME="$(uv run --no-sync python -c 'import sys; print(sys.base_prefix)')" # MACOS
-        # Only set PYTHONPATH if not on Windows
-        if [[ "$RUNNER_OS" != "Windows" ]]; then
-          export PYTHONPATH="$(echo .venv/lib/python*/site-packages)" # MACOS
+        if [[ "$RUNNER_OS" == "Windows" ]]; then
+          export PYTHONPATH="$(echo .venv/Lib/site-packages)"
+        else
+          export PYTHONPATH="$(echo .venv/lib/python*/site-packages)"
         fi
         uv run --no-sync cargo test --no-default-features
       shell: bash
