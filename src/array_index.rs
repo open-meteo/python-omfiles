@@ -203,9 +203,9 @@ mod tests {
 
     #[test]
     fn test_numpy_indexing() {
-        pyo3::prepare_freethreaded_python();
+        Python::initialize();
 
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             // Test basic slicing
             let slice = PySlice::new(py, 1, 5, 1);
             let single_slice_tuple = pyo3::types::PyTuple::new(py, [&slice]).unwrap();
@@ -286,9 +286,9 @@ mod tests {
 
     #[test]
     fn test_negative_indexing() {
-        pyo3::prepare_freethreaded_python();
+        Python::initialize();
 
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let shape = vec![5];
 
             // Test negative integer index
@@ -314,9 +314,9 @@ mod tests {
 
     #[test]
     fn test_ellipsis() {
-        pyo3::prepare_freethreaded_python();
+        Python::initialize();
 
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let shape = vec![2, 3, 4, 5];
             let ellipsis = pyo3::types::PyEllipsis::get(py).into_any();
             let integer = 1i64.into_pyobject(py).unwrap().into_any();
@@ -355,9 +355,9 @@ mod tests {
     #[test]
     #[should_panic]
     fn test_invalid_input() {
-        pyo3::prepare_freethreaded_python();
+        Python::initialize();
 
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let invalid_value = "not_an_index"
                 .into_pyobject(py)
                 .expect("Failed to create object");
@@ -370,9 +370,9 @@ mod tests {
     #[test]
     #[should_panic]
     fn test_invalid_negative_index() {
-        pyo3::prepare_freethreaded_python();
+        Python::initialize();
 
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let shape = vec![5];
             let neg_idx = (-6i64).into_pyobject(py).unwrap();
             let neg_tuple = pyo3::types::PyTuple::new(py, [&neg_idx]).unwrap();
@@ -384,9 +384,9 @@ mod tests {
     #[test]
     #[should_panic]
     fn test_invalid_slice() {
-        pyo3::prepare_freethreaded_python();
+        Python::initialize();
 
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let shape = vec![5];
             let neg_idx = (-6i64).into_pyobject(py).unwrap();
             let neg_tuple = pyo3::types::PyTuple::new(py, [&neg_idx]).unwrap();

@@ -17,14 +17,15 @@ path = "src/bin/stub_gen.rs"
 doc = true
 
 [dependencies]
-pyo3 = { version = "0.25", features = ["abi3-py39", "experimental-async"] }
-pyo3-async-runtimes = { version = "0.25", features = ["async-std-runtime"] }
+pyo3 = { version = "0.26", features = ["abi3-py39", "experimental-async"] }
+pyo3-async-runtimes = { version = "0.26", features = ["async-std-runtime"] }
 pyo3-stub-gen = "0.12"
 async-lock = "3.4.0"
-numpy = "0.25"
+numpy = "0.26"
 num-traits = "0.2"
 delegate = "0.13"
-omfiles-rs = { git = "https://github.com/open-meteo/rust-omfiles", rev = "ff0df1c89dbc2615fa2bbaeb6115538315a2629e", package = "omfiles" }
+omfiles-rs = { git = "https://github.com/open-meteo/rust-omfiles", rev = "c7e6d4daed18e05bc8bb5d4373185096a493a662", package = "omfiles", features = ["metadata-tree"] }
+om-file-format-sys = { git = "https://github.com/open-meteo/om-file-format", rev = "a484a5a90914ff934fc451dff30b671b9ba8e38e" }
 thiserror = "2.0.12"
 
 [features]
