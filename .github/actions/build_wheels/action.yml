@@ -56,7 +56,7 @@ runs:
     - name: Run cargo tests
       if: ${{ inputs.is-musl != 'true' }}
       run: |
-        # pyo3 and uv work not well together...
+        # pyo3 and uv do not work well together...
         PY_LIBDIR=$(uv run --no-sync python -c "import sysconfig; print(sysconfig.get_config_var('LIBDIR'))")
         echo "Python libdir: $PY_LIBDIR"
         # setting LD_LIBRARY_PATH for Linux: https://github.com/astral-sh/uv/issues/11006#issuecomment-2672486381
@@ -64,7 +64,7 @@ runs:
         if [[ "$RUNNER_OS" == "Windows" ]]; then
           uv run --no-sync python -c "import sys; print(sys.path)"
           uv run --no-sync where python
-          # export PYTHONPATH="$(echo .venv/Lib/site-packages)"
+          export PYTHONPATH="$(echo .venv/Lib/site-packages)"
         else
           # setting PYTHONHOME and PYTHONPATH seem to be the best solution for macOS at the moment
           # https://github.com/PyO3/pyo3/issues/1741#issuecomment-955805634
