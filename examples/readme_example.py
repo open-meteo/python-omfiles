@@ -3,7 +3,7 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
-#     "omfiles@git+https://github.com/open-meteo/python-omfiles.git@aa13dfb3809c6a39ed89cbdd7b65700d576ad081",
+#     "omfiles==0.1.0",
 #     "fsspec>=2025.7.0",
 #     "s3fs",
 # ]
