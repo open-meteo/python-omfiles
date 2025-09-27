@@ -148,7 +148,7 @@ jobs:
           target: ${{ inputs.target }}
           args: --release --out dist --find-interpreter
           manylinux: ${{ matrix.platform.manylinux }}
-          container: ${{ matrix.platform.is-musl == 'true' && 'off' || '' }}
+          container: ${{ matrix.platform.is-musl == true && 'off' || '' }}
           before-script-linux: ${{ matrix.platform.before-script }}
       - name: Upload wheels
         uses: actions/upload-artifact@v4
