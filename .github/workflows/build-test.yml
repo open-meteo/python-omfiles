@@ -46,6 +46,7 @@ jobs:
               apt-get install --assume-yes --no-install-recommends crossbuild-essential-arm64
             manylinux: "2_28"
             is-musl: false
+            is-cross: true
 
           - name: linux-musl-x86_64
             runner: ubuntu-22.04
@@ -54,6 +55,7 @@ jobs:
             before-script: cat /etc/os-release && apt install clang -y
             manylinux: musllinux_1_2
             is-musl: true
+            is-cross: true
 
           - name: windows-x64
             runner: windows-latest
@@ -74,10 +76,15 @@ jobs:
       # Use the build composite action
       - uses: actions/checkout@v4
 
+      - name: Rust tests
+        uses: ./.github/actions/rust_tests
+        if: ${{ inputs.is-cross != 'true' }}
+        with:
+          python-version: "3.12"
+
       - name: Build wheels
         uses: ./.github/actions/build_wheels
         with:
-          python-version: "3.12"
           target: ${{ matrix.platform.target }}
           manylinux: ${{ matrix.platform.manylinux }}
           is-musl: ${{ matrix.platform.is-musl }}

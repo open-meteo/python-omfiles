@@ -2,10 +2,6 @@ name: "Build Package"
 description: "Build wheels for all platforms"
 
 inputs:
-  python-version:
-    description: "Python version to use for building"
-    required: false
-    default: "3.12"
   target:
     description: "Target architecture"
     required: true
@@ -39,40 +35,6 @@ runs:
         key: ${{ runner.os }}-build-${{ inputs.platform-name }}-${{ hashFiles('**/Cargo.lock', '**/Cargo.toml') }}
         restore-keys: |
           ${{ runner.os }}-build-${{ inputs.platform-name }}-
-
-    - name: Install uv
-      uses: astral-sh/setup-uv@v6
-      with:
-        version: "0.8.19"
-        enable-cache: ${{ inputs.is-musl != 'true' && 'true' || 'false' }}
-        cache-dependency-glob: "**/uv.lock"
-        python-version: ${{ inputs.python-version }}
-
-    - name: Install required python dependencies
-      if: ${{ inputs.is-musl != 'true' }}
-      run: uv sync --no-install-project
-      shell: bash
-
-    - name: Run cargo tests
-      if: ${{ inputs.is-musl != 'true' }}
-      run: |
-        # pyo3 and uv do not work well together...
-        PY_LIBDIR=$(uv run --no-sync python -c "import sysconfig; print(sysconfig.get_config_var('LIBDIR'))")
-        echo "Python libdir: $PY_LIBDIR"
-        # setting LD_LIBRARY_PATH for Linux: https://github.com/astral-sh/uv/issues/11006#issuecomment-2672486381
-        export LD_LIBRARY_PATH="$PY_LIBDIR${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" # LINUX
-        if [[ "$RUNNER_OS" == "Windows" ]]; then
-          uv run --no-sync python -c "import sys; print(sys.path)"
-          uv run --no-sync where python
-          export PYTHONPATH="$(echo .venv/Lib/site-packages)"
-        else
-          # setting PYTHONHOME and PYTHONPATH seem to be the best solution for macOS at the moment
-          # https://github.com/PyO3/pyo3/issues/1741#issuecomment-955805634
-          export PYTHONHOME="$(uv run --no-sync python -c 'import sys; print(sys.base_prefix)')" # MACOS
-          export PYTHONPATH="$(echo .venv/lib/python*/site-packages)" # MACOS
-        fi
-        uv run --no-sync cargo test --no-default-features
-      shell: bash
 
     - name: Build wheels
       uses: PyO3/maturin-action@v1
