@@ -190,7 +190,6 @@ mod tests {
         let file_name = "test_fsspec_backend.om";
         let file_path = format!("test_files/{}", file_name);
         create_test_binary_file!(file_name)?;
-
         Python::initialize();
 
         Python::attach(|py| -> Result<(), Box<dyn Error>> {
