@@ -145,7 +145,7 @@ jobs:
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
-          target: ${{ inputs.target }}
+          target: ${{ matrix.platform.target }}
           args: --release --out dist --find-interpreter
           manylinux: ${{ matrix.platform.manylinux }}
           container: ${{ matrix.platform.is-musl == true && 'off' || '' }}
