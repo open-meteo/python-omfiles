@@ -36,6 +36,7 @@ jobs:
             before-script: python3 -m ensurepip && cat /etc/os-release && yum install clang -y
             manylinux: "2_28"
             is-musl: false
+            is-cross: false
 
           - name: linux-aarch64
             runner: ubuntu-latest
@@ -61,16 +62,19 @@ jobs:
             runner: windows-latest
             target: x64
             is-musl: false
+            is-cross: false
 
           - name: macos-x86_64
             runner: macos-13
             target: x86_64
             is-musl: false
+            is-cross: false
 
           - name: macos-arm64
             runner: macos-14
             target: aarch64
             is-musl: false
+            is-cross: false
 
     steps:
       # Use the build composite action
@@ -78,7 +82,7 @@ jobs:
 
       - name: Rust tests
         uses: ./.github/actions/rust_tests
-        if: ${{ inputs.is-cross != 'true' }}
+        if: ${{ matrix.platform.is-cross == false }}
         with:
           python-version: "3.12"
 
