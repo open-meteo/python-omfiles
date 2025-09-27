@@ -180,7 +180,7 @@ impl OmFileWriterBackend for FsSpecWriterBackend {
 
 #[cfg(test)]
 mod tests {
-    use crate::create_test_binary_file;
+    use crate::{create_test_binary_file, test_utils::pyo3_venv_path_hack};
 
     use super::*;
     use std::error::Error;
@@ -190,9 +190,11 @@ mod tests {
         let file_name = "test_fsspec_backend.om";
         let file_path = format!("test_files/{}", file_name);
         create_test_binary_file!(file_name)?;
+
         Python::initialize();
 
         Python::attach(|py| -> Result<(), Box<dyn Error>> {
+            pyo3_venv_path_hack(py)?;
             let fsspec = py.import("fsspec")?;
             let fs = fsspec.call_method1("filesystem", ("file",))?;
 
@@ -220,6 +222,7 @@ mod tests {
         Python::initialize();
 
         Python::attach(|py| -> Result<(), Box<dyn Error>> {
+            pyo3_venv_path_hack(py)?;
             let memory_module = py.import("fsspec.implementations.memory")?;
             let fs = memory_module.call_method0("MemoryFileSystem")?;
 
