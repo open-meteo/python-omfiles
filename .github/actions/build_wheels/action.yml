@@ -55,7 +55,7 @@ runs:
     - name: Install required python dependencies
       if: ${{ inputs.is-musl != 'true' }}
       run: |
-        export UV_PROJECT_ENVIRONMENT="${pythonLocation}"
+        # export UV_PROJECT_ENVIRONMENT="${pythonLocation}"
         uv sync --no-install-project
       shell: bash
 
