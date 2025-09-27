@@ -99,7 +99,7 @@ data = np.random.rand(100, 100).astype(np.float32)
 writer = OmFileWriter("simple.om")
 
 # Write array with compression
-variable = writer.write_array(
+array_variable = writer.write_array(
     data,
     chunks=[50, 50],
     scale_factor=1.0,
@@ -108,8 +108,8 @@ variable = writer.write_array(
     name="data"
 )
 
-# Finalize the file. This writes the trailer and flushes the buffers.
-writer.close(variable)
+# Finalize the file using array_variable as entry-point
+writer.close(array_variable)
 ```
 
 #### Hierarchical Structure
@@ -126,19 +126,15 @@ writer = OmFileWriter("hierarchical.om")
 
 # Write child arrays first
 features_var = writer.write_array(features, chunks=[100, 64], name="features", compression="pfor_delta_2d")
-
 labels_var = writer.write_array(labels, chunks=[100], name="labels")
-
 metadata_var = writer.write_scalar(42, name="metadata")
 
 # Create root group with children
-root_var = writer.write_scalar(
-    0,  # This is just placeholder data, later we will support creating groups with no data
+root_var = writer.write_group(
     name="root",
     children=[features_var, labels_var, metadata_var],
 )
-
-# Finalize the file
+# Finalize the file using root_var as entry-point into the hierarchy
 writer.close(root_var)
 ```
 
