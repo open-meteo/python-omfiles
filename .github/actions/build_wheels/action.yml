@@ -34,7 +34,9 @@ runs:
       with:
         path: |
           target
-        key: ${{ runner.os }}-build-${{ inputs.platform-name }}-${{ hashFiles('**/Cargo.lock', 'src/**') }}
+          ~/.cargo/registry
+          ~/.cargo/git
+        key: ${{ runner.os }}-build-${{ inputs.platform-name }}-${{ hashFiles('**/Cargo.lock', '**/Cargo.toml') }}
         restore-keys: |
           ${{ runner.os }}-build-${{ inputs.platform-name }}-
 
