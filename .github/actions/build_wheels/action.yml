@@ -48,10 +48,6 @@ runs:
         cache-dependency-glob: "**/uv.lock"
         python-version: ${{ inputs.python-version }}
 
-    # Install required python dependencies. This needs to be done before
-    # running cargo test, because pyo3-numpy requires numpy to be installed
-    # Doing this with uv is hard currently, the following seems to be the best workaround
-    # https://github.com/astral-sh/uv/issues/8085#issuecomment-2406665798
     - name: Install required python dependencies
       if: ${{ inputs.is-musl != 'true' }}
       run: uv sync --no-install-project
@@ -59,7 +55,7 @@ runs:
 
     - name: Run cargo tests
       if: ${{ inputs.is-musl != 'true' }}
-      run: uv run cargo test --no-default-features
+      run: uv run --no-sync cargo test --no-default-features
       shell: bash
 
     - name: Build wheels
