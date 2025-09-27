@@ -63,7 +63,6 @@ runs:
       with:
         target: ${{ inputs.target }}
         args: --release --out dist --find-interpreter
-        sccache: "true"
         manylinux: ${{ inputs.manylinux }}
         container: ${{ inputs.is-musl == 'true' && 'off' || '' }}
         before-script-linux: ${{ inputs.before-script }}
