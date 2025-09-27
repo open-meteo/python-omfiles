@@ -8,6 +8,8 @@ mod utils {
 
     use pyo3::types::PyAnyMethods;
 
+    /// needed because venv dependencies are not supported out of the box in pyo3
+    /// https://github.com/PyO3/pyo3/discussions/3726#discussioncomment-9061697
     pub fn pyo3_venv_path_hack(py: pyo3::Python<'_>) -> pyo3::PyResult<()> {
         // Find the correct site-packages directory
         let lib_path = Path::new(".venv/lib");
