@@ -64,7 +64,7 @@ runs:
         if [[ "$RUNNER_OS" == "Windows" ]]; then
           uv run --no-sync python -c "import sys; print(sys.path)"
           uv run --no-sync where python
-          export PYTHONPATH="$(echo .venv/Lib/site-packages)"
+          # export PYTHONPATH="$(echo .venv/Lib/site-packages)"
         else
           # setting PYTHONHOME and PYTHONPATH seem to be the best solution for macOS at the moment
           # https://github.com/PyO3/pyo3/issues/1741#issuecomment-955805634
