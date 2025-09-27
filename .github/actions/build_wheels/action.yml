@@ -62,6 +62,8 @@ runs:
         # setting LD_LIBRARY_PATH for Linux: https://github.com/astral-sh/uv/issues/11006#issuecomment-2672486381
         export LD_LIBRARY_PATH="$PY_LIBDIR${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" # LINUX
         if [[ "$RUNNER_OS" == "Windows" ]]; then
+          uv run --no-sync python -c "import sys; print(sys.path)"
+          uv run --no-sync where python
           export PYTHONPATH="$(echo .venv/Lib/site-packages)"
         else
           # setting PYTHONHOME and PYTHONPATH seem to be the best solution for macOS at the moment
