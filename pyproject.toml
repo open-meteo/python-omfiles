@@ -51,7 +51,6 @@ dev = [
 
 [tool.maturin]
 python-source = "python"             # Python source code is in the `python` directory
-features = ["pyo3/extension-module"] # Define extension module in pyproject.toml instead of Cargo.toml to not mess with `cargo test`
 
 [tool.uv]
 # Rebuild package when any rust files change

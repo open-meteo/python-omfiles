@@ -55,7 +55,12 @@ runs:
 
     - name: Run cargo tests
       if: ${{ inputs.is-musl != 'true' }}
-      run: uv run --no-sync cargo test --no-default-features
+      run: |
+        # pyo3 and uv work not well together...
+        # https://github.com/astral-sh/uv/issues/11006#issuecomment-2672486381
+        export LD_LIBRARY_PATH=$(uv run --no-sync python -c "import sysconfig; print(sysconfig.get_config_var('LIBDIR'))")
+        echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH"
+        uv run --no-sync cargo test --no-default-features
       shell: bash
 
     - name: Build wheels

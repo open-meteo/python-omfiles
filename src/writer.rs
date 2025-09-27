@@ -410,8 +410,6 @@ impl OmFileWriterBackend for WriterBackendImpl {
 
 #[cfg(test)]
 mod tests {
-    use crate::test_utils::pyo3_venv_path_hack;
-
     use super::*;
     use numpy::{ndarray::ArrayD, PyArrayDyn, PyArrayMethods};
     use std::fs;
@@ -421,7 +419,6 @@ mod tests {
         Python::initialize();
 
         Python::attach(|py| -> Result<(), Box<dyn std::error::Error>> {
-            pyo3_venv_path_hack(py)?;
             // Test parameters
             let file_path = "test_data.om";
             let dimensions = vec![10, 20];
@@ -460,7 +457,6 @@ mod tests {
         Python::initialize();
 
         Python::attach(|py| -> Result<(), Box<dyn std::error::Error>> {
-            pyo3_venv_path_hack(py)?;
             let fsspec = py.import("fsspec")?;
             let fs = fsspec.call_method1("filesystem", ("memory",))?;
 
