@@ -58,8 +58,11 @@ runs:
       run: |
         # pyo3 and uv work not well together...
         # https://github.com/astral-sh/uv/issues/11006#issuecomment-2672486381
-        export LD_LIBRARY_PATH=$(uv run --no-sync python -c "import sysconfig; print(sysconfig.get_config_var('LIBDIR'))")
-        echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH"
+        PY_LIBDIR=$(uv run --no-sync python -c "import sysconfig; print(sysconfig.get_config_var('LIBDIR'))")
+        echo "Python libdir: $PY_LIBDIR"
+        export LD_LIBRARY_PATH="$PY_LIBDIR${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" # LINUX
+        export PYTHONHOME="$(uv run --no-sync python -c 'import sys; print(sys.base_prefix)')" # MACOS
+        export PYTHONPATH="$(echo .venv/lib/python*/site-packages)" # MACOS
         uv run --no-sync cargo test --no-default-features
       shell: bash
 
