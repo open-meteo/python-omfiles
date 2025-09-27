@@ -11,32 +11,43 @@ mod utils {
     /// needed because venv dependencies are not supported out of the box in pyo3
     /// https://github.com/PyO3/pyo3/discussions/3726#discussioncomment-9061697
     pub fn pyo3_venv_path_hack(py: pyo3::Python<'_>) -> pyo3::PyResult<()> {
-        // Find the correct site-packages directory
-        let lib_path = Path::new(".venv/lib");
-        let mut site_packages = None;
+        // Try Unix-style first: .venv/lib/pythonX.Y/site-packages
+        let unix_lib_path = Path::new(".venv/lib");
+        let mut site_packages: Option<String> = None;
 
-        if let Ok(entries) = fs::read_dir(lib_path) {
+        if let Ok(entries) = fs::read_dir(unix_lib_path) {
             for entry in entries.flatten() {
                 let path = entry.path().join("site-packages");
                 if path.exists() {
-                    site_packages = Some(path);
-                    break;
+                    if let Some(p) = path.to_str() {
+                        site_packages = Some(p.to_string());
+                        break;
+                    }
                 }
             }
         }
 
+        // If not found, try Windows-style: .venv/Lib/site-packages
+        if site_packages.is_none() {
+            let win_path = Path::new(".venv/Lib/site-packages");
+            if win_path.exists() {
+                if let Some(p) = win_path.to_str() {
+                    site_packages = Some(p.to_string());
+                }
+            }
+        }
+
+        // Add to sys.path if found
         if let Some(site_packages) = site_packages {
             let sys = py.import("sys")?;
             let path = sys.getattr("path")?;
-            path.call_method1("append", (site_packages.to_str().unwrap(),))?;
+            path.call_method1("append", (site_packages,))?;
+            Ok(())
         } else {
-            // Optionally: handle error if site-packages not found
-            return Err(pyo3::exceptions::PyRuntimeError::new_err(
-                "site-packages not found in .venv/lib",
-            ));
+            Err(pyo3::exceptions::PyRuntimeError::new_err(
+                "site-packages not found in .venv",
+            ))
         }
-
-        Ok(())
     }
 
     // Helper function to ensure test directory exists
