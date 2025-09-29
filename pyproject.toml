@@ -4,6 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "omfiles"
+description = "Python bindings for the Open-Meteo file format"
 requires-python = ">=3.9"
 classifiers = [
     "Programming Language :: Rust",
@@ -11,10 +12,23 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dynamic = ["version"]
+readme = "README.md"
+license = "GPL-2.0-only"
+authors = [
+    { name = "Terraputix", email = "terraputix@mailbox.org" },
+]
+maintainers = [
+    { name = "Terraputix", email = "terraputix@mailbox.org" },
+]
 dependencies = [
     "numpy>=1.20.0",
 ]
-readme = "README.md"
+
+[project.urls]
+Homepage = "https://github.com/open-meteo/python-omfiles"
+Documentation = "https://open-meteo.github.io/python-omfiles/"
+Source = "https://github.com/open-meteo/python-omfiles"
+Tracker = "https://github.com/open-meteo/python-omfiles/issues"
 
 [project.optional-dependencies]
 codec = [
