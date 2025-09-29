@@ -976,7 +976,7 @@ dependencies = [
 
 [[package]]
 name = "python-omfiles"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "async-lock",
  "delegate",
