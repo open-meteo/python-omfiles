@@ -23,8 +23,69 @@ jobs:
           ruff check
           ruff format --check
 
+  rust_tests:
+    name: Rust tests - ${{ matrix.platform.name }}
+    runs-on: ${{ matrix.platform.runner }}
+    container: ${{ matrix.platform.container }}
+    strategy:
+      matrix:
+        platform:
+          - name: linux-x86_64
+            runner: ubuntu-latest
+          - name: windows-x64
+            runner: windows-latest
+          - name: macos-x86_64
+            runner: macos-13
+          - name: macos-arm64
+            runner: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cache Rust build
+        uses: actions/cache@v4
+        with:
+          path: |
+            target
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-test-${{ runner.arch }}-${{ hashFiles('**/Cargo.lock', '**/Cargo.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-test-${{ runner.arch }}-
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.8.19"
+          enable-cache: true
+          cache-dependency-glob: "**/uv.lock"
+          python-version: ${{ inputs.python-version }}
+
+      - name: Install required python dependencies
+        run: uv sync --no-install-project
+        shell: bash
+
+      - name: Run cargo tests
+        run: |
+          # pyo3 and uv do not work well together...
+          PY_LIBDIR=$(uv run --no-sync python -c "import sysconfig; print(sysconfig.get_config_var('LIBDIR'))")
+          echo "Python libdir: $PY_LIBDIR"
+          # setting LD_LIBRARY_PATH for Linux: https://github.com/astral-sh/uv/issues/11006#issuecomment-2672486381
+          export LD_LIBRARY_PATH="$PY_LIBDIR${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" # LINUX
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            uv run --no-sync python -c "import sys; print(sys.path)"
+            uv run --no-sync where python
+            export PYTHONPATH="$(echo .venv/Lib/site-packages)"
+          else
+            # setting PYTHONHOME and PYTHONPATH seem to be the best solution for macOS at the moment
+            # https://github.com/PyO3/pyo3/issues/1741#issuecomment-955805634
+            export PYTHONHOME="$(uv run --no-sync python -c 'import sys; print(sys.base_prefix)')" # MACOS
+            export PYTHONPATH="$(echo .venv/lib/python*/site-packages)" # MACOS
+          fi
+          uv run --no-sync cargo test --no-default-features
+        shell: bash
+
   build:
-    name: Build - ${{ matrix.platform.name }}
+    needs: rust_tests
+    name: Build Wheels - ${{ matrix.platform.name }}
     runs-on: ${{ matrix.platform.runner }}
     container: ${{ matrix.platform.container }}
     strategy:
@@ -69,20 +130,31 @@ jobs:
             runner: macos-14
             target: aarch64
             is-musl: false
-
     steps:
-      # Use the build composite action
       - uses: actions/checkout@v4
-
-      - name: Build wheels
-        uses: ./.github/actions/build_wheels
+      - name: Cache Rust build
+        uses: actions/cache@v4
         with:
-          python-version: "3.12"
+          path: |
+            target
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-build-${{ matrix.platform.name }}-${{ hashFiles('**/Cargo.lock', '**/Cargo.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-build-${{ matrix.platform.name }}-
+      - name: Build wheels
+        uses: PyO3/maturin-action@v1
+        with:
           target: ${{ matrix.platform.target }}
+          args: --release --out dist --find-interpreter
           manylinux: ${{ matrix.platform.manylinux }}
-          is-musl: ${{ matrix.platform.is-musl }}
-          before-script: ${{ matrix.platform.before-script }}
-          platform-name: ${{ matrix.platform.name }}
+          container: ${{ matrix.platform.is-musl == true && 'off' || '' }}
+          before-script-linux: ${{ matrix.platform.before-script }}
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.platform.name }}
+          path: dist
 
   sdist:
     runs-on: ubuntu-latest

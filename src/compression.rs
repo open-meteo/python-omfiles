@@ -1,6 +1,6 @@
 use std::convert::Infallible;
 
-use omfiles_rs::core::compression::CompressionType;
+use omfiles_rs::OmCompressionType;
 use pyo3::{exceptions::PyValueError, prelude::*, types::PyString};
 use pyo3_stub_gen::impl_stub_type;
 
@@ -16,27 +16,27 @@ pub enum PyCompressionType {
 impl_stub_type!(PyCompressionType = PyResult<String>);
 
 impl PyCompressionType {
-    pub fn to_omfilesrs(&self) -> CompressionType {
+    pub fn to_omfilesrs(&self) -> OmCompressionType {
         match self {
-            PyCompressionType::PforDelta2dInt16 => CompressionType::PforDelta2dInt16,
-            PyCompressionType::FpxXor2d => CompressionType::FpxXor2d,
-            PyCompressionType::PforDelta2d => CompressionType::PforDelta2d,
+            PyCompressionType::PforDelta2dInt16 => OmCompressionType::PforDelta2dInt16,
+            PyCompressionType::FpxXor2d => OmCompressionType::FpxXor2d,
+            PyCompressionType::PforDelta2d => OmCompressionType::PforDelta2d,
             PyCompressionType::PforDelta2dInt16Logarithmic => {
-                CompressionType::PforDelta2dInt16Logarithmic
+                OmCompressionType::PforDelta2dInt16Logarithmic
             }
-            PyCompressionType::None => CompressionType::None,
+            PyCompressionType::None => OmCompressionType::None,
         }
     }
 
-    pub fn from_omfilesrs(compression_type: CompressionType) -> Self {
+    pub fn from_omfilesrs(compression_type: OmCompressionType) -> Self {
         match compression_type {
-            CompressionType::PforDelta2dInt16 => PyCompressionType::PforDelta2dInt16,
-            CompressionType::FpxXor2d => PyCompressionType::FpxXor2d,
-            CompressionType::PforDelta2d => PyCompressionType::PforDelta2d,
-            CompressionType::PforDelta2dInt16Logarithmic => {
+            OmCompressionType::PforDelta2dInt16 => PyCompressionType::PforDelta2dInt16,
+            OmCompressionType::FpxXor2d => PyCompressionType::FpxXor2d,
+            OmCompressionType::PforDelta2d => PyCompressionType::PforDelta2d,
+            OmCompressionType::PforDelta2dInt16Logarithmic => {
                 PyCompressionType::PforDelta2dInt16Logarithmic
             }
-            CompressionType::None => PyCompressionType::None,
+            OmCompressionType::None => PyCompressionType::None,
         }
     }
 

@@ -1,23 +1,29 @@
-use numpy::{dtype, PyArrayDescr};
-use omfiles_rs::core::data_types::DataType;
-use pyo3::{exceptions::PyTypeError, Bound, PyResult, Python};
+use numpy::dtype;
+use omfiles_rs::OmDataType;
+use pyo3::{
+    exceptions::PyTypeError,
+    types::{PyNone, PyString},
+    Bound, PyAny, PyResult, PyTypeInfo, Python,
+};
 
-/// Get NumPy dtype, only for numeric types
-pub fn get_numpy_dtype<'py>(
-    py: Python<'py>,
-    type_enum: &DataType,
-) -> PyResult<Bound<'py, PyArrayDescr>> {
+/// Describe the dtype of an OmVariable, i.e. translate it to the closest Python dtype.
+///
+/// Returns numpy dtypes for numeric variables (scalar and array),
+/// type(str) for Strings, and NoneType for None.
+pub fn describe_dtype<'py>(py: Python<'py>, type_enum: &OmDataType) -> PyResult<Bound<'py, PyAny>> {
     match type_enum {
-        DataType::Int8 | DataType::Int8Array => Ok(dtype::<i8>(py)),
-        DataType::Uint8 | DataType::Uint8Array => Ok(dtype::<u8>(py)),
-        DataType::Int16 | DataType::Int16Array => Ok(dtype::<i16>(py)),
-        DataType::Uint16 | DataType::Uint16Array => Ok(dtype::<u16>(py)),
-        DataType::Int32 | DataType::Int32Array => Ok(dtype::<i32>(py)),
-        DataType::Uint32 | DataType::Uint32Array => Ok(dtype::<u32>(py)),
-        DataType::Int64 | DataType::Int64Array => Ok(dtype::<i64>(py)),
-        DataType::Uint64 | DataType::Uint64Array => Ok(dtype::<u64>(py)),
-        DataType::Float | DataType::FloatArray => Ok(dtype::<f32>(py)),
-        DataType::Double | DataType::DoubleArray => Ok(dtype::<f64>(py)),
+        OmDataType::Int8 | OmDataType::Int8Array => Ok(dtype::<i8>(py).into_any()),
+        OmDataType::Uint8 | OmDataType::Uint8Array => Ok(dtype::<u8>(py).into_any()),
+        OmDataType::Int16 | OmDataType::Int16Array => Ok(dtype::<i16>(py).into_any()),
+        OmDataType::Uint16 | OmDataType::Uint16Array => Ok(dtype::<u16>(py).into_any()),
+        OmDataType::Int32 | OmDataType::Int32Array => Ok(dtype::<i32>(py).into_any()),
+        OmDataType::Uint32 | OmDataType::Uint32Array => Ok(dtype::<u32>(py).into_any()),
+        OmDataType::Int64 | OmDataType::Int64Array => Ok(dtype::<i64>(py).into_any()),
+        OmDataType::Uint64 | OmDataType::Uint64Array => Ok(dtype::<u64>(py).into_any()),
+        OmDataType::Float | OmDataType::FloatArray => Ok(dtype::<f32>(py).into_any()),
+        OmDataType::Double | OmDataType::DoubleArray => Ok(dtype::<f64>(py).into_any()),
+        OmDataType::String => Ok(PyString::type_object(py).into_any()),
+        OmDataType::None => Ok(PyNone::type_object(py).into_any()),
         _ => Err(PyTypeError::new_err(
             "Type cannot be converted to NumPy dtype",
         )),

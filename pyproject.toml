@@ -4,6 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "omfiles"
+description = "Python bindings for the Open-Meteo file format"
 requires-python = ">=3.9"
 classifiers = [
     "Programming Language :: Rust",
@@ -11,15 +12,35 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dynamic = ["version"]
+readme = "README.md"
+license = "GPL-2.0-only"
+authors = [
+    { name = "Terraputix", email = "terraputix@mailbox.org" },
+]
+maintainers = [
+    { name = "Terraputix", email = "terraputix@mailbox.org" },
+]
 dependencies = [
     "numpy>=1.21.0",
 ]
 
+[project.urls]
+Homepage = "https://github.com/open-meteo/python-omfiles"
+Documentation = "https://open-meteo.github.io/python-omfiles/"
+Source = "https://github.com/open-meteo/python-omfiles"
+Tracker = "https://github.com/open-meteo/python-omfiles/issues"
+
 [project.optional-dependencies]
+codec = [
+    "zarr>=2.18.2",
+    "numcodecs>=0.12.1",
+]
 xarray = ["xarray>=2023.1.0"]
 fsspec = ["fsspec>=2023.1.0", "s3fs>=2023.1.0"]
 proj = ["pyproj"]
 all = [
+    "zarr>=2.18.2",
+    "numcodecs>=0.12.1",
     "xarray>=2023.1.0",
     "fsspec>=2023.1.0",
     "s3fs>=2023.1.0",
@@ -28,29 +49,36 @@ all = [
 
 [dependency-groups]
 documentation = [
-    "sphinx>=7.4.7",
-    "sphinx-autodoc-typehints>=2.3.0",
+    "sphinx>=8.2.0",
+    "sphinx-autodoc-typehints>=3.2.0",
     "sphinx-rtd-theme>=3.0.2",
+    "myst-parser"
 ]
-dev = [
+test = [
     "pytest>=6.1",
     "pytest-asyncio",
     "psutil",
-    "maturin>=1.7,<2.0",
-    {include-group = "documentation"},
     "omfiles[all]",
+]
+dev = [
+    "maturin>=1.7,<2.0",
+    {include-group = "test"},
+    {include-group = "documentation"},
 ]
 
 [tool.maturin]
 python-source = "python"             # Python source code is in the `python` directory
-bindings = "pyo3"                    # pyo3 bindings is actually the default for maturin
 features = ["pyo3/extension-module"] # Define extension module in pyproject.toml instead of Cargo.toml to not mess with `cargo test`
+sdist-include = ["LICENSE", "README.md"]
 
 [tool.uv]
 # Rebuild package when any rust files change
 cache-keys = [{file = "pyproject.toml"}, {file = "rust/Cargo.toml"}, {file = "**/*.rs"}]
 # Uncomment to build rust code in development mode
 # config-settings = { build-args = '--profile=dev' }
+
+[tool.uv.dependency-groups]
+documentation = {requires-python = ">=3.11"}
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
@@ -66,11 +94,17 @@ select = ["D"] # Enable all docstring-related rules
 ignore = [
     "D200",
     "D203",
+    "D204",
     "D212",
     "D413"
 ]
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["D"]  # Ignore all docstring errors in tests/
+"examples/*" = ["D"]  # Ignore all docstring errors in examples/
 
 [project.entry-points."xarray.backends"]
 om = "omfiles.xarray:OmXarrayEntrypoint"
+
+[project.entry-points."zarr.codecs"]
+"omfiles.pfor" = "omfiles._zarr3:PforCodec"
+"omfiles.pfor_serializer" = "omfiles._zarr3:PforSerializer"

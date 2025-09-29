@@ -1,12 +1,14 @@
 """Provides classes and utilities for reading, writing, and manipulating OM files."""
 
 from . import types
-from .omfiles import OmFilePyReader, OmFilePyReaderAsync, OmFilePyWriter, OmVariable
+from .omfiles import OmFileReader, OmFileReaderAsync, OmFileWriter, OmVariable, _check_cpu_features
+
+_check_cpu_features()
 
 __all__ = [
-    "OmFilePyReader",
-    "OmFilePyReaderAsync",
-    "OmFilePyWriter",
+    "OmFileReader",
+    "OmFileReaderAsync",
+    "OmFileWriter",
     "OmVariable",
     "types",
 ]
