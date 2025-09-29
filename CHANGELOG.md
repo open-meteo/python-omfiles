@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1](https://github.com/open-meteo/python-omfiles/compare/v0.1.0...v0.1.1) (2025-09-29)
+
+
+### Bug Fixes
+
+* add more metadata to pyproject.toml ([1344631](https://github.com/open-meteo/python-omfiles/commit/1344631247f10a130f94d819eddacfb6c9dc7d87))
+* missing readme on pypi because not included in sdist ([294295f](https://github.com/open-meteo/python-omfiles/commit/294295fd9636586c3e99319cf2117310cf0bc2bc))
+
 ## [0.1.0](https://github.com/open-meteo/python-omfiles/compare/v0.0.2...v0.1.0) (2025-09-27)
 
 
