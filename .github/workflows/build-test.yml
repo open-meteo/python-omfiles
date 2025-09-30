@@ -187,64 +187,86 @@ jobs:
           - name: Linux x86_64
             runner: ubuntu-latest
             platform-name: linux-x86_64
+            is-musl: false
             python-version: "3.12"
+            is-min-deps: false
 
           - name: Linux musl
             runner: ubuntu-22.04
             platform-name: linux-musl-x86_64
             is-musl: true
             python-version: "3.12"
+            is-min-deps: false
 
           - name: Linux ARM64
             runner: ubuntu-22.04
             platform-name: linux-aarch64
+            is-musl: false
             python-version: "3.12"
+            is-min-deps: false
 
           - name: Windows
             runner: windows-latest
             platform-name: windows-x64
+            is-musl: false
             python-version: "3.12"
+            is-min-deps: false
 
           - name: macOS x86_64
             runner: macos-13
             platform-name: macos-x86_64
+            is-musl: false
             python-version: "3.12"
+            is-min-deps: false
 
           - name: macOS ARM64
             runner: macos-14
             platform-name: macos-arm64
+            is-musl: false
             python-version: "3.12"
+            is-min-deps: false
 
           # Additional Python versions for Linux x86_64
           - name: Python 3.9
             runner: ubuntu-latest
             platform-name: linux-x86_64
+            is-musl: false
             python-version: "3.9"
+            is-min-deps: false
 
           - name: Python 3.10
             runner: ubuntu-latest
             platform-name: linux-x86_64
+            is-musl: false
             python-version: "3.10"
+            is-min-deps: false
 
           - name: Python 3.11
             runner: ubuntu-latest
             platform-name: linux-x86_64
+            is-musl: false
             python-version: "3.11"
+            is-min-deps: false
 
           - name: Python 3.13
             runner: ubuntu-latest
             platform-name: linux-x86_64
+            is-musl: false
             python-version: "3.13"
+            is-min-deps: false
 
           - name: Python 3.14 Pre Release
             runner: ubuntu-latest
             platform-name: linux-x86_64
+            is-musl: false
             python-version: "3.14"
+            is-min-deps: false
 
           # Minimum dependencies test
           - name: Min Dependencies
             runner: ubuntu-latest
             platform-name: linux-x86_64
+            is-musl: false
             python-version: "3.9"
             is-min-deps: true
     steps:
