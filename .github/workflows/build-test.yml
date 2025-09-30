@@ -187,81 +187,66 @@ jobs:
           - name: Linux x86_64
             runner: ubuntu-latest
             platform-name: linux-x86_64
-            is-musl: false
             python-version: "3.12"
-            test-type: standard
 
           - name: Linux musl
             runner: ubuntu-22.04
             platform-name: linux-musl-x86_64
             is-musl: true
             python-version: "3.12"
-            test-type: standard
+
+          - name: Linux ARM64
+            runner: ubuntu-22.04
+            platform-name: linux-arm64
+            python-version: "3.12"
 
           - name: Windows
             runner: windows-latest
             platform-name: windows-x64
-            is-musl: false
             python-version: "3.12"
-            test-type: standard
 
           - name: macOS x86_64
             runner: macos-13
             platform-name: macos-x86_64
-            is-musl: false
             python-version: "3.12"
-            test-type: standard
 
           - name: macOS ARM64
             runner: macos-14
             platform-name: macos-arm64
-            is-musl: false
             python-version: "3.12"
-            test-type: standard
 
           # Additional Python versions for Linux x86_64
           - name: Python 3.9
             runner: ubuntu-latest
             platform-name: linux-x86_64
-            is-musl: false
             python-version: "3.9"
-            test-type: standard
 
           - name: Python 3.10
             runner: ubuntu-latest
             platform-name: linux-x86_64
-            is-musl: false
             python-version: "3.10"
-            test-type: standard
 
           - name: Python 3.11
             runner: ubuntu-latest
             platform-name: linux-x86_64
-            is-musl: false
             python-version: "3.11"
-            test-type: standard
 
           - name: Python 3.13
             runner: ubuntu-latest
             platform-name: linux-x86_64
-            is-musl: false
             python-version: "3.13"
-            test-type: standard
 
           - name: Python 3.14 Pre Release
             runner: ubuntu-latest
             platform-name: linux-x86_64
-            is-musl: false
             python-version: "3.14"
-            test-type: standard
 
           # Minimum dependencies test
           - name: Min Dependencies
             runner: ubuntu-latest
             platform-name: linux-x86_64
-            is-musl: false
             python-version: "3.9"
-            test-type: min_deps
+            is-min-deps: true
     steps:
       # Use the test composite action
       - uses: actions/checkout@v4
@@ -271,5 +256,5 @@ jobs:
         with:
           python-version: ${{ matrix.config.python-version }}
           is-musl: ${{ matrix.config.is-musl }}
-          test-type: ${{ matrix.config.test-type }}
+          is-min-deps: ${{ matrix.config.is-min-deps }}
           platform-name: ${{ matrix.config.platform-name }}
