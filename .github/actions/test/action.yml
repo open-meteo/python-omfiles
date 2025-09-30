@@ -39,7 +39,7 @@ runs:
 
     # Regular tests (non-musl platforms)
     - name: Run regular tests
-      if: ${{ inputs.is-min-deps == 'false' && inputs.is-musl != 'true' }}
+      if: ${{ inputs.is-min-deps == 'false' && inputs.is-musl == 'false' }}
       shell: bash
       run: |
         WHEEL_PATH=$(ls dist/*.whl)
