@@ -4,12 +4,6 @@
 [![PyPI version](https://badge.fury.io/py/omfiles.svg)](https://pypi.org/project/omfiles/)
 [![Build and Test](https://github.com/open-meteo/python-omfiles/actions/workflows/build-test.yml/badge.svg)](https://github.com/open-meteo/python-omfiles/actions/workflows/build-test.yml)
 
-## Installation
-
-```bash
-pip install omfiles
-```
-
 ## Features
 
 - Read Open-Meteo (`.om`) files directly from cloud storage using Python
@@ -17,6 +11,31 @@ pip install omfiles
 - Arrays/array slices are returned directly as [NumPy](https://github.com/numpy/numpy) arrays
 - Support for [fsspec](https://github.com/fsspec/filesystem_spec) and [xarray](https://github.com/pydata/xarray)
 - Chunked data access behind the scenes
+
+## Installation
+
+```bash
+pip install omfiles
+```
+
+## Pre-Built Wheels & Platform Support
+
+We provide pre-built wheels for the following platforms:
+
+- Linux x86_64 (`manylinux_2_28`)
+- Linux aarch64 (`manylinux_2_28`)
+- Linux musl x86_64 (`musllinux_1_2`)
+- Windows x64
+- macOS x86_64
+- macOS ARM64 (Apple Silicon)
+
+
+## Stability Notice
+
+**This project is now stable as of version 1.0.0.**
+The public API is considered stable and will follow [semantic versioning](https://semver.org/).
+Breaking changes will not be introduced in 1.x releases without a major version bump.
+
 
 ### Reading
 
