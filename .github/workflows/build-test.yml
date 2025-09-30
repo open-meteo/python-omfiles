@@ -197,7 +197,7 @@ jobs:
 
           - name: Linux ARM64
             runner: ubuntu-22.04
-            platform-name: linux-arm64
+            platform-name: linux-aarch64
             python-version: "3.12"
 
           - name: Windows
