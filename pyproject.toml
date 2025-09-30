@@ -50,12 +50,12 @@ documentation = [
     "sphinx>=8.2.0",
     "sphinx-autodoc-typehints>=3.2.0",
     "sphinx-rtd-theme>=3.0.2",
-    "myst-parser"
+    "myst-parser>=4.0"
 ]
 test = [
-    "pytest>=6.1",
-    "pytest-asyncio",
-    "psutil",
+    "pytest>=8.0",
+    "pytest-asyncio>=1.1.0",
+    "psutil>=6.0.0",
     "omfiles[all]",
 ]
 dev = [

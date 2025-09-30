@@ -30,13 +30,17 @@ jobs:
     strategy:
       matrix:
         platform:
-          - name: linux-x86_64
+          - name: Linux x86_64
             runner: ubuntu-latest
-          - name: windows-x64
+          - name: Linux ARM64
+            runner: ubuntu-24.04-arm
+          - name: Windows x64
             runner: windows-latest
-          - name: macos-x86_64
+          - name: Windows ARM64
+            runner: windows-11-arm
+          - name: macOS x86_64
             runner: macos-13
-          - name: macos-arm64
+          - name: macOS ARM64
             runner: macos-14
     steps:
       - uses: actions/checkout@v4
@@ -57,7 +61,7 @@ jobs:
           version: "0.8.19"
           enable-cache: true
           cache-dependency-glob: "**/uv.lock"
-          python-version: ${{ inputs.python-version }}
+          # python-version: "3.12"
 
       - name: Install required python dependencies
         run: uv sync --no-install-project
@@ -93,7 +97,7 @@ jobs:
         platform:
           - name: linux-x86_64
             runner: ubuntu-latest
-            target: x86_64
+            target: x86_64-unknown-linux-gnu
             before-script: python3 -m ensurepip && cat /etc/os-release && yum install clang -y
             manylinux: "2_28"
             is-musl: false
@@ -118,17 +122,17 @@ jobs:
 
           - name: windows-x64
             runner: windows-latest
-            target: x64
+            target: x86_64-pc-windows-msvc
             is-musl: false
 
           - name: macos-x86_64
             runner: macos-13
-            target: x86_64
+            target: x86_64-apple-darwin
             is-musl: false
 
           - name: macos-arm64
             runner: macos-14
-            target: aarch64
+            target: aarch64-apple-darwin
             is-musl: false
     steps:
       - uses: actions/checkout@v4
@@ -185,35 +189,42 @@ jobs:
             platform-name: linux-x86_64
             is-musl: false
             python-version: "3.12"
-            test-type: standard
+            is-min-deps: false
 
           - name: Linux musl
             runner: ubuntu-22.04
             platform-name: linux-musl-x86_64
             is-musl: true
             python-version: "3.12"
-            test-type: standard
+            is-min-deps: false
+
+          - name: Linux ARM64
+            runner: ubuntu-24.04-arm
+            platform-name: linux-aarch64
+            is-musl: false
+            python-version: "3.12"
+            is-min-deps: false
 
           - name: Windows
             runner: windows-latest
             platform-name: windows-x64
             is-musl: false
             python-version: "3.12"
-            test-type: standard
+            is-min-deps: false
 
           - name: macOS x86_64
             runner: macos-13
             platform-name: macos-x86_64
             is-musl: false
             python-version: "3.12"
-            test-type: standard
+            is-min-deps: false
 
           - name: macOS ARM64
             runner: macos-14
             platform-name: macos-arm64
             is-musl: false
             python-version: "3.12"
-            test-type: standard
+            is-min-deps: false
 
           # Additional Python versions for Linux x86_64
           - name: Python 3.9
@@ -221,35 +232,35 @@ jobs:
             platform-name: linux-x86_64
             is-musl: false
             python-version: "3.9"
-            test-type: standard
+            is-min-deps: false
 
           - name: Python 3.10
             runner: ubuntu-latest
             platform-name: linux-x86_64
             is-musl: false
             python-version: "3.10"
-            test-type: standard
+            is-min-deps: false
 
           - name: Python 3.11
             runner: ubuntu-latest
             platform-name: linux-x86_64
             is-musl: false
             python-version: "3.11"
-            test-type: standard
+            is-min-deps: false
 
           - name: Python 3.13
             runner: ubuntu-latest
             platform-name: linux-x86_64
             is-musl: false
             python-version: "3.13"
-            test-type: standard
+            is-min-deps: false
 
           - name: Python 3.14 Pre Release
             runner: ubuntu-latest
             platform-name: linux-x86_64
             is-musl: false
             python-version: "3.14"
-            test-type: standard
+            is-min-deps: false
 
           # Minimum dependencies test
           - name: Min Dependencies
@@ -257,15 +268,58 @@ jobs:
             platform-name: linux-x86_64
             is-musl: false
             python-version: "3.9"
-            test-type: min_deps
+            is-min-deps: true
     steps:
       # Use the test composite action
       - uses: actions/checkout@v4
 
-      - name: Run tests
-        uses: ./.github/actions/test
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
         with:
+          version: "0.8.19"
+          enable-cache: ${{ matrix.config.is-musl && 'false' || 'true' }}
+          cache-dependency-glob: "**/uv.lock"
           python-version: ${{ matrix.config.python-version }}
-          is-musl: ${{ matrix.config.is-musl }}
-          test-type: ${{ matrix.config.test-type }}
-          platform-name: ${{ matrix.config.platform-name }}
+
+      - name: Download wheels
+        uses: actions/download-artifact@v4
+        with:
+          name: wheels-${{ matrix.config.platform-name }}
+          path: dist
+
+      # Regular tests (non-musl platforms)
+      - name: Run regular tests
+        if: ${{ !matrix.config.is-min-deps && !matrix.config.is-musl }}
+        shell: bash
+        run: |
+          WHEEL_PATH=$(ls dist/*.whl)
+          uv venv
+          uv sync --no-install-project --no-default-groups --group=test
+          uv pip install --force-reinstall "$WHEEL_PATH"
+          uv run --no-sync pytest tests/
+
+      # Musl tests
+      - name: Run musl tests
+        if: ${{ !matrix.config.is-min-deps && matrix.config.is-musl }}
+        uses: addnab/docker-run-action@v3
+        with:
+          image: ghcr.io/astral-sh/uv:0.8.19-alpine
+          options: -v ${{ github.workspace }}:/io -w /io
+          run: |
+            apk add python3 py3-pip py3-psutil gcc python3-dev musl-dev linux-headers
+            WHEEL_PATH=$(ls dist/*.whl)
+            uv venv
+            uv sync --no-install-project --no-default-groups --group=test
+            uv pip install --force-reinstall "$WHEEL_PATH"
+            uv run --no-sync pytest tests/
+
+      # Minimum dependencies test
+      - name: Run tests with minimum dependencies
+        if: ${{ matrix.config.is-min-deps }}
+        shell: bash
+        run: |
+          WHEEL_PATH=$(ls dist/*.whl)
+          uv venv
+          uv sync --resolution lowest-direct --no-install-project --no-default-groups --group=test
+          uv pip install --no-deps --force-reinstall "$WHEEL_PATH"
+          uv run --no-sync --no-default-groups --group=test pytest tests/
