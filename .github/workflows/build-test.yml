@@ -30,14 +30,12 @@ jobs:
     strategy:
       matrix:
         platform:
-          - name: linux-x86_64
-            runner: ubuntu-latest
-          - name: windows-x64
-            runner: windows-latest
-          - name: macos-x86_64
-            runner: macos-13
-          - name: macos-arm64
-            runner: macos-14
+          - runner: ubuntu-latest
+          - runner: ubuntu-24.04-arm
+          - runner: windows-latest
+          - runner: windows-11-arm
+          - runner: macos-13
+          - runner: macos-14
     steps:
       - uses: actions/checkout@v4
       - name: Cache Rust build
