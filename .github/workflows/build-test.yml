@@ -300,4 +300,4 @@ jobs:
           uv venv
           uv sync --resolution lowest-direct --no-install-project --no-default-groups --group=test
           uv pip install --force-reinstall "$WHEEL_PATH"
-          uv run --no-sync pytest tests/
+          uv run --no-sync --no-default-groups --group=test pytest tests/
