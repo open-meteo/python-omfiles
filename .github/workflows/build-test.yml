@@ -61,7 +61,7 @@ jobs:
           version: "0.8.19"
           enable-cache: true
           cache-dependency-glob: "**/uv.lock"
-          python-version: "3.12"
+          # python-version: "3.12"
 
       - name: Install required python dependencies
         run: uv sync --no-install-project
