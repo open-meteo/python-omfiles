@@ -30,12 +30,18 @@ jobs:
     strategy:
       matrix:
         platform:
-          - runner: ubuntu-latest
-          - runner: ubuntu-24.04-arm
-          - runner: windows-latest
-          - runner: windows-11-arm
-          - runner: macos-13
-          - runner: macos-14
+          - name: Linux x86_64
+            runner: ubuntu-latest
+          - name: Linux ARM64
+            runner: ubuntu-24.04-arm
+          - name: Windows x64
+            runner: windows-latest
+          - name: Windows ARM64
+            runner: windows-11-arm
+          - name: macOS x86_64
+            runner: macos-13
+          - name: macOS ARM64
+            runner: macos-14
     steps:
       - uses: actions/checkout@v4
       - name: Cache Rust build
@@ -91,7 +97,7 @@ jobs:
         platform:
           - name: linux-x86_64
             runner: ubuntu-latest
-            target: x86_64
+            target: x86_64-unknown-linux-gnu
             before-script: python3 -m ensurepip && cat /etc/os-release && yum install clang -y
             manylinux: "2_28"
             is-musl: false
@@ -116,17 +122,22 @@ jobs:
 
           - name: windows-x64
             runner: windows-latest
-            target: x64
+            target: x86_64-pc-windows-msvc
+            is-musl: false
+
+          - name: windows-arm64
+            runner: windows-11-arm
+            target: aarch64-pc-windows-msvc
             is-musl: false
 
           - name: macos-x86_64
             runner: macos-13
-            target: x86_64
+            target: x86_64-apple-darwin
             is-musl: false
 
           - name: macos-arm64
             runner: macos-14
-            target: aarch64
+            target: aarch64-apple-darwin
             is-musl: false
     steps:
       - uses: actions/checkout@v4
