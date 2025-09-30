@@ -199,7 +199,7 @@ jobs:
             is-min-deps: false
 
           - name: Linux ARM64
-            runner: ubuntu-22.04
+            runner: ubuntu-24-04-arm
             platform-name: linux-aarch64
             is-musl: false
             python-version: "3.12"
