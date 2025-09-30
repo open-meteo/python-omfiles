@@ -281,9 +281,6 @@ jobs:
           cache-dependency-glob: "**/uv.lock"
           python-version: ${{ matrix.config.python-version }}
 
-      - name: echo wheel name
-        run: echo wheels-${{ matrix.config.platform-name }}
-
       - name: Download wheels
         uses: actions/download-artifact@v4
         with:
