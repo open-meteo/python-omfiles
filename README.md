@@ -1,4 +1,4 @@
-# Python bindings for Open Meteo file format
+# Python Bindings for Open Meteo File Format
 
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![PyPI version](https://badge.fury.io/py/omfiles.svg)](https://pypi.org/project/omfiles/)
@@ -39,7 +39,7 @@ Breaking changes will not be introduced in 1.x releases without a major version 
 
 ## Reading
 
-### Reading files without hierarchy
+### Reading Files without Hierarchy
 
 OM files are [structured like a tree of variables](https://github.com/open-meteo/om-file-format?tab=readme-ov-file#data-hierarchy-model).
 The following example assumes that the file `test_file.om` contains an array variable as a root variable which has a dimensionality greater than 2 and a size of at least 2x100:
@@ -52,7 +52,7 @@ data = reader[0:2, 0:100, ...]
 reader.close() # Close the reader to release resources
 ```
 
-### Reading files with hierarchy, e.g. S3 spatial files
+### Reading Hierarchical Files, e.g. S3 Spatial Files
 
 ```python
 import fsspec
