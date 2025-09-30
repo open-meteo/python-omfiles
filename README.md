@@ -18,7 +18,7 @@
 pip install omfiles
 ```
 
-## Pre-Built Wheels & Platform Support
+### Pre-Built Wheels & Platform Support
 
 We provide pre-built wheels for the following platforms:
 
@@ -30,16 +30,16 @@ We provide pre-built wheels for the following platforms:
 - macOS ARM64 (Apple Silicon)
 
 
-## Stability Notice
+### Stability Notice
 
 **This project is now stable as of version 1.0.0.**
 The public API is considered stable and will follow [semantic versioning](https://semver.org/).
 Breaking changes will not be introduced in 1.x releases without a major version bump.
 
 
-### Reading
+## Reading
 
-#### Basic reading
+### Reading files without hierarchy
 
 OM files are [structured like a tree of variables](https://github.com/open-meteo/om-file-format?tab=readme-ov-file#data-hierarchy-model).
 The following example assumes that the file `test_file.om` contains an array variable as a root variable which has a dimensionality greater than 2 and a size of at least 2x100:
@@ -52,7 +52,7 @@ data = reader[0:2, 0:100, ...]
 reader.close() # Close the reader to release resources
 ```
 
-#### Reading desired variables from S3 spatial files
+### Reading files with hierarchy, e.g. S3 spatial files
 
 ```python
 import fsspec
@@ -104,9 +104,9 @@ with OmFileReader(backend) as root:
     print(f"Are the two temperature subsets equal? {are_equal}")
 ```
 
-### Writing
+## Writing
 
-#### Simple Array
+### Single Array
 ```python
 import numpy as np
 from omfiles import OmFileWriter
@@ -131,7 +131,7 @@ array_variable = writer.write_array(
 writer.close(array_variable)
 ```
 
-#### Hierarchical Structure
+### Hierarchical Structure
 ```python
 import numpy as np
 from omfiles import OmFileWriter
