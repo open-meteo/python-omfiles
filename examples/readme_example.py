@@ -20,7 +20,7 @@ backend = fsspec.open(
     f"blockcache::{s3_uri}",
     mode="rb",
     s3={"anon": True, "default_block_size": 65536},  # s3 settings
-    blockcache={"cache_storage": "cache", "same_names": True},  # blockcache settings
+    blockcache={"cache_storage": "cache"},  # blockcache settings
 )
 # Create reader from the fsspec file object using a context manager.
 # This will automatically close the file when the block is exited.

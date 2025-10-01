@@ -33,7 +33,7 @@ backend = fsspec.open(
     f"blockcache::s3://openmeteo/data_spatial/dwd_icon/2025/09/23/0000Z/2025-09-30T0000.om",
     mode="rb",
     s3={"anon": True, "default_block_size": 65536},
-    blockcache={"cache_storage": "cache", "same_names": True},
+    blockcache={"cache_storage": "cache"},
 )
 with OmFileReader(backend) as reader:
     print("reader.is_group", reader.is_group)

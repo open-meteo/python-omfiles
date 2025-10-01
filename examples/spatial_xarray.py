@@ -28,7 +28,7 @@ backend = fsspec.open(
     f"blockcache::s3://{s3_spatial_file}",
     mode="rb",
     s3={"anon": True, "default_block_size": 65536},
-    blockcache={"cache_storage": "cache", "same_names": True},
+    blockcache={"cache_storage": "cache"},
 )
 
 ds = xr.open_dataset(backend, engine="om")  # type: ignore
