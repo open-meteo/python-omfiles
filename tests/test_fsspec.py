@@ -31,7 +31,7 @@ def local_fs():
 
 @pytest.fixture
 def s3_test_file():
-    last_week = datetime.datetime.now(datetime.UTC) - datetime.timedelta(weeks=1)
+    last_week = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(weeks=1)
     # this info is currently hardcoded in the open-meteo source code:
     # https://github.com/open-meteo/open-meteo/blob/a754d80904d7993329faceafaa52645a09cd662c/Sources/App/Icon/Icon.swift#L69
     icon_d2_timesteps_per_chunk_file = 121
@@ -43,7 +43,7 @@ def s3_test_file():
 @pytest.fixture
 def s3_spatial_test_file():
     # Get path to yesterdays 0000Z run, 12 UTC forecast
-    yesterday = datetime.datetime.now(datetime.UTC) - datetime.timedelta(days=1)
+    yesterday = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=1)
     year = yesterday.strftime("%Y")
     month = yesterday.strftime("%m")
     day = yesterday.strftime("%d")
