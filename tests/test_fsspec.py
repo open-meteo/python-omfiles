@@ -1,6 +1,8 @@
+import datetime
 import os
 import tempfile
 import threading
+from typing import Tuple
 
 import fsspec
 import numpy as np
@@ -12,7 +14,7 @@ from fsspec.implementations.local import LocalFileSystem
 from fsspec.implementations.memory import MemoryFileSystem
 from s3fs import S3FileSystem
 
-from .test_utils import filter_numpy_size_warning
+from .test_utils import filter_numpy_size_warning, find_chunk_for_timestamp
 
 # --- Fixtures ---
 
@@ -29,12 +31,26 @@ def local_fs():
 
 @pytest.fixture
 def s3_test_file():
-    return "openmeteo/data/dwd_icon_d2/temperature_2m/chunk_3960.om"
+    last_week = datetime.datetime.now(datetime.UTC) - datetime.timedelta(weeks=1)
+    # this info is currently hardcoded in the open-meteo source code:
+    # https://github.com/open-meteo/open-meteo/blob/a754d80904d7993329faceafaa52645a09cd662c/Sources/App/Icon/Icon.swift#L69
+    icon_d2_timesteps_per_chunk_file = 121
+    icon_d2_dt_seconds = 3600
+    last_week_chunk = find_chunk_for_timestamp(last_week, icon_d2_timesteps_per_chunk_file, icon_d2_dt_seconds)
+    return f"openmeteo/data/dwd_icon_d2/temperature_2m/chunk_{last_week_chunk}.om"
 
 
 @pytest.fixture
 def s3_spatial_test_file():
-    return "openmeteo/data_spatial/dwd_icon/2025/09/23/0000Z/2025-09-30T0000.om"
+    # Get path to yesterdays 0000Z run, 12 UTC forecast
+    yesterday = datetime.datetime.now(datetime.UTC) - datetime.timedelta(days=1)
+    year = yesterday.strftime("%Y")
+    month = yesterday.strftime("%m")
+    day = yesterday.strftime("%d")
+    # File name pattern: YYYY-MM-DDT1200.om
+    file_name = f"{yesterday.strftime('%Y-%m-%d')}T1200.om"
+    # Use the 0000Z run
+    return f"openmeteo/data_spatial/dwd_icon/{year}/{month}/{day}/0000Z/{file_name}"
 
 
 @pytest.fixture
@@ -84,19 +100,20 @@ def test_local_read(local_fs, temp_om_file):
     np.testing.assert_array_equal(data, np.arange(25).reshape(5, 5))
 
 
-# Test is slow, because no caching is used.
-# def test_s3_read(s3_backend, s3_test_file):
-#     reader = omfiles.OmFileReader.from_fsspec(s3_backend, s3_test_file)
-#     data = reader[57812:60000, 0:100]
-#     expected = [18.0, 17.7, 17.65, 17.45, 17.15, 17.6, 18.7, 20.75, 21.7, 22.65]
-#     np.testing.assert_array_almost_equal(data[0, :10], expected)
+def test_s3_read(s3_backend, s3_test_file):
+    reader = omfiles.OmFileReader.from_fsspec(s3_backend, s3_test_file)
+    data = reader[200:202, 300:303, 0:100]
+    assert data.shape == (2, 3, 100)
+    assert data.dtype == np.float32
+    assert np.isfinite(data).all()
 
 
 def test_s3_read_with_cache(s3_backend_with_cache, s3_test_file):
     reader = omfiles.OmFileReader.from_fsspec(s3_backend_with_cache, s3_test_file)
-    data = reader[57812:60000, 0:100]
-    expected = [18.0, 17.7, 17.65, 17.45, 17.15, 17.6, 18.7, 20.75, 21.7, 22.65]
-    np.testing.assert_array_almost_equal(data[0, :10], expected)
+    data = reader[200:202, 300:303, 0:100]
+    assert data.shape == (2, 3, 100)
+    assert data.dtype == np.float32
+    assert np.isfinite(data).all()
 
 
 # This test is slow, because currently async caching is not supported in fsspec
@@ -104,9 +121,10 @@ def test_s3_read_with_cache(s3_backend_with_cache, s3_test_file):
 @pytest.mark.asyncio
 async def test_s3_read_async(s3_backend_async, s3_test_file):
     reader = await omfiles.OmFileReaderAsync.from_fsspec(s3_backend_async, s3_test_file)
-    data = await reader.read_array((slice(57812, 60000), slice(0, 100)))
-    expected = [18.0, 17.7, 17.65, 17.45, 17.15, 17.6, 18.7, 20.75, 21.7, 22.65]
-    np.testing.assert_array_almost_equal(data[0, :10], expected)
+    data = await reader.read_array((slice(200, 202), slice(300, 303), slice(0, 100)))
+    assert data.shape == (2, 3, 100)
+    assert data.dtype == np.float32
+    assert np.isfinite(data).all()
 
 
 @filter_numpy_size_warning
@@ -132,7 +150,7 @@ def test_s3_xarray(s3_spatial_test_file):
     ds = xr.open_dataset(backend, engine="om")  # type: ignore
     # ds = xr.open_dataset(backend, engine="om")
     assert any(ds.variables.keys())
-    np.testing.assert_array_almost_equal(ds["wind_gusts_10m"][100, 200].values, np.array([3.8]))
+    assert np.isfinite(ds["temperature_2m"][100, 200].values)
 
 
 def test_fsspec_reader_close(local_fs, temp_om_file):

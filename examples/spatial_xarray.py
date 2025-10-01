@@ -23,9 +23,14 @@ from omfiles import OmFileReader
 PLOT_VARIABLE = "temperature_2m"
 MODEL = "dwd_icon"
 
-s3_spatial_file = f"openmeteo/data_spatial/{MODEL}/2025/09/23/0000Z/2025-09-30T0000.om"
+# Example: URI for a spatial data file in the `data_spatial` S3 bucket
+# See data organization details: https://github.com/open-meteo/open-data?tab=readme-ov-file#data-organization
+# Note: Spatial data is only retained for 7 days. The example file below may no longer exist.
+# Please update the URI to match a currently available file.
+s3_spatial_uri = f"s3://openmeteo/data_spatial/{MODEL}/2025/09/23/0000Z/2025-09-30T0000.om"
+
 backend = fsspec.open(
-    f"blockcache::s3://{s3_spatial_file}",
+    f"blockcache::{s3_spatial_uri}",
     mode="rb",
     s3={"anon": True, "default_block_size": 65536},
     blockcache={"cache_storage": "cache"},
