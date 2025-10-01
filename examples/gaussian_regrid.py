@@ -41,7 +41,7 @@ with OmFileReader(backend) as reader:
     print(f"Data range: {np.nanmin(data)} to {np.nanmax(data)}")
 
     regridded = interpolate(data, in_grid={"grid": "O1280"}, out_grid={"grid": [0.1, 0.1]}, method="linear")
-    print(regridded.shape)
+    print(f"Regridded shape: {regridded.shape}")
 
     # Create plot
     fig = plt.figure(figsize=(12, 8))
@@ -54,11 +54,10 @@ with OmFileReader(backend) as reader:
     ax.add_feature(cfeature.LAND, alpha=0.3)
 
     # Create coordinate arrays
-    # Currently, the files don't contain any information about the spatial coordinates,
-    # so you need to provide these coordinate arrays manually.
+    # These bounds need to match the output grid of the regridding!
     height, width = regridded.shape
-    lon = np.linspace(0, 360, width, endpoint=False)  # Adjust these bounds
-    lat = np.linspace(90, -90, height)  # Adjust these bounds
+    lon = np.linspace(0, 360, width, endpoint=False)
+    lat = np.linspace(90, -90, height)
     lon_grid, lat_grid = np.meshgrid(lon, lat)
 
     # Plot the data
@@ -69,7 +68,7 @@ with OmFileReader(backend) as reader:
     ax.set_global()
     plt.tight_layout()
 
-    output_filename = f"map_{child.name.replace('/', '_')}.png"
+    output_filename = f"map_ifs_{child.name.replace('/', '_')}.png"
     plt.savefig(output_filename, dpi=300, bbox_inches="tight")
     print(f"Plot saved as: {output_filename}")
     plt.close()
