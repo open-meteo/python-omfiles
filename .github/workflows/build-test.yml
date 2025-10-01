@@ -313,7 +313,7 @@ jobs:
           path: dist
 
       - name: Run musl tests
-        shell: bash
+        shell: sh
         run: |
           WHEEL_PATH=$(ls dist/*.whl)
           uv venv
