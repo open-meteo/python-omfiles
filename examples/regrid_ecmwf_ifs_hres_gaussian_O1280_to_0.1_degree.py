@@ -40,6 +40,8 @@ with OmFileReader(backend) as reader:
     print(f"Data shape: {data.shape}")
     print(f"Data range: {np.nanmin(data)} to {np.nanmax(data)}")
 
+    # We are using earthkit-regrid for regridding: https://earthkit-regrid.readthedocs.io/en/stable/interpolate.html#interpolate
+    # with linear interpolation. Nearest neighbor interpolation can be obtained with`method="nearest-neighbour"`
     regridded = interpolate(data, in_grid={"grid": "O1280"}, out_grid={"grid": [0.1, 0.1]}, method="linear")
     print(f"Regridded shape: {regridded.shape}")
 
