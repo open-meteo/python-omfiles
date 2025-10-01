@@ -20,8 +20,14 @@ import numpy as np
 from earthkit.regrid import interpolate
 from omfiles import OmFileReader
 
-file = "2025-09-30T0600.om"
-with OmFileReader(file) as reader:
+ifs_spatial_file = f"openmeteo/data_spatial/ecmwf_ifs/2025/10/01/0000Z/2025-10-01T0000.om"
+backend = fsspec.open(
+    f"blockcache::s3://{ifs_spatial_file}",
+    mode="rb",
+    s3={"anon": True, "default_block_size": 65536},
+    blockcache={"cache_storage": "cache", "same_names": True},
+)
+with OmFileReader(backend) as reader:
     print("reader.is_group", reader.is_group)
 
     child = reader.get_child_by_name("temperature_2m")
