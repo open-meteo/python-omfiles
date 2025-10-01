@@ -299,6 +299,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install dependencies
+        shell: sh
+        run: |
+          apk add tar python3 py3-pip py3-psutil gcc python3-dev musl-dev linux-headers
+
       - name: Install uv
         uses: astral-sh/setup-uv@v6
         with:
@@ -312,11 +317,6 @@ jobs:
         with:
           name: wheels-linux-musl-x86_64
           path: dist
-
-      - name: Install dependencies
-        shell: sh
-        run: |
-          apk add tar python3 py3-pip py3-psutil gcc python3-dev musl-dev linux-headers
 
       - name: Run musl tests
         shell: sh
