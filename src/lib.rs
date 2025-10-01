@@ -13,12 +13,6 @@ mod reader_async;
 mod test_utils;
 mod typed_array;
 mod writer;
-mod grids {
-    mod gaussian;
-    mod grid;
-    mod regrid;
-    mod regular;
-}
 
 #[pymodule(gil_used = false)]
 fn omfiles<'py>(m: &Bound<'py, PyModule>) -> PyResult<()> {
