@@ -40,7 +40,7 @@ with OmFileReader(backend) as reader:
     print(f"Data shape: {data.shape}")
     print(f"Data range: {np.nanmin(data)} to {np.nanmax(data)}")
 
-    regridded = interpolate(data, {"grid": "O1280"}, {"grid": [0.1, 0.1]})
+    regridded = interpolate(data, in_grid={"grid": "O1280"}, out_grid={"grid": [0.1, 0.1]}, method="linear")
     print(regridded.shape)
 
     # Create plot
