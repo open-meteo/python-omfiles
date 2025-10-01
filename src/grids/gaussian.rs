@@ -1,5 +1,7 @@
 use std::f32;
 
+use crate::grids::grid::Grid2D;
+
 const O1280_LATITUDE_LINES: usize = 1280;
 const O1280_COUNT: usize = 4 * 1280 * (1280 + 9); // 6599680
 
@@ -65,19 +67,41 @@ pub struct GaussianGrid {
     pub grid_type: GridType,
 }
 
+impl Grid2D for GaussianGrid {
+    fn nx(&self) -> usize {
+        self.grid_type.count()
+    }
+
+    fn ny(&self) -> usize {
+        1
+    }
+
+    fn get_coordinates_2d(&self, grid_x: usize, grid_y: usize) -> (f32, f32) {
+        todo!()
+    }
+
+    fn find_point_xy(&self, lat: f32, lon: f32) -> Option<(usize, usize)> {
+        let latitude_lines = self.grid_type.latitude_lines();
+        let dy = 180.0 / (2.0 * latitude_lines as f32 + 0.5);
+        let y_f =
+            (latitude_lines as f32 - 1.0 - ((lat - dy / 2.0) / dy)) + 2.0 * latitude_lines as f32;
+        let y = (y_f.round() as usize) % (2 * latitude_lines);
+
+        let nx = self.nx_of(y);
+        let dx = 360.0 / nx as f32;
+        let x_f = (lon / dx) + nx as f32;
+        let x = (x_f.round() as usize) % nx;
+
+        // ny shape is 1
+        Some((self.integral(y) + x, 0))
+    }
+}
+
 impl GaussianGrid {
     pub fn new() -> Self {
         Self {
             grid_type: GridType::O1280,
         }
-    }
-
-    pub fn nx(&self) -> usize {
-        self.grid_type.count()
-    }
-
-    pub fn ny(&self) -> usize {
-        1
     }
 
     pub fn nx_of(&self, y: usize) -> usize {
@@ -97,20 +121,5 @@ impl GaussianGrid {
         let lat = (latitude_lines as f32 - y as f32 - 1.0) * dy + dy / 2.0;
         let lon = if lon >= 180.0 { lon - 360.0 } else { lon };
         (lat, lon)
-    }
-
-    pub fn find_point(&self, lat: f32, lon: f32) -> Option<usize> {
-        let latitude_lines = self.grid_type.latitude_lines();
-        let dy = 180.0 / (2.0 * latitude_lines as f32 + 0.5);
-        let y_f =
-            (latitude_lines as f32 - 1.0 - ((lat - dy / 2.0) / dy)) + 2.0 * latitude_lines as f32;
-        let y = (y_f.round() as usize) % (2 * latitude_lines);
-
-        let nx = self.nx_of(y);
-        let dx = 360.0 / nx as f32;
-        let x_f = (lon / dx) + nx as f32;
-        let x = (x_f.round() as usize) % nx;
-
-        Some(self.integral(y) + x)
     }
 }

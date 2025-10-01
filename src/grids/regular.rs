@@ -1,4 +1,4 @@
-use crate::grids::gaussian::GaussianGrid;
+use crate::grids::{gaussian::GaussianGrid, grid::Grid2D};
 
 pub struct RegularGrid {
     pub nx: usize,
@@ -40,7 +40,48 @@ impl RegularGrid {
         Some(y * self.nx + x)
     }
 
-    pub fn find_point_xy(&self, lat: f32, lon: f32) -> Option<(usize, usize)> {
+    pub fn get_coordinates(&self, gridpoint: usize) -> (f32, f32) {
+        let y = gridpoint / self.nx;
+        let x = gridpoint % self.nx;
+        let lat = self.lat_min + y as f32 * self.dy;
+        let lon = self.lon_min + x as f32 * self.dx;
+        (lat, lon)
+    }
+
+    pub fn find_point_interpolated(&self, lat: f32, lon: f32) -> Option<GridPoint2DFraction> {
+        let x = (lon - self.lon_min) / self.dx;
+        let y = (lat - self.lat_min) / self.dy;
+
+        if y < 0.0 || x < 0.0 || y >= self.ny as f32 || x >= self.nx as f32 {
+            return None;
+        }
+
+        let x_fraction = (lon - self.lon_min) % self.dx;
+        let y_fraction = (lat - self.lat_min) % self.dy;
+        Some(GridPoint2DFraction {
+            gridpoint: (y as usize) * self.nx + (x as usize),
+            x_fraction,
+            y_fraction,
+        })
+    }
+}
+
+impl Grid2D for RegularGrid {
+    fn ny(&self) -> usize {
+        self.ny
+    }
+
+    fn nx(&self) -> usize {
+        self.nx
+    }
+
+    fn get_coordinates_2d(&self, grid_x: usize, grid_y: usize) -> (f32, f32) {
+        let lat = self.lat_min + grid_y as f32 * self.dy;
+        let lon = self.lon_min + grid_x as f32 * self.dx;
+        (lat, lon)
+    }
+
+    fn find_point_xy(&self, lat: f32, lon: f32) -> Option<(usize, usize)> {
         let x = ((lon - self.lon_min) / self.dx).round() as isize;
         let y = ((lat - self.lat_min) / self.dy).round() as isize;
 
@@ -73,31 +114,6 @@ impl RegularGrid {
         } else {
             Some((xx as usize, yy as usize))
         }
-    }
-
-    pub fn get_coordinates(&self, gridpoint: usize) -> (f32, f32) {
-        let y = gridpoint / self.nx;
-        let x = gridpoint % self.nx;
-        let lat = self.lat_min + y as f32 * self.dy;
-        let lon = self.lon_min + x as f32 * self.dx;
-        (lat, lon)
-    }
-
-    pub fn find_point_interpolated(&self, lat: f32, lon: f32) -> Option<GridPoint2DFraction> {
-        let x = (lon - self.lon_min) / self.dx;
-        let y = (lat - self.lat_min) / self.dy;
-
-        if y < 0.0 || x < 0.0 || y >= self.ny as f32 || x >= self.nx as f32 {
-            return None;
-        }
-
-        let x_fraction = (lon - self.lon_min) % self.dx;
-        let y_fraction = (lat - self.lat_min) % self.dy;
-        Some(GridPoint2DFraction {
-            gridpoint: (y as usize) * self.nx + (x as usize),
-            x_fraction,
-            y_fraction,
-        })
     }
 }
 

@@ -1,24 +1,26 @@
-use numpy::ndarray::Array2;
+use numpy::{
+    ndarray::{Array2, ArrayBase, ViewRepr},
+    Ix2,
+};
 
-use crate::grids::{gaussian::GaussianGrid, regular::RegularGrid};
+use crate::grids::grid::Grid2D;
 
-pub fn regrid_nearest(
-    gaussian_grid: &GaussianGrid,
-    gaussian_data: &[f32],
-    regular_grid: &RegularGrid,
+pub fn regrid_nearest_2d<SourceGrid: Grid2D, TargetGrid: Grid2D>(
+    source_grid: &SourceGrid,
+    source_data: ArrayBase<ViewRepr<&f32>, Ix2>,
+    target_grid: &TargetGrid,
 ) -> Array2<f32> {
-    let mut result = Array2::<f32>::zeros((regular_grid.ny, regular_grid.nx));
+    let mut result = Array2::<f32>::zeros((target_grid.ny(), target_grid.nx()));
 
-    for y in 0..regular_grid.ny {
-        for x in 0..regular_grid.nx {
-            let lat = regular_grid.lat_min + y as f32 * regular_grid.dy;
-            let lon = regular_grid.lon_min + x as f32 * regular_grid.dx;
+    for y in 0..target_grid.ny() {
+        for x in 0..target_grid.nx() {
+            let (lat, lon) = target_grid.get_coordinates_2d(x, y);
 
             // Find the nearest grid point in the Gaussian grid
-            if let Some(idx) = gaussian_grid.find_point(lat, lon) {
-                result[[y, x]] = gaussian_data[idx];
+            if let Some((idx, idy)) = source_grid.find_point_xy(lat, lon) {
+                result[[y, x]] = source_data[[idy, idx]];
             } else {
-                result[[y, x]] = f32::NAN; // or any missing value
+                result[[y, x]] = f32::NAN;
             }
         }
     }
@@ -29,7 +31,7 @@ pub fn regrid_nearest(
 mod tests {
     use std::fs::File;
 
-    use crate::grids::gaussian::GaussianGrid;
+    use crate::grids::{gaussian::GaussianGrid, regular::RegularGrid};
 
     use numpy::ndarray::Axis;
     use omfiles_rs::{
@@ -52,7 +54,7 @@ mod tests {
         let read_range = &[0..reader.get_dimensions()[0], 0..reader.get_dimensions()[1]];
         // Dummy data: value = gridpoint index as f32
         let gaussian_data = reader.read::<f32>(read_range).unwrap();
-        let gaussian_data = gaussian_data.as_slice().unwrap();
+        let gaussian_data = gaussian_data.into_dimensionality().unwrap();
 
         let min = gaussian_data.iter().cloned().fold(f32::INFINITY, f32::min);
         let max = gaussian_data
@@ -72,7 +74,7 @@ mod tests {
         );
 
         // Run bilinear regridding
-        let result = regrid_nearest(&gaussian_grid, &gaussian_data, &regular_grid);
+        let result = regrid_nearest_2d(&gaussian_grid, gaussian_data.view(), &regular_grid);
         assert_eq!(result.shape(), [lat_steps, 3600]);
         let mut min = f32::INFINITY;
         let mut max = f32::NEG_INFINITY;

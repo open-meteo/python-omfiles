@@ -15,6 +15,7 @@ mod typed_array;
 mod writer;
 mod grids {
     mod gaussian;
+    mod grid;
     mod regrid;
     mod regular;
 }
