@@ -293,6 +293,7 @@ jobs:
 
   test-musl:
     needs: build
+    name: Test - Linux Musl
     runs-on: ubuntu-latest
     container: ghcr.io/astral-sh/uv:0.8.19-alpine
     steps:
