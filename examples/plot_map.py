@@ -18,19 +18,24 @@ import matplotlib.pyplot as plt
 import numpy as np
 from omfiles import OmFileReader
 
+# Example: URI for a spatial data file in the `data_spatial` S3 bucket
+# See data organization details: https://github.com/open-meteo/open-data?tab=readme-ov-file#data-organization
+# Note: Spatial data is only retained for 7 days. The example file below may no longer exist.
+# Please update the URI to match a currently available file.
+s3_uri = "s3://openmeteo/data_spatial/dwd_icon/2025/09/23/0000Z/2025-09-30T0000.om"
+
 # The following two incantations are equivalent
 #
 # from fsspec.implementations.cached import CachingFileSystem
 # from s3fs import S3FileSystem
-# s3_path = "s3://openmeteo/data_spatial/dwd_icon/2025/09/23/0000Z/2025-09-30T0000.om"
 # s3_fs = S3FileSystem(anon=True, default_block_size=65536, default_cache_type="none")
 # backend = CachingFileSystem(
 #     fs=s3_fs, cache_check=3600, block_size=65536, cache_storage="cache", check_files=False, same_names=True
 # )
-# with OmFileReader.from_fsspec(backend, s3_path) as reader:
+# with OmFileReader.from_fsspec(backend, s3_uri) as reader:
 
 backend = fsspec.open(
-    f"blockcache::s3://openmeteo/data_spatial/dwd_icon/2025/09/23/0000Z/2025-09-30T0000.om",
+    f"blockcache::{s3_uri}",
     mode="rb",
     s3={"anon": True, "default_block_size": 65536},
     blockcache={"cache_storage": "cache"},
