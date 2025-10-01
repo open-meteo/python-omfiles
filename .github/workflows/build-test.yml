@@ -313,10 +313,14 @@ jobs:
           name: wheels-linux-musl-x86_64
           path: dist
 
+      - name: Install dependencies
+        shell: sh
+        run: |
+          apk add tar python3 py3-pip py3-psutil gcc python3-dev musl-dev linux-headers
+
       - name: Run musl tests
         shell: sh
         run: |
-          apk add python3 py3-pip py3-psutil gcc python3-dev musl-dev linux-headers
           WHEEL_PATH=$(ls dist/*.whl)
           uv venv
           uv sync --no-install-project --no-default-groups --group=test
