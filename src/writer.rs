@@ -332,6 +332,35 @@ impl OmFileWriter {
             .map(Into::into)
             .collect();
 
+        let py = value.py();
+
+        // make an instance check against numpy scalar types
+        macro_rules! check_numpy_type {
+            ($numpy:expr, $type_name:literal, $rust_type:ty) => {
+                if let Ok(numpy_type) = $numpy.getattr($type_name) {
+                    if value.is_instance(&numpy_type)? {
+                        let scalar_value: $rust_type = value.call_method0("item")?.extract()?;
+                        return self.store_scalar(scalar_value, name, &children);
+                    }
+                }
+            };
+        }
+
+        // Try to import numpy and check for numpy scalar types
+        if let Ok(numpy) = py.import("numpy") {
+            check_numpy_type!(numpy, "int8", i8);
+            check_numpy_type!(numpy, "uint8", u8);
+            check_numpy_type!(numpy, "int16", i16);
+            check_numpy_type!(numpy, "uint16", u16);
+            check_numpy_type!(numpy, "int32", i32);
+            check_numpy_type!(numpy, "uint32", u32);
+            check_numpy_type!(numpy, "int64", i64);
+            check_numpy_type!(numpy, "uint64", u64);
+            check_numpy_type!(numpy, "float32", f32);
+            check_numpy_type!(numpy, "float64", f64);
+        }
+
+        // Fall back to Python built-in types
         let result = if let Ok(_value) = value.extract::<String>() {
             self.store_scalar(value.to_string(), name, &children)?
         } else if let Ok(value) = value.extract::<f64>() {

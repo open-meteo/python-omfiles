@@ -71,8 +71,8 @@ def test_write_hierarchical_file(empty_temp_om_file):
     child2_var = writer.write_array(child2_data, chunks=[1, 1], name="child2", scale_factor=100000.0)
 
     # Write attributes and get their variables
-    meta1_var = writer.write_scalar(42.0, name="metadata1")
-    meta2_var = writer.write_scalar(123, name="metadata2")
+    meta1_var = writer.write_scalar(np.float32(42.0), name="metadata1")
+    meta2_var = writer.write_scalar(np.int32(123), name="metadata2")
     meta3_var = writer.write_scalar("blub", name="metadata3")
 
     # Write child1 array with attribute children
@@ -115,21 +115,27 @@ def test_write_hierarchical_file(empty_temp_om_file):
     assert read_child2.dtype == np.float32
 
     # Verify metadata attributes
-    metadata_reader0 = child1_reader.get_child_by_index(0)
-    metadata = metadata_reader0.read_scalar()
+    metadata_reader1 = child1_reader.get_child_by_index(0)
+    metadata = metadata_reader1.read_scalar()
     assert metadata == 42.0
-    assert metadata_reader0.dtype == np.float64
+    assert metadata_reader1.dtype == np.float32
 
-    metadata_reader2 = child1_reader.get_child_by_index(2)
+    metadata_reader2 = child1_reader.get_child_by_index(1)
     metadata = metadata_reader2.read_scalar()
+    assert metadata == 123
+    assert metadata_reader2.dtype == np.int32
+
+    metadata_reader3 = child1_reader.get_child_by_index(2)
+    metadata = metadata_reader3.read_scalar()
     assert metadata == "blub"
-    assert metadata_reader2.dtype == str
+    assert metadata_reader3.dtype == str
 
     reader.close()
     child1_reader.close()
     child2_reader.close()
-    metadata_reader0.close()
+    metadata_reader1.close()
     metadata_reader2.close()
+    metadata_reader3.close()
 
 
 @pytest.mark.asyncio
