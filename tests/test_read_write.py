@@ -116,18 +116,21 @@ def test_write_hierarchical_file(empty_temp_om_file):
 
     # Verify metadata attributes
     metadata_reader1 = child1_reader.get_child_by_index(0)
-    metadata = metadata_reader1.read_scalar()
-    assert metadata == 42.0
+    metadata1 = metadata_reader1.read_scalar()
+    assert metadata1 == 42.0
+    assert type(metadata1) == np.float32
     assert metadata_reader1.dtype == np.float32
 
     metadata_reader2 = child1_reader.get_child_by_index(1)
-    metadata = metadata_reader2.read_scalar()
-    assert metadata == 123
+    metadata2 = metadata_reader2.read_scalar()
+    assert metadata2 == 123
+    assert type(metadata2) == np.int32
     assert metadata_reader2.dtype == np.int32
 
     metadata_reader3 = child1_reader.get_child_by_index(2)
-    metadata = metadata_reader3.read_scalar()
-    assert metadata == "blub"
+    metadata3 = metadata_reader3.read_scalar()
+    assert metadata3 == "blub"
+    assert type(metadata3) == str
     assert metadata_reader3.dtype == str
 
     reader.close()
