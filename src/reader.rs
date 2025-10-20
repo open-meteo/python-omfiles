@@ -472,7 +472,9 @@ impl OmFileReader {
                 let array_reader = reader
                     .expect_array_with_io_sizes(65536, 512)
                     .map_err(|_| Self::only_arrays_error())?;
+
                 let read_ranges = ranges.to_read_range(&self.shape)?;
+
                 let dtype = array_reader.data_type();
 
                 let untyped_py_array_or_error = match dtype {
@@ -521,6 +523,13 @@ impl OmFileReader {
                         Ok(OmFileTypedArray::Uint64(array))
                     }
                     OmDataType::FloatArray => {
+                        // TODO: make this correct - prefetch data
+                        array_reader.will_need::<f32>(&read_ranges).map_err(|e| {
+                            PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+                                "Error prefetching data: {}",
+                                e
+                            ))
+                        })?;
                         let array = read_squeezed_typed_array::<f32>(&array_reader, &read_ranges)?;
                         Ok(OmFileTypedArray::Float(array))
                     }
