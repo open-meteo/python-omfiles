@@ -24,7 +24,7 @@ async-lock = "3.4.0"
 numpy = "0.26"
 num-traits = "0.2"
 delegate = "0.13"
-omfiles-rs = { git = "https://github.com/open-meteo/rust-omfiles", rev = "963b0e6ac324dc519f720984472cdd8c9e15dd69", package = "omfiles", features = ["metadata-tree"] }
+omfiles-rs = { git = "https://github.com/open-meteo/rust-omfiles", rev = "3988914cbe6efa7f4266c29192ba09f821312bc9", package = "omfiles", features = ["metadata-tree"] }
 om-file-format-sys = { git = "https://github.com/open-meteo/om-file-format", rev = "a484a5a90914ff934fc451dff30b671b9ba8e38e" }
 thiserror = "2.0.12"
 
