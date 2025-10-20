@@ -572,6 +572,7 @@ impl OmFileReaderBackendAsync for AsyncReaderBackendImpl {
         } {
             fn count_async(&self) -> usize;
             async fn get_bytes_async(&self, offset: u64, count: u64) -> Result<Vec<u8>, omfiles_rs::OmFilesError>;
+            async fn prefetch_async(&self, offset: u64, count: u64) -> Result<(), omfiles_rs::OmFilesError>;
         }
     }
 }

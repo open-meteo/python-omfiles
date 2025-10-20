@@ -70,6 +70,24 @@ impl OmFileReaderBackendAsync for AsyncFsSpecBackend {
             .map_err(|e| OmFilesError::DecoderError(format!("Python I/O error: {}", e)));
         bytes
     }
+
+    async fn prefetch_async(&self, offset: u64, count: u64) -> Result<(), OmFilesError> {
+        // fire and forget
+        let _fut = Python::attach(|py| {
+            let bound_fs = self.fs.bind(py);
+            // We only use named parameters here, because positional arguments can
+            // be different between different implementations of the super class!
+            let kwargs = PyDict::new(py);
+            kwargs.set_item("start", offset)?;
+            kwargs.set_item("end", offset + count)?;
+            kwargs.set_item("path", &self.path)?;
+            let coroutine = bound_fs.call_method("_cat_file", (), Some(&kwargs))?;
+            into_future(coroutine)
+        })
+        .map_err(|e| OmFilesError::DecoderError(format!("Python I/O error {}", e)))?;
+
+        Ok(())
+    }
 }
 
 pub struct FsSpecBackend {
