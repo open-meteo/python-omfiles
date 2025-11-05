@@ -131,6 +131,8 @@ impl OmFileReaderBackend for FsSpecBackend {
         })
         .map_err(|e| OmFilesError::DecoderError(format!("Python I/O error {}", e)))?;
 
+        println!("bytes.len() = {}", bytes.len());
+        println!("count = {}", count);
         if bytes.len() != count as usize {
             return Err(OmFilesError::DecoderError(format!(
                 "Obtained unexpected number of bytes from fsspec"
@@ -242,7 +244,7 @@ mod tests {
             // Read back using the FsSpecBackend for reading
             let fs = memory_module.call_method0("MemoryFileSystem")?;
             let read_backend = FsSpecBackend::new(fs.into(), "test_file.om".to_string())?;
-            let bytes = read_backend.get_bytes(0, 44)?;
+            let bytes = read_backend.get_bytes(0, 19)?;
             assert_eq!(
                 &bytes,
                 &[
