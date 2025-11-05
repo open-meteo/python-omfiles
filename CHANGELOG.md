@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.2](https://github.com/open-meteo/python-omfiles/compare/v1.0.1...v1.0.2) (2025-11-05)
+
+
+### Bug Fixes
+
+* assert that fsspec returned the expect number of bytes ([0dfa0c5](https://github.com/open-meteo/python-omfiles/commit/0dfa0c5ed05db8904460ee745e93fa6d3fdbc5de))
+* failing fs-spec test ([81ec4c3](https://github.com/open-meteo/python-omfiles/commit/81ec4c39d16291ad4e9875a522fe9c022ec54cfd))
+
 ## [1.0.1](https://github.com/open-meteo/python-omfiles/compare/v1.0.0...v1.0.1) (2025-10-14)
 
 
