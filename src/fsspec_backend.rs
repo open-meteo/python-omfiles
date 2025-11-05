@@ -130,6 +130,12 @@ impl OmFileReaderBackend for FsSpecBackend {
                 .extract::<Vec<u8>>()
         })
         .map_err(|e| OmFilesError::DecoderError(format!("Python I/O error {}", e)))?;
+
+        if bytes.len() != count as usize {
+            return Err(OmFilesError::DecoderError(format!(
+                "Obtained unexpected number of bytes from fsspec"
+            )));
+        }
         Ok(bytes)
     }
 }
