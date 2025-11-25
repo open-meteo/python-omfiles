@@ -69,10 +69,10 @@ jobs:
 
       - name: Run cargo test Windows
         if: ${{ runner.os == 'Windows' }}
-        shell: pwsh
+        shell: bash
         run: |
-          $env:PYTHONHOME="$(dirname $(dirname $(realpath $(which .venv/Scripts/python.exe))))"
-          .venv/Scripts/Activate.ps1
+          source .venv/Scripts/activate
+          # $env:PYTHONHOME="$(dirname $(dirname $(realpath $(which .venv/Scripts/python.exe))))"
           uv run --no-sync cargo test --no-default-features
 
       - name: Run cargo test Unix
