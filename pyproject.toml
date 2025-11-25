@@ -5,7 +5,7 @@ build-backend = "maturin"
 [project]
 name = "omfiles"
 description = "Python bindings for the Open-Meteo file format"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 classifiers = [
     "Programming Language :: Rust",
     "Programming Language :: Python :: Implementation :: CPython",

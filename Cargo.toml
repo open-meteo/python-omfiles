@@ -17,7 +17,7 @@ path = "src/bin/stub_gen.rs"
 doc = true
 
 [dependencies]
-pyo3 = { version = "0.26", features = ["abi3-py39", "experimental-async"] }
+pyo3 = { version = "0.26", features = ["abi3-py310", "experimental-async"] }
 pyo3-async-runtimes = { version = "0.26", features = ["async-std-runtime"] }
 pyo3-stub-gen = "0.12"
 async-lock = "3.4.0"
