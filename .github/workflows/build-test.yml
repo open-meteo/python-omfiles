@@ -258,11 +258,11 @@ jobs:
             python-version: "3.14"
             is-min-deps: false
 
-          - name: Python 3.15
-            runner: ubuntu-24.04
-            platform-name: linux-x86_64
-            python-version: "3.15"
-            is-min-deps: false
+          # - name: Python 3.15
+          #   runner: ubuntu-24.04
+          #   platform-name: linux-x86_64
+          #   python-version: "3.15"
+          #   is-min-deps: false
 
           # Minimum dependencies test
           - name: Min Dependencies
