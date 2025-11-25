@@ -72,6 +72,7 @@ jobs:
         shell: pwsh
         run: |
           $env:PYTHONHOME="$(dirname $(dirname $(realpath $(which .venv/Scripts/python.exe))))"
+          $env:PYTHONPATH = ".venv\Lib\site-packages"
           .venv/Scripts/Activate.ps1
           uv run --no-sync cargo test --no-default-features
 
