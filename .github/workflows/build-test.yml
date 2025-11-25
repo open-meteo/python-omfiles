@@ -71,7 +71,7 @@ jobs:
         if: ${{ runner.os == 'Windows' }}
         shell: pwsh
         run: |
-          # $env:PYTHONHOME="$(dirname $(dirname $(realpath $(which .venv/Scripts/python.exe))))"
+          $env:PYTHONHOME="$(dirname $(dirname $(realpath $(which .venv/Scripts/python.exe))))"
           .venv/Scripts/Activate.ps1
           uv run --no-sync cargo test --no-default-features
 
