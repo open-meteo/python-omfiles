@@ -17,7 +17,7 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: astral-sh/ruff-action@v3
       - run: |
           ruff check
@@ -43,7 +43,7 @@ jobs:
           - name: macOS ARM64
             runner: macos-14
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Cache Rust build
         uses: actions/cache@v4
         with:
@@ -56,9 +56,9 @@ jobs:
             ${{ runner.os }}-test-${{ runner.arch }}-
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
         with:
-          version: "0.8.19"
+          version: "0.9.11"
           enable-cache: true
           cache-dependency-glob: "**/uv.lock"
           # python-version: "3.12"
@@ -135,7 +135,7 @@ jobs:
             target: aarch64-apple-darwin
             is-musl: false
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Cache Rust build
         uses: actions/cache@v4
         with:
@@ -163,7 +163,7 @@ jobs:
   sdist:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Build sdist
         uses: PyO3/maturin-action@v1
         with:
@@ -253,12 +253,12 @@ jobs:
             is-min-deps: true
     steps:
       # Use the test composite action
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
         with:
-          version: "0.8.19"
+          version: "0.9.11"
           enable-cache: "true"
           cache-dependency-glob: "**/uv.lock"
           python-version: ${{ matrix.config.python-version }}
@@ -295,9 +295,9 @@ jobs:
     needs: build
     name: Test - Linux Musl
     runs-on: ubuntu-latest
-    container: ghcr.io/astral-sh/uv:0.8.19-alpine
+    container: ghcr.io/astral-sh/uv:0.9.11-alpine
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install dependencies
         shell: sh
@@ -305,9 +305,9 @@ jobs:
           apk add tar python3 py3-pip py3-psutil gcc python3-dev musl-dev linux-headers
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
         with:
-          version: "0.8.19"
+          version: "0.9.11"
           enable-cache: "true"
           cache-dependency-glob: "**/uv.lock"
           python-version: "3.12"
