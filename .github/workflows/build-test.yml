@@ -69,11 +69,20 @@ jobs:
 
       - name: Run cargo test Windows
         if: ${{ runner.os == 'Windows' }}
-        shell: pwsh
+        shell: bash
         run: |
-          $env:PYTHONHOME="$(dirname $(dirname $(realpath $(which .venv/Scripts/python.exe))))"
-          $env:PYTHONPATH = ".venv\Lib\site-packages"
-          .venv/Scripts/Activate.ps1
+          ls .venv/Scripts
+          ls .venv/Lib/site-packages
+          # maps to /Users/user/.local/share/uv/python/cpython-3.12.11-macos-aarch64-none
+          export PYTHONHOME="$(
+            uv run --no-sync python -c "import os,sys; print(os.path.realpath(sys.executable))"
+          )"
+          # maps to .venv/Lib/site-packages
+          export PYTHONPATH=$(echo .venv/Lib/site-packages)
+          export PYO3_PYTHON="$(uv run --no-sync which python)"
+          echo PYTHONHOME=$PYTHONHOME
+          echo PYTHONPATH=$PYTHONPATH
+
           uv run --no-sync cargo test --no-default-features
 
       - name: Run cargo test Unix
