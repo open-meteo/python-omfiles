@@ -90,9 +90,8 @@ jobs:
             export PYTHONPATH
             echo "PYTHONPATH: $PYTHONPATH"
 
-            # Add Python directory to PATH (for python3.dll)
-            PYTHON_DIR=$(dirname "$PYO3_PYTHON")
-            export PATH="$PYTHON_DIR:$PATH"
+            # Add PYTHONHOME to PATH (for python3.dll)
+            export PATH="$PYTHONHOME:$PATH"
             echo "PYTHON_DIR: $PYTHON_DIR"
             echo "PATH: $PATH"
           else
