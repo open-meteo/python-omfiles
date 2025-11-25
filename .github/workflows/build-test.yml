@@ -77,7 +77,10 @@ jobs:
           if [[ "$RUNNER_OS" == "Windows" ]]; then
             uv run --no-sync python -c "import sys; print(sys.path)"
             uv run --no-sync where python
+            export PYTHONHOME="$(uv run --no-sync python -c 'import sys; print(sys.base_prefix)')"
             export PYTHONPATH="$(echo .venv/Lib/site-packages)"
+            uv run --no-sync python -c "import sys; print(sys.path)"
+            uv run --no-sync where python
           else
             # setting PYTHONHOME and PYTHONPATH seem to be the best solution for macOS at the moment
             # https://github.com/PyO3/pyo3/issues/1741#issuecomment-955805634
@@ -226,12 +229,6 @@ jobs:
             is-min-deps: false
 
           # Additional Python versions for Linux x86_64
-          - name: Python 3.9
-            runner: ubuntu-24.04
-            platform-name: linux-x86_64
-            python-version: "3.9"
-            is-min-deps: false
-
           - name: Python 3.10
             runner: ubuntu-24.04
             platform-name: linux-x86_64
@@ -266,7 +263,7 @@ jobs:
           - name: Min Dependencies
             runner: ubuntu-24.04
             platform-name: linux-x86_64
-            python-version: "3.9"
+            python-version: "3.10"
             is-min-deps: true
     steps:
       # Use the test composite action
