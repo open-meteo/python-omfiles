@@ -1,6 +1,6 @@
 # Python Bindings for Open Meteo File Format
 
-[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.10 | 3.11 | 3.12 | 3.13 | 3.14](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue.svg)](https://www.python.org/downloads/)
 [![PyPI version](https://badge.fury.io/py/omfiles.svg)](https://pypi.org/project/omfiles/)
 [![Build and Test](https://github.com/open-meteo/python-omfiles/actions/workflows/build-test.yml/badge.svg)](https://github.com/open-meteo/python-omfiles/actions/workflows/build-test.yml)
 
@@ -22,13 +22,13 @@ pip install omfiles
 
 We provide pre-built wheels for the following platforms:
 
-- Linux x86_64 (`manylinux_2_28`)
-- Linux aarch64 (`manylinux_2_28`)
-- Linux musl x86_64 (`musllinux_1_2`)
-- Windows x64
-- macOS x86_64
-- macOS ARM64 (Apple Silicon)
-
+- Linux x86_64 (`manylinux_2_28_x86_64`)
+- Linux aarch64 (`manylinux_2_28_aarch64`)
+- Linux musl x86_64 (`musllinux_1_2_x86_64`)
+- Windows x86_64 (`win_amd64`)
+- Windows ARM64 (`win_arm64`)
+- macOS x86_64 (`macosx_10_12_x86_64`)
+- macOS ARM64 (`macosx_11_0_arm64`)
 
 ### Stability Notice
 
