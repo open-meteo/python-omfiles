@@ -3,7 +3,7 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
-#     "omfiles==0.1.0",
+#     "omfiles==1.0.1",
 #     "fsspec>=2025.7.0",
 #     "s3fs",
 #     "xarray",
