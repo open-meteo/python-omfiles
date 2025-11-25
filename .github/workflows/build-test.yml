@@ -67,42 +67,46 @@ jobs:
         run: uv sync --no-install-project
         shell: bash
 
-      - name: Run cargo tests
+      - name: Run cargo test Windows
+        if: ${{ runner.os == 'Windows' }}
+        shell: pwsh
+        run: |
+          # pyo3 and uv do not work well together...
+          # Get the Python executable path from uv
+          $pyExe = uv run --no-sync python -c "import sys; print(sys.executable)"
+          $env:PYO3_PYTHON = $pyExe
+          Write-Host "PYO3_PYTHON: $env:PYO3_PYTHON"
+
+          # Get Python home directory (base_prefix)
+          $env:PYTHONHOME = uv run --no-sync python -c "import sys; print(sys.base_prefix)"
+          Write-Host "PYTHONHOME: $env:PYTHONHOME"
+
+          # Set PYTHONPATH to venv site-packages
+          $env:PYTHONPATH = ".venv\Lib\site-packages"
+          Write-Host "PYTHONPATH: $env:PYTHONPATH"
+
+          # Add venv Scripts dir to PATH (for python3.dll lookup)
+          $env:Path = "$$env:PYTHONHOME;$env:Path"
+          Write-Host "Path: $env:Path"
+
+          uv run --no-sync cargo test --no-default-features
+
+      - name: Run cargo test Unix
+        if: ${{ runner.os == 'Linux' || runner.os == 'macOS' }}
+        shell: bash
         run: |
           # pyo3 and uv do not work well together...
           PY_LIBDIR=$(uv run --no-sync python -c "import sysconfig; print(sysconfig.get_config_var('LIBDIR'))")
           echo "Python libdir: $PY_LIBDIR"
           # setting LD_LIBRARY_PATH for Linux: https://github.com/astral-sh/uv/issues/11006#issuecomment-2672486381
           export LD_LIBRARY_PATH="$PY_LIBDIR${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" # LINUX
-          if [[ "$RUNNER_OS" == "Windows" ]]; then
-            # Get the Python path from uv
-            PYO3_PYTHON=$(uv run --no-sync python -c "import sys; print(sys.executable)")
-            export PYO3_PYTHON="$PYO3_PYTHON"
-            echo "PYO3_PYTHON: $PYO3_PYTHON"
 
-            # Get Python home directory
-            PYTHONHOME=$(uv run --no-sync python -c "import sys; print(sys.base_prefix)")
-            export PYTHONHOME="$PYTHONHOME"
-            echo "PYTHONHOME: $PYTHONHOME"
+          # setting PYTHONHOME and PYTHONPATH seem to be the best solution for macOS at the moment
+          # https://github.com/PyO3/pyo3/issues/1741#issuecomment-955805634
+          export PYTHONHOME="$(uv run --no-sync python -c 'import sys; print(sys.base_prefix)')" # MACOS
+          export PYTHONPATH="$(echo .venv/lib/python*/site-packages)" # MACOS
 
-            # Set PYTHONPATH to venv site-packages
-            PYTHONPATH=".venv/Lib/site-packages"
-            export PYTHONPATH
-            echo "PYTHONPATH: $PYTHONPATH"
-
-            # Add PYTHONHOME to PATH (for python3.dll)
-            PYTHON_DIR=$(dirname "$PYO3_PYTHON")
-            export PATH="$PYTHONHOME:$PYTHON_DIR:$PATH"
-            echo "PYTHON_DIR: $PYTHON_DIR"
-            echo "PATH: $PATH"
-          else
-            # setting PYTHONHOME and PYTHONPATH seem to be the best solution for macOS at the moment
-            # https://github.com/PyO3/pyo3/issues/1741#issuecomment-955805634
-            export PYTHONHOME="$(uv run --no-sync python -c 'import sys; print(sys.base_prefix)')" # MACOS
-            export PYTHONPATH="$(echo .venv/lib/python*/site-packages)" # MACOS
-          fi
           uv run --no-sync cargo test --no-default-features
-        shell: bash
 
   build:
     needs: rust_tests
