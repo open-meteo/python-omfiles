@@ -71,8 +71,8 @@ jobs:
         if: ${{ runner.os == 'Windows' }}
         shell: pwsh
         run: |
-          $env:PYTHONHOME = uv run --no-sync python -c "import sys; print(sys.base_prefix)"
-          Write-Host "PYTHONHOME = $env:PYTHONHOME"
+          $env:PYTHONHOME="$(dirname $(dirname $(realpath $(which .venv/Scripts/python.exe))))"
+          .venv/Scripts/Activate.ps1
           uv run --no-sync cargo test --no-default-features
 
       - name: Run cargo test Unix
