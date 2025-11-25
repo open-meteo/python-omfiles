@@ -71,24 +71,8 @@ jobs:
         if: ${{ runner.os == 'Windows' }}
         shell: pwsh
         run: |
-          # pyo3 and uv do not work well together...
-          # Get the Python executable path from uv
-          $pyExe = uv run --no-sync python -c "import sys; print(sys.executable)"
-          $env:PYO3_PYTHON = $pyExe
-          Write-Host "PYO3_PYTHON: $env:PYO3_PYTHON"
-
-          # Get Python home directory (base_prefix)
           $env:PYTHONHOME = uv run --no-sync python -c "import sys; print(sys.base_prefix)"
-          Write-Host "PYTHONHOME: $env:PYTHONHOME"
-
-          # Set PYTHONPATH to venv site-packages
-          $env:PYTHONPATH = ".venv\Lib\site-packages"
-          Write-Host "PYTHONPATH: $env:PYTHONPATH"
-
-          # Add venv Scripts dir to PATH (for python3.dll lookup)
-          $env:Path = "$$env:PYTHONHOME;$env:Path"
-          Write-Host "Path: $env:Path"
-
+          Write-Host "PYTHONHOME = $env:PYTHONHOME"
           uv run --no-sync cargo test --no-default-features
 
       - name: Run cargo test Unix
