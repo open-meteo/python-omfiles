@@ -73,6 +73,7 @@ jobs:
         run: |
           source .venv/Scripts/activate
           # $env:PYTHONHOME="$(dirname $(dirname $(realpath $(which .venv/Scripts/python.exe))))"
+          export PYTHONPATH="$(echo .venv/Lib/site-packages)"
           uv run --no-sync cargo test --no-default-features
 
       - name: Run cargo test Unix
