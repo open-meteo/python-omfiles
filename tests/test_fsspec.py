@@ -144,8 +144,18 @@ def test_s3_xarray(s3_spatial_test_file):
         f"blockcache::s3://{s3_spatial_test_file}",
         mode="rb",
         s3={"anon": True, "default_block_size": 65536},
-        blockcache={"cache_storage": "cache", "same_names": True},
+        blockcache={
+            "cache_storage": "cache",
+            "cache_check": 3600,
+            "same_names": False,
+            "check_files": False,
+        },
     )
+
+    print(dir(backend))
+    print(dir(backend.open()))
+
+    backend = backend.open()
 
     ds = xr.open_dataset(backend, engine="om")  # type: ignore
     # ds = xr.open_dataset(backend, engine="om")

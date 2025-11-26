@@ -162,12 +162,13 @@ impl OmFileReader {
                 // If source is a string, treat it as a file path
                 Self::from_path(&path)
             } else {
+                println!("Initializing OmFileReader from fsspec file object");
                 let obj = source.bind(py);
                 if obj.hasattr("path")? && obj.hasattr("fs")? {
                     let fs = obj.getattr("fs")?.unbind();
                     let path = obj.getattr("path")?.extract::<String>()?;
                     // If source has fsspec-like attributes, treat it as a fsspec file object
-                    Self::from_fsspec(fs, path)
+                    Self::from_fsspec(source)
                 } else {
                     Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
                         "Input must be either a file path string or an fsspec.core.OpenFile object",
@@ -202,17 +203,17 @@ impl OmFileReader {
     /// Returns:
     ///     OmFileReader: A new reader instance.
     #[staticmethod]
-    fn from_fsspec(fs_obj: Py<PyAny>, path: String) -> PyResult<Self> {
+    fn from_fsspec(open_file: Py<PyAny>) -> PyResult<Self> {
         Python::attach(|py| {
-            let bound_object = fs_obj.bind(py);
+            let bound_object = open_file.bind(py);
 
-            if !bound_object.hasattr("cat_file")? || !bound_object.hasattr("size")? {
-                return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
-                        "Input must be a valid fsspec file object with read, seek methods and fs attribute",
-                    ));
-            }
+            // if !bound_object.hasattr("cat_file")? || !bound_object.hasattr("size")? {
+            //     return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
+            //             "Input must be a valid fsspec file object with read, seek methods and fs attribute",
+            //         ));
+            // }
 
-            let backend = ReaderBackendImpl::FsSpec(FsSpecBackend::new(fs_obj, path)?);
+            let backend = ReaderBackendImpl::FsSpec(FsSpecBackend::new(open_file)?);
             Self::from_backend(backend)
         })
     }

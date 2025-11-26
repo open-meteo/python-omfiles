@@ -73,23 +73,24 @@ impl OmFileReaderBackendAsync for AsyncFsSpecBackend {
 }
 
 pub struct FsSpecBackend {
-    fs: Py<PyAny>,
-    path: String,
+    open_file: Py<PyAny>,
+    // fs: Py<PyAny>,
+    // path: String,
     file_size: u64,
 }
 
 impl FsSpecBackend {
-    pub fn new(fs: Py<PyAny>, path: String) -> PyResult<Self> {
+    pub fn new(open_file: Py<PyAny>) -> PyResult<Self> {
         let size = Python::attach(|py| {
-            let bound_fs = fs.bind(py);
-            bound_fs
-                .call_method1("size", (path.clone(),))?
-                .extract::<u64>()
+            let fs = open_file.bind(py).getattr("fs")?;
+            let path = open_file.bind(py).getattr("path")?;
+            fs.call_method1("size", (path,))?.extract::<u64>()
         })?;
 
         Ok(Self {
-            fs,
-            path,
+            open_file,
+            // fs,
+            // path,
             file_size: size,
         })
     }
@@ -118,16 +119,38 @@ impl OmFileReaderBackend for FsSpecBackend {
         count: u64,
     ) -> Result<Self::Bytes<'_>, omfiles_rs::OmFilesError> {
         let bytes = Python::attach(|py| {
-            let bound_fs = self.fs.bind(py);
-            // We only use named parameters here, because positional arguments can
-            // be different between different implementations of the super class!
+            let utils = py.import("fsspec.utils");
+            let utils = utils.unwrap();
+
             let kwargs = PyDict::new(py);
-            kwargs.set_item("start", offset)?;
-            kwargs.set_item("end", offset + count)?;
-            kwargs.set_item("path", &self.path)?;
-            bound_fs
-                .call_method("cat_file", (), Some(&kwargs))?
+            kwargs.set_item("offset", offset)?;
+            kwargs.set_item("length", count)?;
+            utils
+                .call_method1("read_block", (&self.open_file, offset, count))?
                 .extract::<Vec<u8>>()
+            // Seek to offset
+            // self.open_file.call(py, "seek", (offset,));
+
+            // // Read count bytes
+            // let bytes = self
+            //     .open_file
+            //     .call_method1(py, "read", (count,))
+            //     .map_err(|e| OmFilesError::DecoderError(format!("Python I/O error {}", e)))?;
+            // let py_bytes = bytes
+            //     .extract::<Vec<u8>>(py)
+            //     .map_err(|e| OmFilesError::DecoderError(format!("Python I/O error {}", e)))?;
+
+            // Ok(py_bytes)
+            // let bound_fs = self.fs.bind(py);
+            // // We only use named parameters here, because positional arguments can
+            // // be different between different implementations of the super class!
+            // let kwargs = PyDict::new(py);
+            // kwargs.set_item("start", offset)?;
+            // kwargs.set_item("end", offset + count)?;
+            // kwargs.set_item("path", &self.path)?;
+            // bound_fs
+            //     .call_method("cat_file", (), Some(&kwargs))?
+            //     .extract::<Vec<u8>>()
         })
         .map_err(|e| OmFilesError::DecoderError(format!("Python I/O error {}", e)))?;
 
