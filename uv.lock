@@ -1379,8 +1379,8 @@ test = [
 
 [package.metadata]
 requires-dist = [
-    { name = "fsspec", marker = "extra == 'all'", specifier = ">=2023.1.0" },
-    { name = "fsspec", marker = "extra == 'fsspec'", specifier = ">=2023.1.0" },
+    { name = "fsspec", marker = "extra == 'all'", specifier = ">=2023.10.0" },
+    { name = "fsspec", marker = "extra == 'fsspec'", specifier = ">=2023.10.0" },
     { name = "numcodecs", marker = "extra == 'all'", specifier = ">=0.12.1" },
     { name = "numcodecs", marker = "extra == 'codec'", specifier = ">=0.12.1" },
     { name = "numpy", specifier = ">=1.20.0" },
