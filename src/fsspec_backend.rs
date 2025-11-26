@@ -131,8 +131,6 @@ impl OmFileReaderBackend for FsSpecBackend {
         })
         .map_err(|e| OmFilesError::DecoderError(format!("Python I/O error {}", e)))?;
 
-        println!("bytes.len() = {}", bytes.len());
-        println!("count = {}", count);
         if bytes.len() != count as usize {
             return Err(OmFilesError::DecoderError(format!(
                 "Obtained unexpected number of bytes from fsspec"
