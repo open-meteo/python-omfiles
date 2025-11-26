@@ -1379,15 +1379,15 @@ test = [
 
 [package.metadata]
 requires-dist = [
-    { name = "fsspec", marker = "extra == 'all'", specifier = ">=2024.1.0" },
-    { name = "fsspec", marker = "extra == 'fsspec'", specifier = ">=2024.1.0" },
+    { name = "fsspec", marker = "extra == 'all'", specifier = ">=2023.10.0" },
+    { name = "fsspec", marker = "extra == 'fsspec'", specifier = ">=2023.10.0" },
     { name = "numcodecs", marker = "extra == 'all'", specifier = ">=0.12.1" },
     { name = "numcodecs", marker = "extra == 'codec'", specifier = ">=0.12.1" },
     { name = "numpy", specifier = ">=1.20.0" },
-    { name = "s3fs", marker = "extra == 'all'", specifier = ">=2024.1.0" },
-    { name = "s3fs", marker = "extra == 'fsspec'", specifier = ">=2024.1.0" },
-    { name = "xarray", marker = "extra == 'all'", specifier = ">=2024.1.0" },
-    { name = "xarray", marker = "extra == 'xarray'", specifier = ">=2024.1.0" },
+    { name = "s3fs", marker = "extra == 'all'", specifier = ">=2023.1.0" },
+    { name = "s3fs", marker = "extra == 'fsspec'", specifier = ">=2023.1.0" },
+    { name = "xarray", marker = "extra == 'all'", specifier = ">=2023.1.0" },
+    { name = "xarray", marker = "extra == 'xarray'", specifier = ">=2023.1.0" },
     { name = "zarr", marker = "extra == 'all'", specifier = ">=2.18.2" },
     { name = "zarr", marker = "extra == 'codec'", specifier = ">=2.18.2" },
 ]
@@ -1400,7 +1400,7 @@ dev = [
     { name = "omfiles", extras = ["all"] },
     { name = "psutil", specifier = ">=6.0.0" },
     { name = "pytest", specifier = ">=8.0" },
-    { name = "pytest-asyncio", specifier = ">=1.2.0" },
+    { name = "pytest-asyncio", specifier = ">=1.1.0" },
     { name = "sphinx", marker = "python_full_version >= '3.11'", specifier = ">=8.2.0" },
     { name = "sphinx-autodoc-typehints", marker = "python_full_version >= '3.11'", specifier = ">=3.2.0" },
     { name = "sphinx-rtd-theme", marker = "python_full_version >= '3.11'", specifier = ">=3.0.2" },
@@ -1415,7 +1415,7 @@ test = [
     { name = "omfiles", extras = ["all"] },
     { name = "psutil", specifier = ">=6.0.0" },
     { name = "pytest", specifier = ">=8.0" },
-    { name = "pytest-asyncio", specifier = ">=1.2.0" },
+    { name = "pytest-asyncio", specifier = ">=1.1.0" },
 ]
 
 [[package]]
