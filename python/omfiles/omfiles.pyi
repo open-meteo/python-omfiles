@@ -184,6 +184,16 @@ class OmFileReader:
 
         It is safe to call this method multiple times.
         """
+    def get_complete_lut(self) -> builtins.list[builtins.int]:
+        r"""
+        Retrieve the complete lookup table for the variable.
+
+        The lookup table is a monotonically increasing array of u64 values containing
+        n+1 elements, where n is the number of chunks. Each value represents the absolute
+        offset in the file of the end of the chunk, and the first value is the start offset
+        of the first chunk. The size of chunk j can be calculated as lut[j+1] - lut[j]
+        using zero-based indexing.
+        """
     def get_child_by_index(self, index: builtins.int) -> OmFileReader:
         r"""
         Get a child reader at the specified index.
