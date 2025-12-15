@@ -6,8 +6,8 @@ use crate::{
 use delegate::delegate;
 use num_traits::Zero;
 use numpy::{
-    ndarray::{self, Array0},
-    Element, PyArray0,
+    ndarray::{self},
+    Element,
 };
 use omfiles_rs::{
     reader::{OmFileArray as OmFileArrayRs, OmFileReader as OmFileReaderRs},
@@ -124,10 +124,23 @@ impl OmFileReader {
                 .map_err(|_| Self::only_scalars_error())?;
 
             let value = scalar_reader.read_scalar::<T>();
-            let array_base = Array0::from_elem([], value.unwrap());
-            let py_scalar = PyArray0::from_owned_array(py, array_base);
 
-            return Ok(py_scalar.into_any().unbind());
+            let numpy = py.import("numpy")?;
+            let np_type = match std::any::type_name::<T>() {
+                "f32" => numpy.getattr("float32")?,
+                "f64" => numpy.getattr("float64")?,
+                "i8" => numpy.getattr("int8")?,
+                "u8" => numpy.getattr("uint8")?,
+                "i16" => numpy.getattr("int16")?,
+                "u16" => numpy.getattr("uint16")?,
+                "i32" => numpy.getattr("int32")?,
+                "u32" => numpy.getattr("uint32")?,
+                "i64" => numpy.getattr("int64")?,
+                "u64" => numpy.getattr("uint64")?,
+                _ => return Err(PyErr::new::<PyValueError, _>("Unsupported type")),
+            };
+            let py_scalar = np_type.call1((value,))?;
+            Ok(py_scalar.into())
         })
     }
 }
@@ -536,7 +549,7 @@ impl OmFileReader {
     /// Read the scalar value of the variable.
     ///
     /// Returns:
-    ///     object: The scalar value as a Python object (str, int, or float).
+    ///     object: The scalar value as a numpy scalar or a Python string.
     ///
     /// Raises:
     ///     ValueError: If the variable is not a scalar.

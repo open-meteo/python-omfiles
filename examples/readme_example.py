@@ -3,7 +3,7 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
-#     "omfiles==0.1.0",
+#     "omfiles==1.0.1",
 #     "fsspec>=2025.7.0",
 #     "s3fs",
 # ]
@@ -13,14 +13,18 @@ import fsspec
 import numpy as np
 from omfiles import OmFileReader
 
-# URI of the file on S3
+# Example: URI for a spatial data file in the `data_spatial` S3 bucket
+# See data organization details: https://github.com/open-meteo/open-data?tab=readme-ov-file#data-organization
+# Note: Spatial data is only retained for 7 days. The example file below may no longer exist.
+# Please update the URI to match a currently available file.
 s3_uri = "s3://openmeteo/data_spatial/dwd_icon/2025/09/23/0000Z/2025-09-30T0000.om"
+
 # Create and open filesystem, wrapping it in a blockcache
 backend = fsspec.open(
     f"blockcache::{s3_uri}",
     mode="rb",
     s3={"anon": True, "default_block_size": 65536},  # s3 settings
-    blockcache={"cache_storage": "cache", "same_names": True},  # blockcache settings
+    blockcache={"cache_storage": "cache"},  # blockcache settings
 )
 # Create reader from the fsspec file object using a context manager.
 # This will automatically close the file when the block is exited.

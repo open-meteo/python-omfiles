@@ -1,14 +1,8 @@
-# Python bindings for Open Meteo file format
+# Python Bindings for Open Meteo File Format
 
-[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.9 | 3.10 | 3.11 | 3.12 | 3.13 | 3.14](https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue.svg)](https://www.python.org/downloads/)
 [![PyPI version](https://badge.fury.io/py/omfiles.svg)](https://pypi.org/project/omfiles/)
 [![Build and Test](https://github.com/open-meteo/python-omfiles/actions/workflows/build-test.yml/badge.svg)](https://github.com/open-meteo/python-omfiles/actions/workflows/build-test.yml)
-
-## Installation
-
-```bash
-pip install omfiles
-```
 
 ## Features
 
@@ -18,9 +12,34 @@ pip install omfiles
 - Support for [fsspec](https://github.com/fsspec/filesystem_spec) and [xarray](https://github.com/pydata/xarray)
 - Chunked data access behind the scenes
 
-### Reading
+## Installation
 
-#### Basic reading
+```bash
+pip install omfiles
+```
+
+### Pre-Built Wheels & Platform Support
+
+We provide pre-built wheels for the following platforms:
+
+- Linux x86_64 (`manylinux_2_28_x86_64`)
+- Linux aarch64 (`manylinux_2_28_aarch64`)
+- Linux musl x86_64 (`musllinux_1_2_x86_64`)
+- Windows x86_64 (`win_amd64`)
+- Windows ARM64 (`win_arm64`)
+- macOS x86_64 (`macosx_10_12_x86_64`)
+- macOS ARM64 (`macosx_11_0_arm64`)
+
+### Stability Notice
+
+**This project is now stable as of version 1.0.0.**
+The public API is considered stable and will follow [semantic versioning](https://semver.org/).
+Breaking changes will not be introduced in 1.x releases without a major version bump.
+
+
+## Reading
+
+### Reading Files without Hierarchy
 
 OM files are [structured like a tree of variables](https://github.com/open-meteo/om-file-format?tab=readme-ov-file#data-hierarchy-model).
 The following example assumes that the file `test_file.om` contains an array variable as a root variable which has a dimensionality greater than 2 and a size of at least 2x100:
@@ -33,21 +52,25 @@ data = reader[0:2, 0:100, ...]
 reader.close() # Close the reader to release resources
 ```
 
-#### Reading desired variables from S3 spatial files
+### Reading Hierarchical Files, e.g. S3 Spatial Files
 
 ```python
 import fsspec
 import numpy as np
 from omfiles import OmFileReader
 
-# URI of the file on S3
+# Example: URI for a spatial data file in the `data_spatial` S3 bucket
+# See data organization details: https://github.com/open-meteo/open-data?tab=readme-ov-file#data-organization
+# Note: Spatial data is only retained for 7 days. The example file below may no longer exist.
+# Please update the URI to match a currently available file.
 s3_uri = "s3://openmeteo/data_spatial/dwd_icon/2025/09/23/0000Z/2025-09-30T0000.om"
+
 # Create and open filesystem, wrapping it in a blockcache
 backend = fsspec.open(
     f"blockcache::{s3_uri}",
     mode="rb",
     s3={"anon": True, "default_block_size": 65536},  # s3 settings
-    blockcache={"cache_storage": "cache", "same_names": True},  # blockcache settings
+    blockcache={"cache_storage": "cache"},  # blockcache settings
 )
 # Create reader from the fsspec file object using a context manager.
 # This will automatically close the file when the block is exited.
@@ -85,9 +108,9 @@ with OmFileReader(backend) as root:
     print(f"Are the two temperature subsets equal? {are_equal}")
 ```
 
-### Writing
+## Writing
 
-#### Simple Array
+### Single Array
 ```python
 import numpy as np
 from omfiles import OmFileWriter
@@ -112,7 +135,7 @@ array_variable = writer.write_array(
 writer.close(array_variable)
 ```
 
-#### Hierarchical Structure
+### Hierarchical Structure
 ```python
 import numpy as np
 from omfiles import OmFileWriter
