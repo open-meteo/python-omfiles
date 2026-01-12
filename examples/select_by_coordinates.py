@@ -1,3 +1,17 @@
+#!/usr/bin/env -S uv run --script
+#
+# /// script
+# requires-python = ">=3.12"
+# dependencies = [
+#     "omfiles @ git+https://github.com/open-meteo/python-omfiles@be3f68870b9444cb01a6ccfcaa122fe283d485c9",
+#     "fsspec>=2025.7.0",
+#     "s3fs",
+#     "xarray",
+#     "matplotlib",
+#     "cartopy",
+# ]
+# ///
+
 """
 Example showing how to select data from multiple domains in Open-Meteo files stored in S3.
 
@@ -31,7 +45,7 @@ import numpy as np
 import xarray as xr
 from fsspec.implementations.cache_mapper import BasenameCacheMapper
 from fsspec.implementations.cached import CachingFileSystem
-from omfiles import OmFilePyReader
+from omfiles import OmFileReader
 from omfiles.om_domains import DOMAINS
 from s3fs import S3FileSystem
 from xarray import Dataset
@@ -84,7 +98,7 @@ def load_chunk_data(
         return np.array([], dtype="datetime64[s]"), np.array([], dtype=float)
 
     # Create reader and read data of interest
-    with OmFilePyReader.from_fsspec(fs, s3_path) as reader:
+    with OmFileReader.from_fsspec(fs, s3_path) as reader:
         indices = np.where(time_mask)[0]
         time_slice = slice(indices[0], indices[-1] + 1)  # +1 to include the end
         data = reader[y, x, time_slice]
