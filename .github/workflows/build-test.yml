@@ -294,6 +294,7 @@ jobs:
         shell: bash
         run: |
           WHEEL_PATH=$(ls dist/*.whl)
+          echo "WHEEL_PATH=$WHEEL_PATH"
           uv venv
           uv sync --no-install-project --no-default-groups --group=test
           uv pip install --force-reinstall "$WHEEL_PATH"
@@ -305,6 +306,7 @@ jobs:
         shell: bash
         run: |
           WHEEL_PATH=$(ls dist/*.whl)
+          echo "WHEEL_PATH=$WHEEL_PATH"
           uv venv
           uv sync --resolution lowest-direct --no-install-project --no-default-groups --group=test
           uv pip install --no-deps --force-reinstall "$WHEEL_PATH"
@@ -341,6 +343,7 @@ jobs:
         shell: sh
         run: |
           WHEEL_PATH=$(ls dist/*.whl)
+          echo "WHEEL_PATH=$WHEEL_PATH"
           uv venv
           uv sync --no-install-project --no-default-groups --group=test
           uv pip install --force-reinstall "$WHEEL_PATH"
