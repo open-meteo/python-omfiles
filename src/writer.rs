@@ -256,34 +256,34 @@ impl OmFileWriter {
             .to_omfilesrs();
 
         let array_meta = if element_type.is_equiv_to(&dtype::<f32>(py)) {
-            let array = data.downcast::<PyArrayDyn<f32>>()?.readonly();
+            let array = data.cast::<PyArrayDyn<f32>>()?.readonly();
             self.write_array_internal(array, chunks, scale_factor, add_offset, compression)
         } else if element_type.is_equiv_to(&dtype::<f64>(py)) {
-            let array = data.downcast::<PyArrayDyn<f64>>()?.readonly();
+            let array = data.cast::<PyArrayDyn<f64>>()?.readonly();
             self.write_array_internal(array, chunks, scale_factor, add_offset, compression)
         } else if element_type.is_equiv_to(&dtype::<i32>(py)) {
-            let array = data.downcast::<PyArrayDyn<i32>>()?.readonly();
+            let array = data.cast::<PyArrayDyn<i32>>()?.readonly();
             self.write_array_internal(array, chunks, scale_factor, add_offset, compression)
         } else if element_type.is_equiv_to(&dtype::<i64>(py)) {
-            let array = data.downcast::<PyArrayDyn<i64>>()?.readonly();
+            let array = data.cast::<PyArrayDyn<i64>>()?.readonly();
             self.write_array_internal(array, chunks, scale_factor, add_offset, compression)
         } else if element_type.is_equiv_to(&dtype::<u32>(py)) {
-            let array = data.downcast::<PyArrayDyn<u32>>()?.readonly();
+            let array = data.cast::<PyArrayDyn<u32>>()?.readonly();
             self.write_array_internal(array, chunks, scale_factor, add_offset, compression)
         } else if element_type.is_equiv_to(&dtype::<u64>(py)) {
-            let array = data.downcast::<PyArrayDyn<u64>>()?.readonly();
+            let array = data.cast::<PyArrayDyn<u64>>()?.readonly();
             self.write_array_internal(array, chunks, scale_factor, add_offset, compression)
         } else if element_type.is_equiv_to(&dtype::<i8>(py)) {
-            let array = data.downcast::<PyArrayDyn<i8>>()?.readonly();
+            let array = data.cast::<PyArrayDyn<i8>>()?.readonly();
             self.write_array_internal(array, chunks, scale_factor, add_offset, compression)
         } else if element_type.is_equiv_to(&dtype::<u8>(py)) {
-            let array = data.downcast::<PyArrayDyn<u8>>()?.readonly();
+            let array = data.cast::<PyArrayDyn<u8>>()?.readonly();
             self.write_array_internal(array, chunks, scale_factor, add_offset, compression)
         } else if element_type.is_equiv_to(&dtype::<i16>(py)) {
-            let array = data.downcast::<PyArrayDyn<i16>>()?.readonly();
+            let array = data.cast::<PyArrayDyn<i16>>()?.readonly();
             self.write_array_internal(array, chunks, scale_factor, add_offset, compression)
         } else if element_type.is_equiv_to(&dtype::<u16>(py)) {
-            let array = data.downcast::<PyArrayDyn<u16>>()?.readonly();
+            let array = data.cast::<PyArrayDyn<u16>>()?.readonly();
             self.write_array_internal(array, chunks, scale_factor, add_offset, compression)
         } else {
             Err(Self::unsupported_array_type_error(element_type))
