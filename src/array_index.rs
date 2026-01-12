@@ -32,11 +32,13 @@ pub enum IndexType {
 #[derive(Debug)]
 pub struct ArrayIndex(pub Vec<IndexType>);
 
-impl<'py> FromPyObject<'py> for ArrayIndex {
-    fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
+impl<'py> FromPyObject<'_, 'py> for ArrayIndex {
+    type Error = PyErr;
+
+    fn extract(ob: Borrowed<'_, 'py, PyAny>) -> Result<Self, Self::Error> {
         fn parse_index(item: &Bound<'_, PyAny>) -> PyResult<IndexType> {
             if item.is_instance_of::<pyo3::types::PySlice>() {
-                let slice = item.downcast::<pyo3::types::PySlice>()?;
+                let slice = item.cast::<pyo3::types::PySlice>()?;
                 let start = slice.getattr("start")?.extract()?;
                 let stop = slice.getattr("stop")?.extract()?;
                 let step = slice.getattr("step")?.extract()?;
@@ -50,14 +52,14 @@ impl<'py> FromPyObject<'py> for ArrayIndex {
             }
         }
 
-        if let Ok(tuple) = ob.downcast::<pyo3::types::PyTuple>() {
+        if let Ok(tuple) = ob.cast::<pyo3::types::PyTuple>() {
             let indices = tuple
                 .iter()
                 .map(|idx| parse_index(&idx))
                 .collect::<PyResult<Vec<_>>>()?;
             Ok(ArrayIndex(indices))
         } else {
-            Ok(ArrayIndex(vec![parse_index(ob)?]))
+            Ok(ArrayIndex(vec![parse_index(&ob)?]))
         }
     }
 }
@@ -209,7 +211,8 @@ mod tests {
             // Test basic slicing
             let slice = PySlice::new(py, 1, 5, 1);
             let single_slice_tuple = pyo3::types::PyTuple::new(py, [&slice]).unwrap();
-            let slice_index = ArrayIndex::extract_bound(&single_slice_tuple).unwrap();
+            let slice_index =
+                ArrayIndex::extract(single_slice_tuple.as_any().as_borrowed()).unwrap();
             match &slice_index.0[0] {
                 IndexType::Slice { start, stop, step } => {
                     assert_eq!(*start, Some(1));
@@ -222,7 +225,7 @@ mod tests {
             // Test integer indexing
             let int_value = 42i64.into_pyobject(py).unwrap();
             let single_int_tuple = pyo3::types::PyTuple::new(py, [&int_value]).unwrap();
-            let int_index = ArrayIndex::extract_bound(&single_int_tuple).unwrap();
+            let int_index = ArrayIndex::extract(single_int_tuple.as_any().as_borrowed()).unwrap();
             match int_index.0[0] {
                 IndexType::Int(val) => assert_eq!(val, 42),
                 _ => panic!("Expected Int type"),
@@ -231,7 +234,7 @@ mod tests {
             // Test None (NewAxis)
             let none_value = py.None();
             let single_none_tuple = pyo3::types::PyTuple::new(py, [&none_value]).unwrap();
-            let none_index = ArrayIndex::extract_bound(&single_none_tuple).unwrap();
+            let none_index = ArrayIndex::extract(single_none_tuple.as_any().as_borrowed()).unwrap();
             match none_index.0[0] {
                 IndexType::NewAxis => (),
                 _ => panic!("Expected NewAxis type"),
@@ -247,7 +250,7 @@ mod tests {
                 ],
             )
             .unwrap();
-            let mixed_index = ArrayIndex::extract_bound(&mixed_tuple).unwrap();
+            let mixed_index = ArrayIndex::extract(mixed_tuple.as_any().as_borrowed()).unwrap();
 
             // Verify the types in order
             match &mixed_index.0[0] {
@@ -272,7 +275,8 @@ mod tests {
             // Test slice with None values (open-ended slices)
             let open_slice = PySlice::full(py);
             let open_slice_tuple = pyo3::types::PyTuple::new(py, [&open_slice]).unwrap();
-            let open_slice_index = ArrayIndex::extract_bound(&open_slice_tuple).unwrap();
+            let open_slice_index =
+                ArrayIndex::extract(open_slice_tuple.as_any().as_borrowed()).unwrap();
             match &open_slice_index.0[0] {
                 IndexType::Slice { start, stop, step } => {
                     assert_eq!(*start, None);
@@ -294,7 +298,7 @@ mod tests {
             // Test negative integer index
             let neg_idx = (-2i64).into_pyobject(py).unwrap();
             let neg_tuple = pyo3::types::PyTuple::new(py, [&neg_idx]).unwrap();
-            let index = ArrayIndex::extract_bound(&neg_tuple).unwrap();
+            let index = ArrayIndex::extract(neg_tuple.as_any().as_borrowed()).unwrap();
             let ranges = index
                 .to_read_range(&shape)
                 .expect("Could not convert to read_range!");
@@ -303,7 +307,7 @@ mod tests {
             // Test negative slice indices
             let slice = PySlice::new(py, -3, -1, 1);
             let slice_tuple = pyo3::types::PyTuple::new(py, [&slice]).unwrap();
-            let index = ArrayIndex::extract_bound(&slice_tuple).unwrap();
+            let index = ArrayIndex::extract(slice_tuple.as_any().as_borrowed()).unwrap();
             let ranges = index
                 .to_read_range(&shape)
                 .expect("Could not convert to read_range!");
@@ -323,7 +327,7 @@ mod tests {
 
             // Test ..., 1
             let tuple = pyo3::types::PyTuple::new(py, [&ellipsis, &integer]).unwrap();
-            let index = ArrayIndex::extract_bound(&tuple).unwrap();
+            let index = ArrayIndex::extract(tuple.as_any().as_borrowed()).unwrap();
             let ranges = index.to_read_range(&shape).unwrap();
             assert_eq!(ranges.len(), 4);
             assert_eq!(ranges[0], Range { start: 0, end: 2 });
@@ -341,7 +345,7 @@ mod tests {
                 ],
             )
             .unwrap();
-            let index = ArrayIndex::extract_bound(&tuple).unwrap();
+            let index = ArrayIndex::extract(tuple.as_any().as_borrowed()).unwrap();
             let ranges = index.to_read_range(&shape).unwrap();
 
             assert_eq!(ranges.len(), 4);
@@ -363,7 +367,7 @@ mod tests {
                 .expect("Failed to create object");
             let invalid_tuple =
                 pyo3::types::PyTuple::new(py, [&invalid_value]).expect("Failed to create tuple");
-            let _should_fail = ArrayIndex::extract_bound(&invalid_tuple).unwrap();
+            let _should_fail = ArrayIndex::extract(invalid_tuple.as_any().as_borrowed()).unwrap();
         });
     }
 
@@ -376,7 +380,7 @@ mod tests {
             let shape = vec![5];
             let neg_idx = (-6i64).into_pyobject(py).unwrap();
             let neg_tuple = pyo3::types::PyTuple::new(py, [&neg_idx]).unwrap();
-            let index = ArrayIndex::extract_bound(&neg_tuple).unwrap();
+            let index = ArrayIndex::extract(neg_tuple.as_any().as_borrowed()).unwrap();
             let _should_fail = index.to_read_range(&shape).unwrap();
         });
     }
@@ -390,7 +394,7 @@ mod tests {
             let shape = vec![5];
             let neg_idx = (-6i64).into_pyobject(py).unwrap();
             let neg_tuple = pyo3::types::PyTuple::new(py, [&neg_idx]).unwrap();
-            let index = ArrayIndex::extract_bound(&neg_tuple).unwrap();
+            let index = ArrayIndex::extract(neg_tuple.as_any().as_borrowed()).unwrap();
             let _should_fail = index.to_read_range(&shape).unwrap();
         });
     }
