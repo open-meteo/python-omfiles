@@ -141,20 +141,6 @@ class OmGrid:
         self.dx = (xmax - xmin) / (self.nx - 1)
         self.dy = (ymax - ymin) / (self.ny - 1)
 
-    @classmethod
-    def from_meta_json(cls, meta: OmMetaJson, shape: Tuple[int, int]) -> "OmGrid":
-        """
-        Create grid from metadata JSON.
-
-        Args:
-            meta: Metadata containing CRS WKT string
-            shape: Grid shape as (ny, nx)
-
-        Returns:
-            OmGrid instance
-        """
-        return cls(meta.crs_wkt, shape)
-
     @property
     def shape(self) -> Tuple[int, int]:
         """Grid shape as (ny, nx)."""
