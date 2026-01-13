@@ -1,6 +1,5 @@
 import numpy as np
 import pytest
-import requests
 from omfiles.om_grid import OmMetaJson
 
 
