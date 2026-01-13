@@ -8,7 +8,7 @@ import numpy as np
 import numpy.typing as npt
 from pyproj import CRS, Transformer
 
-from omfiles._utils import EPOCH
+EPOCH = np.datetime64(0, "s")
 
 
 @dataclass
