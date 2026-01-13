@@ -3,12 +3,11 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
-#     "omfiles @ git+https://github.com/open-meteo/python-omfiles@be3f68870b9444cb01a6ccfcaa122fe283d485c9",
+#     "omfiles[proj] @ /home/fred/dev/terraputix/python-omfiles",
 #     "fsspec>=2025.7.0",
 #     "s3fs",
 #     "xarray",
 #     "matplotlib",
-#     "cartopy",
 # ]
 # ///
 
@@ -36,6 +35,7 @@ Requirements:
     - omfiles
 """
 
+import json
 from datetime import datetime
 from typing import Tuple
 
@@ -46,7 +46,7 @@ import xarray as xr
 from fsspec.implementations.cache_mapper import BasenameCacheMapper
 from fsspec.implementations.cached import CachingFileSystem
 from omfiles import OmFileReader
-from omfiles.om_domains import DOMAINS
+from omfiles.om_grid import OmGrid, OmMetaJson
 from s3fs import S3FileSystem
 from xarray import Dataset
 
@@ -63,6 +63,21 @@ FS = CachingFileSystem(
 )
 
 
+def get_domain_info(domain_name: str, fs: fsspec.AbstractFileSystem) -> OmMetaJson:
+    meta_json_path = f"openmeteo/data/{domain_name}/static/meta.json"
+    meta_dict = json.loads(fs.cat_file(meta_json_path))
+    return OmMetaJson.from_dict(meta_dict)
+
+
+def load_variable_dimensions(
+    chunk_index: int, domain_name: str, variable_name: str, fs: fsspec.AbstractFileSystem
+) -> Tuple[int, int, int]:
+    s3_path = f"openmeteo/data/{domain_name}/{variable_name}/chunk_{chunk_index}.om"
+    with OmFileReader.from_fsspec(fs, s3_path) as reader:
+        return reader.shape
+    raise ValueError(f"Failed to load variable dimensions for chunk {chunk_index}")
+
+
 def load_chunk_data(
     chunk_index: int,
     domain_name: str,
@@ -71,6 +86,7 @@ def load_chunk_data(
     fs: fsspec.AbstractFileSystem,
     start_date: np.datetime64,
     end_date: np.datetime64,
+    meta: OmMetaJson,
 ):
     """
     Load data for a specific chunk and grid coordinates.
@@ -87,12 +103,11 @@ def load_chunk_data(
     Returns:
         Tuple[np.ndarray, np.ndarray]: Tuple containing (time_array, data_array).
     """
-    domain = DOMAINS[domain_name]
     x, y = grid_coords
-    s3_path = f"openmeteo/data/{domain.name}/{variable_name}/chunk_{chunk_index}.om"
+    s3_path = f"openmeteo/data/{domain_name}/{variable_name}/chunk_{chunk_index}.om"
 
     # Generate time array and check if any times are in our range
-    chunk_times = domain.get_chunk_time_range(chunk_index)
+    chunk_times = meta.get_chunk_time_range(chunk_index)
     time_mask = (chunk_times >= start_date) & (chunk_times <= end_date)
     if not np.any(time_mask):
         return np.array([], dtype="datetime64[s]"), np.array([], dtype=float)
@@ -129,14 +144,22 @@ def get_data_for_coordinates(
     Returns:
         xr.Dataset: Dataset containing the requested variable at the specified location.
     """
-    # Get the domain configuration
-    if domain_name not in DOMAINS:
-        raise ValueError(f"Unknown domain: {domain_name}. Available domains: {list(DOMAINS.keys())}")
+    meta = get_domain_info(domain_name, FS)
+    print("domain info: ", meta)
 
-    domain = DOMAINS[domain_name]
+    start_timestamp = np.datetime64(start_date)
+    end_timestamp = np.datetime64(end_date)
+
+    # Find all chunks needed for this date range
+    chunk_indices = meta.chunks_for_date_range(start_timestamp, end_timestamp)
+    print(f"Need to fetch {len(chunk_indices)} chunks: {chunk_indices}")
+
+    # get dimensions of the variable
+    num_y, num_x, num_t = load_variable_dimensions(chunk_indices[0], domain_name, variable_name, FS)
+    grid = OmGrid(meta.crs_wkt, (num_y, num_x))
 
     # Find grid coordinates for geographical coordinates
-    grid_point = domain.grid.findPointXy(lat, lon)
+    grid_point = grid.find_point_xy(lat, lon)
     if grid_point is None:
         raise ValueError(f"Coordinates ({lat}, {lon}) not found in grid of {domain_name}")
 
@@ -148,7 +171,7 @@ def get_data_for_coordinates(
     end_timestamp = np.datetime64(end_date)
 
     # Find all chunks needed for this date range
-    chunk_indices = domain.chunks_for_date_range(start_timestamp, end_timestamp)
+    chunk_indices = meta.chunks_for_date_range(start_timestamp, end_timestamp)
     print(f"Need to fetch {len(chunk_indices)} chunks: {chunk_indices}")
 
     # Load data from all chunks
@@ -156,7 +179,9 @@ def get_data_for_coordinates(
     all_data = []
 
     for chunk_idx in chunk_indices:
-        times, data = load_chunk_data(chunk_idx, domain_name, variable_name, (x, y), FS, start_timestamp, end_timestamp)
+        times, data = load_chunk_data(
+            chunk_idx, domain_name, variable_name, (x, y), FS, start_timestamp, end_timestamp, meta
+        )
         if len(times) > 0:
             all_times.append(times)
             all_data.append(data)
@@ -216,9 +241,9 @@ if __name__ == "__main__":
         "meteofrance_arome_france0025": "Météo-France AROME (France)",
         "meteofrance_arome_france_hd": "Météo-France AROME HD (France)",
         "meteofrance_arome_france_hd_15min": "Météo-France AROME HD 15min (France)",
-        "gem_global": "CMC GEM GDPS (Global)",
-        "gem_regional": "CMC GEM RDPS (Regional)",
-        "gem_hrdps_continental": "CMC GEM HRDPS (Continental)",
+        "cmc_gem_gdps": "CMC GEM GDPS (Global)",
+        "cmc_gem_rdps": "CMC GEM RDPS (Regional)",
+        "cmc_gem_hrdps": "CMC GEM HRDPS (Continental)",
     }
 
     # Collect data from each domain
