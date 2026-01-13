@@ -295,3 +295,48 @@ def test_lambert_conformal_conic_projection(dmi_harmoni_europe_wkt: str, dmi_har
     assert abs(lon - 30.711975) < 0.001
     point_idx = dmi_harmoni_europe_grid.find_point_xy(lat=lat, lon=lon)
     assert point_idx == (1642, 1573)
+
+
+# def test_dwd_icon_d2_grid_points():
+#     """Test specific points in the DWD ICON D2 grid."""
+#     dwd_grid = DOMAINS["dwd_icon_d2"].grid
+
+#     # Test a point known to be in the domain (Central Europe)
+#     # Berlin coordinates: approx. 52.52°N, 13.40°E
+#     berlin = dwd_grid.findPointXy(52.52, 13.40)
+#     assert berlin is not None
+
+#     # Test a point outside the domain (should return None)
+#     # New York coordinates: approx. 40.71°N, -74.01°E
+#     new_york = dwd_grid.findPointXy(40.71, -74.01)
+#     assert new_york is None
+
+#     # Test gridpoint to coordinate conversion
+#     if berlin is not None:
+#         x, y = berlin
+#         lat, lon = dwd_grid.getCoordinates(x, y)
+#         # Check that we get close to the original coordinates
+#         assert abs(lat - 52.52) < 0.05
+#         assert abs(lon - 13.40) < 0.05
+
+
+# def test_ecmwf_grid():
+#     """Test the ECMWF IFS grid specifically."""
+#     ecmwf_grid = DOMAINS["ecmwf_ifs025"].grid
+
+#     # Test some known points on the grid
+#     # Point at the prime meridian and equator
+#     assert ecmwf_grid.findPointXy(0.0, 0.0) == (720, 360)
+
+#     # Point at the North Pole
+#     assert ecmwf_grid.findPointXy(90.0, 0.0) == (720, 720)
+
+#     # Test some edge points (ensure they are properly handled)
+#     assert ecmwf_grid.findPointXy(-90.0, -180.0) == (0, 0)
+#     assert ecmwf_grid.findPointXy(90.0, 180.0) == (0, 720)
+
+#     # Test wrapping for global grid
+#     # A point at longitude 181 should wrap to longitude -179
+#     point1 = ecmwf_grid.findPointXy(0.0, 181.0)
+#     point2 = ecmwf_grid.findPointXy(0.0, -179.0)
+#     assert point1 == point2
