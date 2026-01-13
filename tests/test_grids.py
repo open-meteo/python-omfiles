@@ -15,14 +15,6 @@ from omfiles.grids import (
 from omfiles.om_grid import OmGrid
 
 
-@pytest.fixture
-def stereographic_projection():
-    projection = StereographicProjection(90.0, 249.0, 6371229.0)
-    return ProjectionGrid.from_bounds(
-        nx=935, ny=824, lat_range=(18.14503, 45.405453), lon_range=(217.10745, 349.8256), projection=projection
-    )
-
-
 # Fixtures for grids
 @pytest.fixture
 def icon_global_grid():
@@ -31,9 +23,15 @@ def icon_global_grid():
 
 
 @pytest.fixture
-def hrdps_grid():
-    wkt = 'GEOGCRS["Rotated Lat/Lon",BASEGEOGCRS["WGS 84",DATUM["World Geodetic System 1984",ELLIPSOID["WGS 84",6378137,298.257223563]]],DERIVINGCONVERSION["Rotated Lat/Lon",METHOD["PROJ ob_tran o_proj=longlat"],PARAMETER["o_lon_p",0],PARAMETER["o_lat_p",36.0885],PARAMETER["lon_0",245.305]]CS[ellipsoidal,2],AXIS["latitude",north],AXIS["longitude",east],ANGLEUNIT["degree",0.0174532925199433],USAGE[SCOPE["grid"],BBOX[39.626034,-133.62952,47.87646,-40.708527]]]'
+def gem_hrdps_grid():
+    wkt = 'GEOGCRS["Rotated Lat/Lon",BASEGEOGCRS["GCS_Sphere",DATUM["D_Sphere",ELLIPSOID["Sphere",6371229.0,0.0]]],DERIVINGCONVERSION["Rotated Lat/Lon",METHOD["PROJ ob_tran o_proj=longlat"],PARAMETER["o_lon_p",0],PARAMETER["o_lat_p",36.0885],PARAMETER["lon_0",245.305]]CS[ellipsoidal,2],AXIS["latitude",north],AXIS["longitude",east],ANGLEUNIT["degree",0.0174532925199433],USAGE[SCOPE["grid"],BBOX[39.626034,-133.62952,47.87646,-40.708527]]]'
     return OmGrid(wkt, (1290, 2540))
+
+
+@pytest.fixture
+def gem_regional_grid():
+    wkt = 'PROJCRS["Stereographic",\n    BASEGEOGCRS["GCS_Sphere",DATUM["D_Sphere",ELLIPSOID["Sphere",6371229.0,0.0]]],\n    CONVERSION["Stereographic",\n        METHOD["Stereographic"],\n        PARAMETER["Latitude of natural origin", 90.0],\n        PARAMETER["Longitude of natural origin", 249.0],\n        PARAMETER["Scale factor at natural origin", 1.0],\n        PARAMETER["False easting", 0.0],\n        PARAMETER["False northing", 0.0]],\n    CS[Cartesian,2],\n        AXIS["easting",east],\n        AXIS["northing",north],\n        LENGTHUNIT["metre",1.0],\n    USAGE[\n        SCOPE["grid"],\n        BBOX[18.145027,-142.89252,45.40545,-10.174438]]]'
+    return OmGrid(wkt, (824, 935))
 
 
 @pytest.fixture
@@ -47,9 +45,23 @@ def ukmo2_grid(ukmo2_wkt):
 
 
 @pytest.fixture
-def gfs_nam_conus_grid():
-    wkt = 'PROJCRS["Lambert Conic Conformal",\n    BASEGEOGCRS["GCS_Sphere",DATUM["D_Sphere",ELLIPSOID["Sphere",6371229.0,0.0]]],\n    CONVERSION["Lambert Conic Conformal",\n        METHOD["Lambert Conic Conformal (2SP)"],\n        PARAMETER["Latitude of 1st standard parallel",38.5],\n        PARAMETER["Latitude of 2nd standard parallel",38.5],\n        PARAMETER["Latitude of false origin",0.0],\n        PARAMETER["Longitude of false origin",-97.5]],\n    CS[Cartesian,2],\n        AXIS["easting",east],\n        AXIS["northing",north],\n        LENGTHUNIT["metre",1],\n    USAGE[\n        SCOPE["grid"],\n        BBOX[21.137995,-122.72,47.842403,-60.918]]]'
-    return OmGrid(wkt, (1059, 1799))
+def gfs_nam_conus_wkt():
+    return 'PROJCRS["Lambert Conic Conformal",\n    BASEGEOGCRS["GCS_Sphere",DATUM["D_Sphere",ELLIPSOID["Sphere",6371229.0,0.0]]],\n    CONVERSION["Lambert Conic Conformal",\n        METHOD["Lambert Conic Conformal (2SP)"],\n        PARAMETER["Latitude of 1st standard parallel",38.5],\n        PARAMETER["Latitude of 2nd standard parallel",38.5],\n        PARAMETER["Latitude of false origin",0.0],\n        PARAMETER["Longitude of false origin",-97.5]],\n    CS[Cartesian,2],\n        AXIS["easting",east],\n        AXIS["northing",north],\n        LENGTHUNIT["metre",1],\n    USAGE[\n        SCOPE["grid"],\n        BBOX[21.137995,-122.72,47.842403,-60.918]]]'
+
+
+@pytest.fixture
+def gfs_nam_conus_grid(gfs_nam_conus_wkt):
+    return OmGrid(gfs_nam_conus_wkt, (1059, 1799))
+
+
+@pytest.fixture
+def dmi_harmoni_europe_wkt():
+    return 'PROJCRS["Lambert Conic Conformal",\n    BASEGEOGCRS["GCS_Sphere",DATUM["D_Sphere",ELLIPSOID["Sphere",6371229.0,0.0]]],\n    CONVERSION["Lambert Conic Conformal",\n        METHOD["Lambert Conic Conformal (2SP)"],\n        PARAMETER["Latitude of 1st standard parallel",55.5],\n        PARAMETER["Latitude of 2nd standard parallel",55.5],\n        PARAMETER["Latitude of false origin",55.5],\n        PARAMETER["Longitude of false origin",352.0]],\n    CS[Cartesian,2],\n        AXIS["easting",east],\n        AXIS["northing",north],\n        LENGTHUNIT["metre",1],\n    USAGE[\n        SCOPE["grid"],\n        BBOX[39.670998,-25.421997,62.667618,40.069855]]]'
+
+
+@pytest.fixture
+def dmi_harmoni_europe_grid(dmi_harmoni_europe_wkt):
+    return OmGrid(dmi_harmoni_europe_wkt, (1606, 1906))
 
 
 def test_regular_grid(icon_global_grid: OmGrid):
@@ -76,60 +88,58 @@ def test_cached_property_computation(icon_global_grid: OmGrid):
     assert lat1 is lat2
 
 
-# def test_stereographic(stereographic_projection):
-#     # https://github.com/open-meteo/open-meteo/blob/522917b1d6e72a7e6b7d4ae7dfb49b0c556a6992/Tests/AppTests/DataTests.swift#L248
-#     pos_x, pos_y = stereographic_projection.findPointXy(lat=64.79836, lon=241.40111)
+def test_stereographic(gem_regional_grid: OmGrid):
+    # https://github.com/open-meteo/open-meteo/blob/522917b1d6e72a7e6b7d4ae7dfb49b0c556a6992/Tests/AppTests/DataTests.swift#L248
+    indices = gem_regional_grid.find_point_xy(lat=64.79836, lon=241.40111)
 
-#     assert pos_x == 420
-#     assert pos_y == 468
+    assert indices is not None
+    pos_x, pos_y = indices
 
-#     # Get the coordinates back
-#     lat, lon = stereographic_projection.getCoordinates(pos_x, pos_y)
-#     assert abs(lat - 64.79836) < 1e-4
-#     assert np.mod(abs(lon - 241.40111), 360) < 1e-4
+    assert pos_x == 420
+    assert pos_y == 468
 
-
-# def test_grid_properties(stereographic_projection):
-#     assert stereographic_projection.shape == (824, 935)
-#     assert stereographic_projection.grid_type == "projection"
+    # Get the coordinates back
+    lat, lon = gem_regional_grid.get_coordinates(pos_x, pos_y)
+    assert abs(lat - 64.79836) < 1e-4
+    assert abs(abs(lon - 241.40111) - 360) < 1e-4
 
 
-# def test_out_of_bounds(stereographic_projection):
-#     far_point = stereographic_projection.findPointXy(30.0, 120.0)
-#     assert far_point is None
+def test_stereographic_out_of_bounds(gem_regional_grid: OmGrid):
+    far_point = gem_regional_grid.find_point_xy(lat=30.0, lon=120.0)
+    assert far_point is None
 
 
-# def test_latitude_longitude_arrays(stereographic_projection):
-#     # Get latitude and longitude arrays
-#     lats = stereographic_projection.latitude
-#     lons = stereographic_projection.longitude
+def test_stereographic_latitude_longitude_arrays(gem_regional_grid: OmGrid):
+    # Get latitude and longitude arrays
+    lats = gem_regional_grid.latitude
+    lons = gem_regional_grid.longitude
 
-#     # Check shapes match the grid
-#     assert lats.shape == (824, 935)
-#     assert lons.shape == (824, 935)
+    # Check shapes match the grid
+    assert lats.shape == (824, 935)
+    assert lons.shape == (824, 935)
 
 
-def test_hrdps_grid(hrdps_grid: OmGrid):
+def test_hrdps_grid(gem_hrdps_grid: OmGrid):
     """Test the HRDPS Continental grid with a modified approach"""
     test_points = [
         # lat, lon, expected_x, expected_y
         (39.626034, -133.62952, 0, 0),  # Bottom-left
         # FIXME: Bottom-right point is not valid for HRDPS grid
-        # (27.284597, -66.96642, 2539, 0),  # Bottom-right
+        (27.284597, -66.96642, 2539, 0),  # Bottom-right
         (38.96126, -73.63256, 2032, 283),  # Middle point
         (47.876457, -40.708557, 2539, 1289),  # Top-right
     ]
 
     for lat, lon, expected_x, expected_y in test_points:
         # Test finding grid point
-        pos = hrdps_grid.find_point_xy(lat=lat, lon=lon)
+        pos = gem_hrdps_grid.find_point_xy(lat=lat, lon=lon)
         assert pos is not None, f"Could not find point for {lat}, {lon}"
 
         x, y = pos
         assert x == expected_x, f"X mismatch: got {x}, expected {expected_x}"
         assert y == expected_y, f"Y mismatch: got {y}, expected {expected_y}"
 
-        lat2, lon2 = hrdps_grid.get_coordinates(x, y)
+        lat2, lon2 = gem_hrdps_grid.get_coordinates(x, y)
         assert abs(lat2 - lat) < 0.001, f"latitude mismatch: got {lat2}, expected {lat}"
         assert abs(lon2 - lon) < 0.001, f"longitude mismatch: got {lon2}, expected {lon}"
 
@@ -247,57 +257,55 @@ def test_nbm_grid():
         assert abs(lon - expected_lon) < 0.001
 
 
-def test_lambert_conformal_conic_projection():
+def test_lambert_conformal_conic_projection(dmi_harmoni_europe_wkt: str, dmi_harmoni_europe_grid: OmGrid):
     """
     Test the Lambert Conformal Conic projection.
-    Based on: https://github.com/open-meteo/open-meteo/blob/522917b1d6e72a7e6b7d4ae7dfb49b0c556a6992/Tests/AppTests/DataTests.swift#L163
+    Based on: https://github.com/open-meteo/open-meteo/blob/7eb49a5dd41e66ac5cf386023a0527eead3104b4/Tests/AppTests/DataTests.swift#L352
     """
     proj = LambertConformalConicProjection(lambda_0=352, phi_0=55.5, phi_1=55.5, phi_2=55.5, radius=6371229)
 
+    proj = pyproj.Transformer.from_crs(pyproj.CRS.from_epsg(4326), pyproj.CRS.from_wkt(dmi_harmoni_europe_wkt))
+    inverse_proj = pyproj.Transformer.from_crs(pyproj.CRS.from_wkt(dmi_harmoni_europe_wkt), pyproj.CRS.from_epsg(4326))
+
     center_lat = 39.671
     center_lon = -25.421997
-
-    grid = ProjectionGrid.from_center(
-        nx=1906, ny=1606, center_lat=center_lat, center_lon=center_lon, dx=2000, dy=2000, projection=proj
-    )
-
     # Test forward projection
-    origin_x, origin_y = proj.forward(latitude=center_lat, longitude=center_lon)
+    origin_x, origin_y = proj.transform(center_lat, center_lon)
     assert abs(origin_x - (-1527524.624)) < 0.001
     assert abs(origin_y - (-1588681.042)) < 0.001
-    lat, lon = proj.inverse(origin_x, origin_y)
+    lat, lon = inverse_proj.transform(origin_x, origin_y)
     assert abs(center_lat - lat) < 0.0001
     assert abs(center_lon - lon) < 0.0001
 
     # Test another point
     test_lat = 39.675304
     test_lon = -25.400146
-    x1, y1 = proj.forward(latitude=test_lat, longitude=test_lon)
+    x1, y1 = proj.transform(test_lat, test_lon)
     assert abs(origin_x - x1 - (-1998.358)) < 0.001
     assert abs(origin_y - y1 - (-0.187)) < 0.001
-    lat, lon = proj.inverse(x1, y1)
+    lat, lon = inverse_proj.transform(x1, y1)
     assert abs(test_lat - lat) < 0.0001
     assert abs(test_lon - lon) < 0.0001
 
     # Point at index 1
-    lat, lon = grid.getCoordinates(1, 0)
+    lat, lon = dmi_harmoni_europe_grid.get_coordinates(1, 0)
     assert abs(lat - test_lat) < 0.001
     assert abs(lon - test_lon) < 0.001
-    point_idx = grid.findPointXy(lat=test_lat, lon=test_lon)
+    point_idx = dmi_harmoni_europe_grid.find_point_xy(lat=test_lat, lon=test_lon)
     assert point_idx == (1, 0)
 
     # Coords(i: 122440, x: 456, y: 64, latitude: 42.18604, longitude: -15.30127)
-    lat, lon = grid.getCoordinates(456, 64)
+    lat, lon = dmi_harmoni_europe_grid.get_coordinates(456, 64)
     assert abs(lat - 42.18604) < 0.001
     assert abs(lon - (-15.30127)) < 0.001
-    point_idx = grid.findPointXy(lat=lat, lon=lon)
+    point_idx = dmi_harmoni_europe_grid.find_point_xy(lat=lat, lon=lon)
     assert point_idx == (456, 64)
 
     # Coords(i: 2999780, x: 1642, y: 1573, latitude: 64.943695, longitude: 30.711975)
-    lat, lon = grid.getCoordinates(1642, 1573)
+    lat, lon = dmi_harmoni_europe_grid.get_coordinates(1642, 1573)
     assert abs(lat - 64.943695) < 0.001
     assert abs(lon - 30.711975) < 0.001
-    point_idx = grid.findPointXy(lat=lat, lon=lon)
+    point_idx = dmi_harmoni_europe_grid.find_point_xy(lat=lat, lon=lon)
     assert point_idx == (1642, 1573)
 
 

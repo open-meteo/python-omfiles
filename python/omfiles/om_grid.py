@@ -197,10 +197,6 @@ class OmGrid:
         # Transform to projection coordinates
         x_proj, y_proj = self.to_projection.transform(lon, lat)
 
-        # Check if point is within bounds
-        if not (self.bounds[0] <= x_proj <= self.bounds[1] and self.bounds[2] <= y_proj <= self.bounds[3]):
-            return None
-
         # Calculate grid indices
         x_idx = int(round((x_proj - self.origin[0]) / self.dx))
         y_idx = int(round((y_proj - self.origin[1]) / self.dy))
