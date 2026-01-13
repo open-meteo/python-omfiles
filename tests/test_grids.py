@@ -1,5 +1,6 @@
 import pyproj
 import pytest
+from omfiles.grids.gaussian import GaussianGrid
 from omfiles.om_grid import OmGrid
 
 
@@ -51,6 +52,16 @@ def nbm_conus_grid():
 @pytest.fixture
 def dmi_harmoni_europe_wkt():
     return 'PROJCRS["Lambert Conic Conformal",\n    BASEGEOGCRS["GCS_Sphere",DATUM["D_Sphere",ELLIPSOID["Sphere",6371229.0,0.0]]],\n    CONVERSION["Lambert Conic Conformal",\n        METHOD["Lambert Conic Conformal (2SP)"],\n        PARAMETER["Latitude of 1st standard parallel",55.5],\n        PARAMETER["Latitude of 2nd standard parallel",55.5],\n        PARAMETER["Latitude of false origin",55.5],\n        PARAMETER["Longitude of false origin",352.0]],\n    CS[Cartesian,2],\n        AXIS["easting",east],\n        AXIS["northing",north],\n        LENGTHUNIT["metre",1],\n    USAGE[\n        SCOPE["grid"],\n        BBOX[39.670998,-25.421997,62.667618,40.069855]]]'
+
+
+@pytest.fixture
+def ecmwf_ifs_wkt():
+    return 'GEOGCRS["Reduced Gaussian Grid",\n    DATUM["World Geodetic System 1984",\n        ELLIPSOID["WGS 84",6378137,298.257223563]],\n    CS[ellipsoidal,2],\n        AXIS["latitude",north],\n        AXIS["longitude",east],\n        ANGLEUNIT["degree",0.0174532925199433],\n    REMARK["Reduced Gaussian Grid O1280 (ECMWF)"],\n    USAGE[\n        SCOPE["grid"],\n        BBOX[-90,-180.0,90,180]]]'
+
+
+@pytest.fixture
+def ecmwf_ifs_grid(ecmwf_ifs_wkt):
+    return OmGrid(ecmwf_ifs_wkt, (1, 6599680))._grid
 
 
 @pytest.fixture
@@ -165,8 +176,8 @@ def test_lambert_conformal(gfs_nam_conus_grid: OmGrid):
     point_xy = gfs_nam_conus_grid.find_point_xy(lat=34, lon=-118)
     assert point_xy is not None
     x_idx, y_idx = point_xy
-    flat_idx = y_idx * gfs_nam_conus_grid.nx + x_idx
-    assert flat_idx == 777441
+    assert x_idx == 273
+    assert y_idx == 432
 
     lat2, lon2 = gfs_nam_conus_grid.get_coordinates(x_idx, y_idx)
     assert abs(lat2 - 34) < 0.01
@@ -174,19 +185,19 @@ def test_lambert_conformal(gfs_nam_conus_grid: OmGrid):
 
     # Test reference grid points
     reference_points = [
-        (21.137999999999987, 237.28 - 360, 0),
-        (24.449714395051082, 265.54789437771944 - 360, 10000),
-        (22.73382904757237, 242.93190409785294 - 360, 20000),
-        (24.37172305316154, 271.6307003393202 - 360, 30000),
-        (24.007414634071907, 248.77817290935954 - 360, 40000),
+        (21.137999999999987, 237.28 - 360, 0, 0),
+        (24.449714395051082, 265.54789437771944 - 360, 1005, 5),
+        (22.73382904757237, 242.93190409785294 - 360, 211, 11),
+        (24.37172305316154, 271.6307003393202 - 360, 1216, 16),
+        (24.007414634071907, 248.77817290935954 - 360, 422, 22),
     ]
 
-    for lat, lon, expected_idx in reference_points:
+    for lat, lon, expected_x, expected_y in reference_points:
         point_xy = gfs_nam_conus_grid.find_point_xy(lat=lat, lon=lon)
         assert point_xy is not None
         x_idx, y_idx = point_xy
-        flat_idx = y_idx * gfs_nam_conus_grid.nx + x_idx
-        assert flat_idx == expected_idx
+        assert x_idx == expected_x
+        assert y_idx == expected_y
 
         lat2, lon2 = gfs_nam_conus_grid.get_coordinates(x_idx, y_idx)
         assert abs(lat2 - lat) < 0.001
@@ -215,32 +226,30 @@ def test_nbm_grid(nbm_conus_grid: OmGrid):
 
     # Test reference grid points directly from grib files
     reference_points = [
-        (21.137999999999987, 237.28 - 360, 117411),
-        (24.449714395051082, 265.54789437771944 - 360, 188910),
-        (22.73382904757237, 242.93190409785294 - 360, 180965),
-        (24.37172305316154, 271.6307003393202 - 360, 196187),
-        (24.007414634071907, 248.77817290935954 - 360, 232796),
+        (21.137999999999987, 237.28 - 360, 161, 50),
+        (24.449714395051082, 265.54789437771944 - 360, 1310, 80),
+        (22.73382904757237, 242.93190409785294 - 360, 400, 77),
+        (24.37172305316154, 271.6307003393202 - 360, 1552, 83),
+        (24.007414634071907, 248.77817290935954 - 360, 641, 99),
     ]
 
-    for lat, lon, expected_idx in reference_points:
+    for lat, lon, expected_x, expected_y in reference_points:
         point_xy = nbm_conus_grid.find_point_xy(lat=lat, lon=lon)
         assert point_xy is not None
         x_idx, y_idx = point_xy
-        flat_idx = y_idx * nbm_conus_grid.nx + x_idx
-        assert flat_idx == expected_idx
+        assert x_idx == expected_x
+        assert y_idx == expected_y
 
     # Test grid coordinate lookup for specific indices
     reference_coords = [
-        (0, 19.228992, -126.27699),
-        (10000, 21.794254, -111.44652),
-        (20000, 22.806227, -96.18898),
-        (30000, 22.222015, -80.87921),
-        (40000, 20.274399, -123.18192),
+        (0, 0, 19.228992, -126.27699),
+        (4, 620, 21.794254, -111.44652),
+        (8, 1240, 22.806227, -96.18898),
+        (12, 1860, 22.222015, -80.87921),
+        (17, 135, 20.274399, -123.18192),
     ]
 
-    for idx, expected_lat, expected_lon in reference_coords:
-        y_idx = idx // nbm_conus_grid.nx
-        x_idx = idx % nbm_conus_grid.nx
+    for y_idx, x_idx, expected_lat, expected_lon in reference_coords:
         lat, lon = nbm_conus_grid.get_coordinates(x_idx, y_idx)
         assert abs(lat - expected_lat) < 0.001
         assert abs(lon - expected_lon) < 0.001
@@ -297,46 +306,17 @@ def test_lambert_conformal_conic_projection(dmi_harmoni_europe_wkt: str, dmi_har
     assert point_idx == (1642, 1573)
 
 
-# def test_dwd_icon_d2_grid_points():
-#     """Test specific points in the DWD ICON D2 grid."""
-#     dwd_grid = DOMAINS["dwd_icon_d2"].grid
+def test_ecmwf_grid(ecmwf_ifs_grid: GaussianGrid):
+    # https://github.com/open-meteo/open-meteo/blob/7eb49a5dd41e66ac5cf386023a0527eead3104b4/Tests/AppTests/DataTests.swift#L614
+    assert ecmwf_ifs_grid._find_point_xy(53.63797, 45) == (261, 517)
+    assert ecmwf_ifs_grid._find_point_xy(19.229, 233.723 - 360) == (2625, 1006)
+    assert ecmwf_ifs_grid._find_point_xy(91.0, 342) == (19, 0)
+    assert ecmwf_ifs_grid._find_point_xy(-91, 342) == (19, 2559)
+    assert ecmwf_ifs_grid._find_point_xy(-19.229, 233.723 - 360) == (2625, 1553)
 
-#     # Test a point known to be in the domain (Central Europe)
-#     # Berlin coordinates: approx. 52.52°N, 13.40°E
-#     berlin = dwd_grid.findPointXy(52.52, 13.40)
-#     assert berlin is not None
-
-#     # Test a point outside the domain (should return None)
-#     # New York coordinates: approx. 40.71°N, -74.01°E
-#     new_york = dwd_grid.findPointXy(40.71, -74.01)
-#     assert new_york is None
-
-#     # Test gridpoint to coordinate conversion
-#     if berlin is not None:
-#         x, y = berlin
-#         lat, lon = dwd_grid.getCoordinates(x, y)
-#         # Check that we get close to the original coordinates
-#         assert abs(lat - 52.52) < 0.05
-#         assert abs(lon - 13.40) < 0.05
-
-
-# def test_ecmwf_grid():
-#     """Test the ECMWF IFS grid specifically."""
-#     ecmwf_grid = DOMAINS["ecmwf_ifs025"].grid
-
-#     # Test some known points on the grid
-#     # Point at the prime meridian and equator
-#     assert ecmwf_grid.findPointXy(0.0, 0.0) == (720, 360)
-
-#     # Point at the North Pole
-#     assert ecmwf_grid.findPointXy(90.0, 0.0) == (720, 720)
-
-#     # Test some edge points (ensure they are properly handled)
-#     assert ecmwf_grid.findPointXy(-90.0, -180.0) == (0, 0)
-#     assert ecmwf_grid.findPointXy(90.0, 180.0) == (0, 720)
-
-#     # Test wrapping for global grid
-#     # A point at longitude 181 should wrap to longitude -179
-#     point1 = ecmwf_grid.findPointXy(0.0, 181.0)
-#     point2 = ecmwf_grid.findPointXy(0.0, -179.0)
-#     assert point1 == point2
+    flat_grid_coords = ecmwf_ifs_grid.find_point_xy(89.94619, 0)
+    assert flat_grid_coords is not None, "Failed to find point"
+    assert flat_grid_coords == (0, 0)
+    position = ecmwf_ifs_grid.get_coordinates(flat_grid_coords[1], flat_grid_coords[0])
+    assert abs(position[0] - 89.94619) < 0.005
+    assert abs(position[1] - 0) < 0.005

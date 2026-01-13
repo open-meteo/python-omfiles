@@ -236,6 +236,7 @@ if __name__ == "__main__":
         "dwd_icon_eu": "DWD ICON (Europe)",
         "dwd_icon_d2": "DWD ICON D2 (Central Europe)",
         "ecmwf_ifs025": "ECMWF IFS (Global)",
+        "ecmwf_ifs": "ECMWF IFS HRES (Global)",
         "meteofrance_arpege_europe": "Météo-France ARPEGE (Europe)",
         "meteofrance_arpege_world025": "Météo-France ARPEGE (Global)",
         "meteofrance_arome_france0025": "Météo-France AROME (France)",
