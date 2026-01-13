@@ -36,12 +36,12 @@ codec = [
     "numcodecs>=0.12.1",
 ]
 xarray = ["xarray>=2023.1.0"]
-fsspec = ["fsspec>=2023.1.0", "s3fs>=2023.1.0"]
+fsspec = ["fsspec>=2023.10.0", "s3fs>=2023.1.0"]
 all = [
     "zarr>=2.18.2",
     "numcodecs>=0.12.1",
     "xarray>=2023.1.0",
-    "fsspec>=2023.1.0",
+    "fsspec>=2023.10.0",
     "s3fs>=2023.1.0"
     ]
 
@@ -80,6 +80,7 @@ documentation = {requires-python = ">=3.11"}
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 
 [tool.ruff]
 line-length = 120
