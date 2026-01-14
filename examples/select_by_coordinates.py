@@ -18,19 +18,10 @@ import xarray as xr
 from fsspec.implementations.cache_mapper import BasenameCacheMapper
 from fsspec.implementations.cached import CachingFileSystem
 from omfiles import OmFileReader
-from omfiles.om_grid import OmGrid, OmMetaJson
+from omfiles.om_grid import OmGrid
+from omfiles.om_meta import OmMetaChunks
 from s3fs import S3FileSystem
 from xarray import Dataset
-
-# We load data from this Cached Fs-Spec Filesystem
-FS = CachingFileSystem(
-    fs=S3FileSystem(anon=True, default_block_size=256, default_cache_type="none"),
-    # TODO: we'd need to verify files do not change on the remote if they still could change
-    cache_check=60,
-    block_size=256,
-    cache_storage="cache",
-    check_files=False,
-)
 
 
 def load_variable_dimensions(
@@ -50,7 +41,7 @@ def load_chunk_data(
     fs: fsspec.AbstractFileSystem,
     start_date: np.datetime64,
     end_date: np.datetime64,
-    meta: OmMetaJson,
+    meta: OmMetaChunks,
 ):
     """
     Load data for a specific chunk and grid coordinates.
@@ -108,7 +99,7 @@ def get_data_for_coordinates(
     Returns:
         xr.Dataset: Dataset containing the requested variable at the specified location.
     """
-    meta = OmMetaJson.from_s3_json_path(f"openmeteo/data/{domain_name}/static/meta.json", FS)
+    meta = OmMetaChunks.from_s3_json_path(f"openmeteo/data/{domain_name}/static/meta.json", FS)
 
     start_timestamp = np.datetime64(start_date)
     end_timestamp = np.datetime64(end_date)
@@ -174,51 +165,53 @@ def get_data_for_coordinates(
     return ds
 
 
-# Example coordinates: Paris
-latitude = 48.864716
-longitude = 2.349014
+# We load data from this Cached Fs-Spec Filesystem
+FS = CachingFileSystem(
+    fs=S3FileSystem(anon=True, default_block_size=256, default_cache_type="none"),
+    # TODO: we'd need to verify files do not change on the remote if they still could change
+    cache_check=60,
+    block_size=256,
+    cache_storage="cache",
+    check_files=False,
+)
+LATITUDE, LONGITUDE = 48.864716, 2.349014  # Paris
+START_DATE = datetime(2025, 4, 25, 12, 0)  # 25-04-2025'T'12:00
+END_DATE = datetime(2025, 5, 18, 12, 0)  # 18-05-2025'T'12:00
+VARIABLE = "temperature_2m"
+DOMAINS = [
+    "dwd_icon",
+    "dwd_icon_eu",
+    "dwd_icon_d2",
+    "ecmwf_ifs025",
+    "ecmwf_ifs",
+    "meteofrance_arpege_europe",
+    "meteofrance_arpege_world025",
+    "meteofrance_arome_france0025",
+    "meteofrance_arome_france_hd",
+    "meteofrance_arome_france_hd_15min",
+    "cmc_gem_gdps",
+    "cmc_gem_rdps",
+    "cmc_gem_hrdps",
+]
 
-# Define a date range
-start_date = datetime(2025, 4, 25, 12, 0)  # 25-04-2025'T'12:00
-end_date = datetime(2025, 5, 18, 12, 0)  # 18-05-2025'T'12:00
+print(f"Fetching {VARIABLE} data for coordinates: {LATITUDE}N, {LONGITUDE}E")
+print(f"Date range: {START_DATE} to {END_DATE}")
 
-# Variable to fetch
-variable = "temperature_2m"
-
-print(f"Fetching {variable} data for coordinates: {latitude}N, {longitude}E")
-print(f"Date range: {start_date} to {end_date}")
-
-# Domain display names for nicer legends
-domains_and_display_names = {
-    "dwd_icon": "DWD ICON (Global)",
-    "dwd_icon_eu": "DWD ICON (Europe)",
-    "dwd_icon_d2": "DWD ICON D2 (Central Europe)",
-    "ecmwf_ifs025": "ECMWF IFS (Global)",
-    "ecmwf_ifs": "ECMWF IFS HRES (Global)",
-    "meteofrance_arpege_europe": "Météo-France ARPEGE (Europe)",
-    "meteofrance_arpege_world025": "Météo-France ARPEGE (Global)",
-    "meteofrance_arome_france0025": "Météo-France AROME (France)",
-    "meteofrance_arome_france_hd": "Météo-France AROME HD (France)",
-    "meteofrance_arome_france_hd_15min": "Météo-France AROME HD 15min (France)",
-    "cmc_gem_gdps": "CMC GEM GDPS (Global)",
-    "cmc_gem_rdps": "CMC GEM RDPS (Regional)",
-    "cmc_gem_hrdps": "CMC GEM HRDPS (Continental)",
-}
 
 # Collect data from each domain
 domain_data: dict[str, xr.Dataset] = {}
 
 # Loop through all domains in the main function
-for domain_name in domains_and_display_names.keys():
+for domain_name in DOMAINS:
     try:
         print(f"\nTrying to fetch data from domain: {domain_name}")
         ds = get_data_for_coordinates(
-            lat=latitude,
-            lon=longitude,
-            start_date=start_date,
-            end_date=end_date,
+            lat=LATITUDE,
+            lon=LONGITUDE,
+            start_date=START_DATE,
+            end_date=END_DATE,
             domain_name=domain_name,
-            variable_name=variable,
+            variable_name=VARIABLE,
         )
         domain_data[domain_name] = ds
         print(f"Successfully fetched data from {domain_name}")
@@ -238,17 +231,16 @@ plt.figure(figsize=(12, 6))
 
 # Plot data from each domain
 for i, (domain_name, ds) in enumerate(domain_data.items()):
-    label = domains_and_display_names.get(domain_name, domain_name)
-    plt.plot(ds["time"].values, ds[variable].values, label=label, color=colors[i], linewidth=2)
+    plt.plot(ds["time"].values, ds[VARIABLE].values, label=domain_name, color=colors[i], linewidth=2)
 
 # Enhance the plot
-plt.title(f"{variable.replace('_', ' ').title()} at {latitude:.2f}N, {longitude:.2f}E")
+plt.title(f"{VARIABLE.replace('_', ' ').title()} at {LATITUDE:.2f}N, {LONGITUDE:.2f}E")
 plt.xlabel("Time")
-plt.ylabel("Temperature (°C)" if variable == "temperature_2m" else variable)
+plt.ylabel("Temperature (°C)" if VARIABLE == "temperature_2m" else VARIABLE)
 plt.grid(True, alpha=0.3)
 plt.legend(loc="best")
 plt.tight_layout()
 
 # Save and show the figure
-plt.savefig(f"{variable}_comparison.png", dpi=150)
+plt.savefig(f"{VARIABLE}_comparison.png", dpi=150)
 plt.show()
