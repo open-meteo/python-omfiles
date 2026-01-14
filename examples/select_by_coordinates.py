@@ -3,7 +3,7 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
-#     "omfiles[grids,fsspec] @ /home/fred/dev/terraputix/python-omfiles",
+#     "omfiles[grids,fsspec]>=1.1.0",
 #     "matplotlib",
 # ]
 # ///
