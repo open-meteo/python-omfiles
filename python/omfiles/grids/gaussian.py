@@ -765,9 +765,8 @@ class GaussianGrid:
 
     def get_meshgrid(self) -> Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
         """
-        Get meshgrid - for Gaussian grids this returns 1D arrays.
-
-        Returns:
-            (longitude, latitude) 1D arrays
+        Meshgrids are not meaningful for Gaussian grids, because the grid points are not evenly spaced.
         """
-        return (self.longitude, self.latitude)
+        raise NotImplementedError(
+            "Meshgrids are not meaningful for Gaussian grids. Use earthkit.regrid to regrid to a regular grid."
+        )

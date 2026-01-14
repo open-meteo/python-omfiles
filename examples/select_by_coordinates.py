@@ -63,12 +63,6 @@ FS = CachingFileSystem(
 )
 
 
-def get_domain_info(domain_name: str, fs: fsspec.AbstractFileSystem) -> OmMetaJson:
-    meta_json_path = f"openmeteo/data/{domain_name}/static/meta.json"
-    meta_dict = json.loads(fs.cat_file(meta_json_path))
-    return OmMetaJson.from_dict(meta_dict)
-
-
 def load_variable_dimensions(
     chunk_index: int, domain_name: str, variable_name: str, fs: fsspec.AbstractFileSystem
 ) -> Tuple[int, int, int]:
@@ -144,7 +138,7 @@ def get_data_for_coordinates(
     Returns:
         xr.Dataset: Dataset containing the requested variable at the specified location.
     """
-    meta = get_domain_info(domain_name, FS)
+    meta = OmMetaJson.from_s3_json_path(f"openmeteo/data/{domain_name}/static/meta.json", FS)
     print("domain info: ", meta)
 
     start_timestamp = np.datetime64(start_date)

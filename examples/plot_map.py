@@ -3,7 +3,7 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
-#     "omfiles==1.0.1",
+#     "omfiles[proj] @ /home/fred/dev/terraputix/python-omfiles",
 #     "fsspec>=2025.7.0",
 #     "s3fs",
 #     "matplotlib",
@@ -17,12 +17,14 @@ import fsspec
 import matplotlib.pyplot as plt
 import numpy as np
 from omfiles import OmFileReader
+from omfiles.om_grid import OmGrid, OmMetaJson
 
+domain_name = "dmi_harmonie_arome_europe"
 # Example: URI for a spatial data file in the `data_spatial` S3 bucket
 # See data organization details: https://github.com/open-meteo/open-data?tab=readme-ov-file#data-organization
 # Note: Spatial data is only retained for 7 days. The example file below may no longer exist.
 # Please update the URI to match a currently available file.
-s3_uri = "s3://openmeteo/data_spatial/dwd_icon/2025/09/23/0000Z/2025-09-30T0000.om"
+s3_uri = f"s3://openmeteo/data_spatial/{domain_name}/2026/01/10/0000Z/2026-01-12T0000.om"
 
 # The following two incantations are equivalent
 #
@@ -43,7 +45,7 @@ backend = fsspec.open(
 with OmFileReader(backend) as reader:
     print("reader.is_group", reader.is_group)
 
-    child = reader.get_child_by_name("relative_humidity_2m")
+    child = reader.get_child_by_name("temperature_2m")
     print("child.name", child.name)
 
     # Get the full data array
@@ -64,19 +66,17 @@ with OmFileReader(backend) as reader:
     ax.add_feature(cfeature.LAND, alpha=0.3)
 
     # Create coordinate arrays
-    # Currently, the files don't contain any information about the spatial coordinates,
-    # so you need to provide these coordinate arrays manually.
-    height, width = data.shape
-    lon = np.linspace(-180, 180, width)  # Adjust these bounds
-    lat = np.linspace(-90, 90, height)  # Adjust these bounds
-    lon_grid, lat_grid = np.meshgrid(lon, lat)
+    num_y, num_x = child.shape
+    meta = OmMetaJson.from_s3_json_path(f"openmeteo/data/{domain_name}/static/meta.json", backend.fs)
+    grid = OmGrid(meta.crs_wkt, (num_y, num_x))
+    lon_grid, lat_grid = grid.get_meshgrid()
 
     # Plot the data
     im = ax.contourf(lon_grid, lat_grid, data, levels=20, transform=ccrs.PlateCarree(), cmap="viridis")
     plt.colorbar(im, ax=ax, shrink=0.6, label=child.name)
     ax.gridlines(draw_labels=True, alpha=0.3)
     plt.title(f"2D Map: {child.name}")
-    ax.set_global()
+    # ax.set_global()
     plt.tight_layout()
 
     output_filename = f"map_{child.name.replace('/', '_')}.png"

@@ -10,9 +10,6 @@ from pyproj import CRS, Transformer
 class RegularGrid:
     """Regular latitude/longitude or projected grid."""
 
-    # lon_grid: npt.NDArray[np.float64]
-    # lat_grid: npt.NDArray[np.float64]
-
     def __init__(self, crs_wkt: str, shape: Tuple[int, int]):
         """
         Initialize grid from WKT projection string and data shape.
@@ -138,17 +135,11 @@ class RegularGrid:
 
     def get_meshgrid(self) -> Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
         """
-        Get meshgrid of projection coordinates.
+        Get meshgrid of geographic coordinates.
 
         Useful for plotting with matplotlib/cartopy.
 
         Returns:
-            (lon_grid, lat_grid) arrays of shape (ny, nx) in projection coordinates
+            (lon_grid, lat_grid) arrays of shape (ny, nx) in geographic coordinates
         """
-        x_coords: npt.NDArray[np.float64] = np.linspace(
-            self.origin[0], self.origin[0] + self.dx * (self.nx - 1), self.nx
-        )
-        y_coords: npt.NDArray[np.float64] = np.linspace(
-            self.origin[1], self.origin[1] + self.dy * (self.ny - 1), self.ny
-        )
-        return np.meshgrid(x_coords, y_coords)
+        return (self.longitude, self.latitude)

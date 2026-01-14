@@ -4,6 +4,7 @@ import json
 from dataclasses import dataclass, fields
 from typing import List, Optional, Tuple, Union
 
+import fsspec
 import numpy as np
 import numpy.typing as npt
 from pyproj import CRS
@@ -42,6 +43,12 @@ class OmMetaJson:
     def from_metajson_string(cls, metajson_str: str) -> "OmMetaJson":
         """Create instance from metajson string."""
         return cls.from_dict(json.loads(metajson_str))
+
+    @classmethod
+    def from_s3_json_path(cls, s3_json_path: str, fs: fsspec.AbstractFileSystem) -> "OmMetaJson":
+        """Create instance from S3 JSON path."""
+        meta_dict = json.loads(fs.cat_file(s3_json_path))
+        return cls.from_dict(meta_dict)
 
     def time_to_chunk_index(self, timestamp: np.datetime64) -> int:
         """
@@ -147,7 +154,7 @@ class OmGrid:
         return self._grid.get_coordinates(x, y)
 
     def get_meshgrid(self) -> Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
-        """Get meshgrid of coordinates."""
+        """Get meshgrid of geographic coordinates."""
         return self._grid.get_meshgrid()
 
     @property
