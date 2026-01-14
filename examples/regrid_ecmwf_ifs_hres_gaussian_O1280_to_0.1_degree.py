@@ -3,7 +3,7 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
-#     "omfiles[fsspec]>=1.0.1",
+#     "omfiles[fsspec]>=1.1.0",
 #     "matplotlib",
 #     "cartopy",
 #     "earthkit-regrid==0.5.0",
@@ -18,14 +18,16 @@ import numpy as np
 from earthkit.regrid import interpolate
 from omfiles import OmFileReader
 
+MODEL_DOMAIN = "ecmwf_ifs"
+VARIABLE = "temperature_2m"
 # Example: URI for a spatial data file in the `data_spatial` S3 bucket
 # See data organization details: https://github.com/open-meteo/open-data?tab=readme-ov-file#data-organization
 # Note: Spatial data is only retained for 7 days. The example file below may no longer exist.
 # Please update the URI to match a currently available file.
-s3_ifs_spatial_uri = f"s3://openmeteo/data_spatial/ecmwf_ifs/2025/10/01/0000Z/2025-10-01T0000.om"
+S3_URI = f"s3://openmeteo/data_spatial/{MODEL_DOMAIN}/2025/10/01/0000Z/2025-10-01T0000.om"
 
 backend = fsspec.open(
-    f"blockcache::{s3_ifs_spatial_uri}",
+    f"blockcache::{S3_URI}",
     mode="rb",
     s3={"anon": True, "default_block_size": 65536},
     blockcache={"cache_storage": "cache"},
@@ -33,7 +35,7 @@ backend = fsspec.open(
 with OmFileReader(backend) as reader:
     print("reader.is_group", reader.is_group)
 
-    child = reader.get_child_by_name("temperature_2m")
+    child = reader.get_child_by_name(VARIABLE)
     print("child.name", child.name)
 
     # Get the full data array
@@ -53,8 +55,8 @@ with OmFileReader(backend) as reader:
     ax = plt.axes(projection=ccrs.PlateCarree())  # use PlateCarree projection
 
     # Add map features
-    ax.add_feature(cfeature.COASTLINE)
-    ax.add_feature(cfeature.BORDERS)
+    ax.add_feature(cfeature.COASTLINE, linewidth=0.8)
+    ax.add_feature(cfeature.BORDERS, linewidth=0.5)
     ax.add_feature(cfeature.OCEAN, alpha=0.3)
     ax.add_feature(cfeature.LAND, alpha=0.3)
 
@@ -73,7 +75,7 @@ with OmFileReader(backend) as reader:
     ax.set_global()
     plt.tight_layout()
 
-    output_filename = f"map_ifs_{child.name.replace('/', '_')}.png"
+    output_filename = f"map_ifs_{VARIABLE}.png"
     plt.savefig(output_filename, dpi=300, bbox_inches="tight")
     print(f"Plot saved as: {output_filename}")
     plt.close()
