@@ -2,11 +2,11 @@
 
 import json
 from dataclasses import dataclass, fields
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Union
 
 import numpy as np
 import numpy.typing as npt
-from pyproj import CRS, Transformer
+from pyproj import CRS
 
 from omfiles.grids.gaussian import GaussianGrid
 from omfiles.grids.regular import RegularGrid
@@ -156,7 +156,7 @@ class OmGrid:
         return isinstance(self._grid, GaussianGrid)
 
     @property
-    def crs(self) -> CRS | None:
+    def crs(self) -> Union[CRS, None]:
         """Get the Coordinate Reference System."""
         if isinstance(self._grid, GaussianGrid):
             return None
