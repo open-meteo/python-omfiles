@@ -3,9 +3,7 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
-#     "omfiles>=1.0.1",
-#     "fsspec>=2025.7.0",
-#     "s3fs",
+#     "omfiles[fsspec]>=1.1.0",
 #     "matplotlib",
 #     "cartopy",
 #     "earthkit-regrid==0.5.0",
@@ -20,14 +18,16 @@ import numpy as np
 from earthkit.regrid import interpolate
 from omfiles import OmFileReader
 
+MODEL_DOMAIN = "ecmwf_ifs"
+VARIABLE = "temperature_2m"
 # Example: URI for a spatial data file in the `data_spatial` S3 bucket
 # See data organization details: https://github.com/open-meteo/open-data?tab=readme-ov-file#data-organization
 # Note: Spatial data is only retained for 7 days. The example file below may no longer exist.
 # Please update the URI to match a currently available file.
-s3_ifs_spatial_uri = f"s3://openmeteo/data_spatial/ecmwf_ifs/2025/10/01/0000Z/2025-10-01T0000.om"
+S3_URI = f"s3://openmeteo/data_spatial/{MODEL_DOMAIN}/2026/01/10/0000Z/2026-01-12T0000.om"
 
 backend = fsspec.open(
-    f"blockcache::{s3_ifs_spatial_uri}",
+    f"blockcache::{S3_URI}",
     mode="rb",
     s3={"anon": True, "default_block_size": 65536},
     blockcache={"cache_storage": "cache"},
@@ -35,7 +35,7 @@ backend = fsspec.open(
 with OmFileReader(backend) as reader:
     print("reader.is_group", reader.is_group)
 
-    child = reader.get_child_by_name("temperature_2m")
+    child = reader.get_child_by_name(VARIABLE)
     print("child.name", child.name)
 
     # Get the full data array
@@ -52,11 +52,11 @@ with OmFileReader(backend) as reader:
 
     # Create plot
     fig = plt.figure(figsize=(12, 8))
-    ax = plt.axes(projection=ccrs.PlateCarree())  # use PlateCarree projection
+    ax = plt.axes(projection=ccrs.PlateCarree())
 
     # Add map features
-    ax.add_feature(cfeature.COASTLINE)
-    ax.add_feature(cfeature.BORDERS)
+    ax.add_feature(cfeature.COASTLINE, linewidth=0.8)
+    ax.add_feature(cfeature.BORDERS, linewidth=0.5)
     ax.add_feature(cfeature.OCEAN, alpha=0.3)
     ax.add_feature(cfeature.LAND, alpha=0.3)
 
@@ -68,14 +68,14 @@ with OmFileReader(backend) as reader:
     lon_grid, lat_grid = np.meshgrid(lon, lat)
 
     # Plot the data
-    im = ax.contourf(lon_grid, lat_grid, regridded, levels=20, transform=ccrs.PlateCarree(), cmap="viridis")
-    plt.colorbar(im, ax=ax, shrink=0.6, label=child.name)
-    ax.gridlines(draw_labels=True, alpha=0.3)
-    plt.title(f"2D Map: {child.name}")
+    im = ax.contourf(lon_grid, lat_grid, regridded, levels=20, cmap="coolwarm")
     ax.set_global()
+    ax.gridlines(draw_labels=True, alpha=0.3)
+    plt.colorbar(im, ax=ax, orientation="vertical", pad=0.05, aspect=40, shrink=0.55, label=VARIABLE)
+    plt.title(f"{MODEL_DOMAIN} {VARIABLE} Regridded to 0.1° Map", fontsize=12, fontweight="bold", pad=16)
     plt.tight_layout()
 
-    output_filename = f"map_ifs_{child.name.replace('/', '_')}.png"
+    output_filename = f"map_ifs_{VARIABLE}.png"
     plt.savefig(output_filename, dpi=300, bbox_inches="tight")
     print(f"Plot saved as: {output_filename}")
     plt.close()

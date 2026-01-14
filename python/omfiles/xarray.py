@@ -4,6 +4,12 @@
 from __future__ import annotations
 
 import numpy as np
+
+try:
+    from xarray.core import indexing
+except ImportError:
+    raise ImportError("omfiles[xarray] is required for Xarray functionality")
+
 from xarray.backends.common import (
     AbstractDataStore,
     BackendArray,
@@ -11,7 +17,6 @@ from xarray.backends.common import (
     _normalize_path,
 )
 from xarray.backends.store import StoreBackendEntrypoint
-from xarray.core import indexing
 from xarray.core.dataset import Dataset
 from xarray.core.utils import FrozenDict
 from xarray.core.variable import Variable
