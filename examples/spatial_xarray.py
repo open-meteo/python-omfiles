@@ -24,8 +24,7 @@ MODEL_DOMAIN = "dwd_icon"
 # See data organization details: https://github.com/open-meteo/open-data?tab=readme-ov-file#data-organization
 # Note: Spatial data is only retained for 7 days. The example file below may no longer exist.
 # Please update the URI to match a currently available file.
-s3_run = f"s3://openmeteo/data_spatial/{MODEL_DOMAIN}/2026/01/10/0000Z/"
-s3_uri = f"{s3_run}2026-01-12T0000.om"
+s3_uri = f"s3://openmeteo/data_spatial/{MODEL_DOMAIN}/2026/01/10/0000Z/2026-01-12T0000.om"
 
 backend = fsspec.open(
     f"blockcache::{s3_uri}",

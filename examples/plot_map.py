@@ -18,15 +18,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 from omfiles import OmFileReader
 from omfiles.om_grid import OmGrid
-from omfiles.om_meta import OmMetaSpatial
 
 MODEL_DOMAIN = "dmi_harmonie_arome_europe"
 # Example: URI for a spatial data file in the `data_spatial` S3 bucket
 # See data organization details: https://github.com/open-meteo/open-data?tab=readme-ov-file#data-organization
 # Note: Spatial data is only retained for 7 days. The example file below may no longer exist.
 # Please update the URI to match a currently available file.
-s3_run = f"s3://openmeteo/data_spatial/{MODEL_DOMAIN}/2026/01/10/0000Z/"
-s3_uri = f"{s3_run}2026-01-12T0000.om"
+s3_uri = f"s3://openmeteo/data_spatial/{MODEL_DOMAIN}/2026/01/10/0000Z/2026-01-12T0000.om"
 
 # The following two incantations are equivalent
 #
@@ -47,7 +45,7 @@ backend = fsspec.open(
 with OmFileReader(backend) as reader:
     print("reader.is_group", reader.is_group)
 
-    child = reader.get_child_by_name("temperature_2m")
+    child = reader.get_child_by_name("relative_humidity_2m")
     print("child.name", child.name)
 
     # Get the full data array
