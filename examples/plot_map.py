@@ -27,7 +27,6 @@ MODEL_DOMAIN = "dmi_harmonie_arome_europe"
 # Please update the URI to match a currently available file.
 s3_run = f"s3://openmeteo/data_spatial/{MODEL_DOMAIN}/2026/01/10/0000Z/"
 s3_uri = f"{s3_run}2026-01-12T0000.om"
-s3_meta_json = f"{s3_run}meta.json"
 
 # The following two incantations are equivalent
 #
@@ -70,8 +69,7 @@ with OmFileReader(backend) as reader:
 
     # Create coordinate arrays
     num_y, num_x = child.shape
-    meta = OmMetaSpatial.from_s3_json_path(s3_meta_json, backend.fs)
-    grid = OmGrid(meta.crs_wkt, (num_y, num_x))
+    grid = OmGrid(reader.get_child_by_name("crs_wkt").read_scalar(), (num_y, num_x))
     lon_grid, lat_grid = grid.get_meshgrid()
 
     # Plot the data

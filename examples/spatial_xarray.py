@@ -26,7 +26,6 @@ MODEL_DOMAIN = "dwd_icon"
 # Please update the URI to match a currently available file.
 s3_run = f"s3://openmeteo/data_spatial/{MODEL_DOMAIN}/2026/01/10/0000Z/"
 s3_uri = f"{s3_run}2026-01-12T0000.om"
-s3_meta_json = f"{s3_run}meta.json"
 
 backend = fsspec.open(
     f"blockcache::{s3_uri}",
