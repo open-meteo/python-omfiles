@@ -17,8 +17,8 @@ import numpy.typing as npt
 from fsspec.implementations.cached import CachingFileSystem
 from omfiles import OmFileReader
 from omfiles.chunk_reader import OmFileChunkReader
-from omfiles.om_grid import OmGrid
-from omfiles.om_meta import OmMetaChunks
+from omfiles.grids import OmGrid
+from omfiles.meta import OmChunksMeta
 from s3fs import S3FileSystem
 
 # We load data from this Cached Fs-Spec Filesystem
@@ -60,7 +60,7 @@ domain_data: dict[str, Tuple[npt.NDArray[np.datetime64], npt.NDArray[np.float64]
 for domain_name in DOMAINS:
     try:
         print(f"\nTrying to fetch data from domain: {domain_name}")
-        meta = OmMetaChunks.from_s3_json_path(f"openmeteo/data/{domain_name}/static/meta.json", FS)
+        meta = OmChunksMeta.from_s3_json_path(f"openmeteo/data/{domain_name}/static/meta.json", FS)
         chunk_reader = OmFileChunkReader(
             meta, FS, f"s3://openmeteo/data/{domain_name}/{VARIABLE}", START_DATE, END_DATE
         )
@@ -98,9 +98,9 @@ for i, (domain_name, (times, data)) in enumerate(domain_data.items()):
     plt.plot(times, data, label=domain_name, color=colors[i], linewidth=2)
 
 # Enhance the plot
-plt.title(f"{VARIABLE.replace('_', ' ').title()} at {LATITUDE:.2f}N, {LONGITUDE:.2f}E")
+plt.title(f"{VARIABLE} at {LATITUDE:.2f}N, {LONGITUDE:.2f}E")
 plt.xlabel("Time")
-plt.ylabel("Temperature (°C)" if VARIABLE == "temperature_2m" else VARIABLE)
+plt.ylabel(VARIABLE)
 plt.grid(True, alpha=0.3)
 plt.legend(loc="best")
 plt.tight_layout()
