@@ -11,7 +11,7 @@ import numpy as np
 import numpy.typing as npt
 
 from omfiles import OmFileReader
-from omfiles.om_meta import OmMetaChunks
+from omfiles.meta import OmChunksMeta
 
 
 class OmFileChunkReader:
@@ -19,7 +19,7 @@ class OmFileChunkReader:
 
     def __init__(
         self,
-        om_meta: OmMetaChunks,
+        om_meta: OmChunksMeta,
         fs: fsspec.AbstractFileSystem,
         s3_path_to_chunk_files: str,
         start_date: np.datetime64,
@@ -29,7 +29,7 @@ class OmFileChunkReader:
         Initialize the chunk reader.
 
         Args:
-            om_meta (OmMetaChunks): Metadata for the OM files.
+            om_meta (OmChunksMeta): Metadata for the OM files.
             fs (fsspec.AbstractFileSystem): Filesystem for accessing the OM files.
             s3_path_to_chunk_files (str): Path to the chunk files.
             start_date (np.datetime64): Start date of the data to load.

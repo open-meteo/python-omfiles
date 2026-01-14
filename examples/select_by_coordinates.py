@@ -88,14 +88,11 @@ if len(domain_data) == 0:
     print("No data could be fetched from any domain. Exiting.")
     exit(1)
 
-# Domain colors for consistent line colors
-colors = plt.get_cmap("tab10")(np.linspace(0, 1, len(domain_data)))
-
 plt.figure(figsize=(12, 6))
 
 # Plot data from each domain
 for i, (domain_name, (times, data)) in enumerate(domain_data.items()):
-    plt.plot(times, data, label=domain_name, color=colors[i], linewidth=2)
+    plt.plot(times, data, label=domain_name, linewidth=1)
 
 # Enhance the plot
 plt.title(f"{VARIABLE} at {LATITUDE:.2f}N, {LONGITUDE:.2f}E")
@@ -105,6 +102,5 @@ plt.grid(True, alpha=0.3)
 plt.legend(loc="best")
 plt.tight_layout()
 
-# Save and show the figure
-plt.savefig(f"{VARIABLE}_comparison.png", dpi=150)
-plt.show()
+# Save the figure
+plt.savefig(f"{VARIABLE}_comparison.png", dpi=300)
