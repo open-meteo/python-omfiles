@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from omfiles.om_grid import OmMetaJson
+from omfiles.om_meta import OmMetaChunks
 
 
 @pytest.fixture
@@ -10,17 +10,17 @@ def icon_d2_meta_json() -> str:
 
 
 @pytest.fixture
-def icon_d2_meta(icon_d2_meta_json: str) -> OmMetaJson:
-    return OmMetaJson.from_metajson_string(icon_d2_meta_json)
+def icon_d2_meta(icon_d2_meta_json: str) -> OmMetaChunks:
+    return OmMetaChunks.from_metajson_string(icon_d2_meta_json)
 
 
 def test_meta_json_creation(icon_d2_meta_json: str):
     """Test creation of OmMetaJson object from JSON string."""
-    meta = OmMetaJson.from_metajson_string(icon_d2_meta_json)
+    meta = OmMetaChunks.from_metajson_string(icon_d2_meta_json)
     assert meta.chunk_time_length == 121
 
 
-def test_time_to_chunk_index(icon_d2_meta: OmMetaJson):
+def test_time_to_chunk_index(icon_d2_meta: OmMetaChunks):
     """Test conversion from timestamp to chunk index."""
 
     # Create test timestamp (2023-01-01 12:00:00 UTC)
@@ -40,7 +40,7 @@ def test_time_to_chunk_index(icon_d2_meta: OmMetaJson):
     assert chunk_index == expected_chunk
 
 
-def test_get_chunk_time_range(icon_d2_meta: OmMetaJson):
+def test_get_chunk_time_range(icon_d2_meta: OmMetaChunks):
     """Test getting time range for a specific chunk."""
 
     # Test chunk 1000
