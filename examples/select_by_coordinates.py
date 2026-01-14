@@ -3,10 +3,7 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
-#     "omfiles[proj] @ /home/fred/dev/terraputix/python-omfiles",
-#     "fsspec>=2025.7.0",
-#     "s3fs",
-#     "xarray",
+#     "omfiles[proj,fsspec,xarray] @ /home/fred/dev/terraputix/python-omfiles",
 #     "matplotlib",
 # ]
 # ///

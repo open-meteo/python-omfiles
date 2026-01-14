@@ -3,9 +3,7 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
-#     "omfiles[proj] @ /home/fred/dev/terraputix/python-omfiles",
-#     "fsspec>=2025.7.0",
-#     "s3fs",
+#     "omfiles[fsspec,proj] @ /home/fred/dev/terraputix/python-omfiles",
 #     "matplotlib",
 # ]
 # ///
@@ -15,6 +13,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from omfiles import OmFileReader
 from omfiles.om_grid import OmGrid
+from pyproj import CRS
 
 # Example: URI for a spatial data file in the `data_spatial` S3 bucket
 # See data organization details: https://github.com/open-meteo/open-data?tab=readme-ov-file#data-organization
@@ -46,8 +45,6 @@ with OmFileReader(backend) as reader:
 
     # Create figure and axis
     fig, ax = plt.subplots(figsize=(10, 5))
-
-    from pyproj import CRS
 
     crs = CRS.from_wkt(crs_wkt)
 

@@ -3,10 +3,7 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
-#     "omfiles==1.0.1",
-#     "fsspec>=2025.7.0",
-#     "s3fs",
-#     "xarray",
+#     "omfiles[fsspec,xarray]==1.0.1",
 #     "matplotlib",
 #     "cartopy",
 # ]

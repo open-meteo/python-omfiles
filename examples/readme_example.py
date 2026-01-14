@@ -3,9 +3,7 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
-#     "omfiles==1.0.1",
-#     "fsspec>=2025.7.0",
-#     "s3fs",
+#     "omfiles[fsspec]==1.0.1",
 # ]
 # ///
 
@@ -17,7 +15,7 @@ from omfiles import OmFileReader
 # See data organization details: https://github.com/open-meteo/open-data?tab=readme-ov-file#data-organization
 # Note: Spatial data is only retained for 7 days. The example file below may no longer exist.
 # Please update the URI to match a currently available file.
-s3_uri = "s3://openmeteo/data_spatial/dwd_icon/2025/09/23/0000Z/2025-09-30T0000.om"
+s3_uri = "s3://openmeteo/data_spatial/dwd_icon/2026/01/10/0000Z/2026-01-12T0000.om"
 
 # Create and open filesystem, wrapping it in a blockcache
 backend = fsspec.open(
