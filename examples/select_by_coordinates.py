@@ -11,31 +11,6 @@
 # ]
 # ///
 
-"""
-Example showing how to select data from multiple domains in Open-Meteo files stored in S3.
-
-This script demonstrates how to:
-1. Use the OmDomain class to work with weather model domains
-2. Find the correct grid point for specific latitude/longitude coordinates
-3. Load data from S3 using fsspec
-4. Convert the data to an xarray Dataset for analysis
-5. Extract time series for the selected coordinates across multiple files
-6. Merge timeseries data from multiple chunks
-7. Plot data from multiple domains in a single figure
-
-Usage:
-    python examples/select_by_coordinates.py
-
-Requirements:
-    - fsspec
-    - s3fs
-    - xarray
-    - numpy
-    - matplotlib (for plotting)
-    - omfiles
-"""
-
-import json
 from datetime import datetime
 from typing import Tuple
 
@@ -205,90 +180,85 @@ def get_data_for_coordinates(
     return ds
 
 
-if __name__ == "__main__":
-    # Example coordinates: Paris
-    latitude = 48.864716
-    longitude = 2.349014
+# Example coordinates: Paris
+latitude = 48.864716
+longitude = 2.349014
 
-    # # Example coordinates: Vancouver
-    # latitude = 49.246
-    # longitude =-123.116
+# Define a date range
+start_date = datetime(2025, 4, 25, 12, 0)  # 25-04-2025'T'12:00
+end_date = datetime(2025, 5, 18, 12, 0)  # 18-05-2025'T'12:00
 
-    # Define a date range
-    start_date = datetime(2025, 4, 25, 12, 0)  # 25-04-2025'T'12:00
-    end_date = datetime(2025, 5, 18, 12, 0)  # 18-05-2025'T'12:00
+# Variable to fetch
+variable = "temperature_2m"
 
-    # Variable to fetch
-    variable = "temperature_2m"
+print(f"Fetching {variable} data for coordinates: {latitude}N, {longitude}E")
+print(f"Date range: {start_date} to {end_date}")
 
-    print(f"Fetching {variable} data for coordinates: {latitude}N, {longitude}E")
-    print(f"Date range: {start_date} to {end_date}")
+# Domain display names for nicer legends
+domains_and_display_names = {
+    "dwd_icon": "DWD ICON (Global)",
+    "dwd_icon_eu": "DWD ICON (Europe)",
+    "dwd_icon_d2": "DWD ICON D2 (Central Europe)",
+    "ecmwf_ifs025": "ECMWF IFS (Global)",
+    "ecmwf_ifs": "ECMWF IFS HRES (Global)",
+    "meteofrance_arpege_europe": "Météo-France ARPEGE (Europe)",
+    "meteofrance_arpege_world025": "Météo-France ARPEGE (Global)",
+    "meteofrance_arome_france0025": "Météo-France AROME (France)",
+    "meteofrance_arome_france_hd": "Météo-France AROME HD (France)",
+    "meteofrance_arome_france_hd_15min": "Météo-France AROME HD 15min (France)",
+    "cmc_gem_gdps": "CMC GEM GDPS (Global)",
+    "cmc_gem_rdps": "CMC GEM RDPS (Regional)",
+    "cmc_gem_hrdps": "CMC GEM HRDPS (Continental)",
+}
 
-    # Domain display names for nicer legends
-    domains_and_display_names = {
-        "dwd_icon": "DWD ICON (Global)",
-        "dwd_icon_eu": "DWD ICON (Europe)",
-        "dwd_icon_d2": "DWD ICON D2 (Central Europe)",
-        "ecmwf_ifs025": "ECMWF IFS (Global)",
-        "ecmwf_ifs": "ECMWF IFS HRES (Global)",
-        "meteofrance_arpege_europe": "Météo-France ARPEGE (Europe)",
-        "meteofrance_arpege_world025": "Météo-France ARPEGE (Global)",
-        "meteofrance_arome_france0025": "Météo-France AROME (France)",
-        "meteofrance_arome_france_hd": "Météo-France AROME HD (France)",
-        "meteofrance_arome_france_hd_15min": "Météo-France AROME HD 15min (France)",
-        "cmc_gem_gdps": "CMC GEM GDPS (Global)",
-        "cmc_gem_rdps": "CMC GEM RDPS (Regional)",
-        "cmc_gem_hrdps": "CMC GEM HRDPS (Continental)",
-    }
+# Collect data from each domain
+domain_data = {}
+successful_domains = []
 
-    # Collect data from each domain
-    domain_data = {}
-    successful_domains = []
+# Loop through all domains in the main function
+for domain_name in domains_and_display_names.keys():
+    try:
+        print(f"\nTrying to fetch data from domain: {domain_name}")
+        ds = get_data_for_coordinates(
+            lat=latitude,
+            lon=longitude,
+            start_date=start_date,
+            end_date=end_date,
+            domain_name=domain_name,
+            variable_name=variable,
+        )
+        domain_data[domain_name] = ds
+        successful_domains.append(domain_name)
+        print(f"Successfully fetched data from {domain_name}")
+    except Exception as e:
+        print(f"Could not fetch data from {domain_name}: {e}")
+        domain_data[domain_name] = None
 
-    # Loop through all domains in the main function
-    for domain_name in domains_and_display_names.keys():
-        try:
-            print(f"\nTrying to fetch data from domain: {domain_name}")
-            ds = get_data_for_coordinates(
-                lat=latitude,
-                lon=longitude,
-                start_date=start_date,
-                end_date=end_date,
-                domain_name=domain_name,
-                variable_name=variable,
-            )
-            domain_data[domain_name] = ds
-            successful_domains.append(domain_name)
-            print(f"Successfully fetched data from {domain_name}")
-        except Exception as e:
-            print(f"Could not fetch data from {domain_name}: {e}")
-            domain_data[domain_name] = None
+print(f"\nSuccessfully fetched data from {len(successful_domains)} domains: {successful_domains}")
 
-    print(f"\nSuccessfully fetched data from {len(successful_domains)} domains: {successful_domains}")
+if not successful_domains:
+    print("No data could be fetched from any domain. Exiting.")
+    exit(1)
 
-    if not successful_domains:
-        print("No data could be fetched from any domain. Exiting.")
-        exit(1)
+# Domain colors for consistent line colors
+colors = plt.get_cmap("tab10")(np.linspace(0, 1, len(successful_domains)))
 
-    # Domain colors for consistent line colors
-    colors = plt.get_cmap("tab10")(np.linspace(0, 1, len(successful_domains)))
+plt.figure(figsize=(12, 6))
 
-    plt.figure(figsize=(12, 6))
+# Plot data from each domain
+for i, domain_name in enumerate(successful_domains):
+    ds = domain_data[domain_name]
+    label = domains_and_display_names[domain_name]
+    ds[variable].plot(label=label, color=colors[i], linewidth=2)
 
-    # Plot data from each domain
-    for i, domain_name in enumerate(successful_domains):
-        ds = domain_data[domain_name]
-        label = domains_and_display_names[domain_name]
-        ds[variable].plot(label=label, color=colors[i], linewidth=2)
+# Enhance the plot
+plt.title(f"{variable.replace('_', ' ').title()} at {latitude:.2f}N, {longitude:.2f}E")
+plt.xlabel("Time")
+plt.ylabel("Temperature (°C)" if variable == "temperature_2m" else variable)
+plt.grid(True, alpha=0.3)
+plt.legend(loc="best")
+plt.tight_layout()
 
-    # Enhance the plot
-    plt.title(f"{variable.replace('_', ' ').title()} at {latitude:.2f}N, {longitude:.2f}E")
-    plt.xlabel("Time")
-    plt.ylabel("Temperature (°C)" if variable == "temperature_2m" else variable)
-    plt.grid(True, alpha=0.3)
-    plt.legend(loc="best")
-    plt.tight_layout()
-
-    # Save and show the figure
-    plt.savefig(f"{variable}_comparison.png", dpi=150)
-    plt.show()
+# Save and show the figure
+plt.savefig(f"{variable}_comparison.png", dpi=150)
+plt.show()
