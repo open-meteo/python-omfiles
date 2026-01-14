@@ -4,7 +4,11 @@ from typing import Optional, Tuple, Union
 
 import numpy as np
 import numpy.typing as npt
-from pyproj import CRS
+
+try:
+    from pyproj import CRS
+except ImportError:
+    raise ImportError("omfiles[grids] is required for OmGrid functionality")
 
 from omfiles.grids.gaussian import GaussianGrid
 from omfiles.grids.regular import RegularGrid
