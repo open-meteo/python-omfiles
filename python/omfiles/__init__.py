@@ -5,4 +5,10 @@ from .omfiles import OmFileReader, OmFileReaderAsync, OmFileWriter, OmVariable, 
 
 _check_cpu_features()
 
-__all__ = ["OmFileReader", "OmFileReaderAsync", "OmFileWriter", "OmVariable", "types"]
+__all__ = [
+    "OmFileReader",
+    "OmFileReaderAsync",
+    "OmFileWriter",
+    "OmVariable",
+    "types",
+]
