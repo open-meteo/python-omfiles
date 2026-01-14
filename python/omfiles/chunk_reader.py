@@ -14,7 +14,7 @@ from omfiles import OmFileReader
 from omfiles.meta import OmChunksMeta
 
 
-class OmFileChunkReader:
+class OmChunkFileReader:
     """Utility class to iterate over chunks of data."""
 
     def __init__(

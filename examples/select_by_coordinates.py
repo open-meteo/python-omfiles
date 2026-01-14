@@ -16,7 +16,7 @@ import numpy as np
 import numpy.typing as npt
 from fsspec.implementations.cached import CachingFileSystem
 from omfiles import OmFileReader
-from omfiles.chunk_reader import OmFileChunkReader
+from omfiles.chunk_reader import OmChunkFileReader
 from omfiles.grids import OmGrid
 from omfiles.meta import OmChunksMeta
 from s3fs import S3FileSystem
@@ -61,7 +61,7 @@ for domain_name in DOMAINS:
     try:
         print(f"\nTrying to fetch data from domain: {domain_name}")
         meta = OmChunksMeta.from_s3_json_path(f"openmeteo/data/{domain_name}/static/meta.json", FS)
-        chunk_reader = OmFileChunkReader(
+        chunk_reader = OmChunkFileReader(
             meta, FS, f"s3://openmeteo/data/{domain_name}/{VARIABLE}", START_DATE, END_DATE
         )
         first = next(chunk_reader.iter_files(), None)

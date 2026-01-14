@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, Mock, patch
 import fsspec
 import numpy as np
 import pytest
-from omfiles.chunk_reader import OmFileChunkReader
+from omfiles.chunk_reader import OmChunkFileReader
 from omfiles.meta import OmChunksMeta
 
 
@@ -27,7 +27,7 @@ def chunk_reader(
     date_range: Tuple[np.datetime64, np.datetime64],
 ):
     start_date, end_date = date_range
-    return OmFileChunkReader(
+    return OmChunkFileReader(
         om_meta=icond2_om_chunks_meta,
         fs=mock_fs,
         s3_path_to_chunk_files="s3://bucket/path",
@@ -42,7 +42,7 @@ def test_init_success(
     date_range: Tuple[np.datetime64, np.datetime64],
 ):
     start_date, end_date = date_range
-    reader = OmFileChunkReader(
+    reader = OmChunkFileReader(
         om_meta=icond2_om_chunks_meta,
         fs=mock_fs,
         s3_path_to_chunk_files="s3://bucket/path",
@@ -63,7 +63,7 @@ def test_init_invalid_date_range(icond2_om_chunks_meta: OmChunksMeta, mock_fs: f
     end_date = np.datetime64("2024-01-01")
 
     with pytest.raises(ValueError, match="start_date must be <= end_date"):
-        OmFileChunkReader(
+        OmChunkFileReader(
             om_meta=icond2_om_chunks_meta,
             fs=mock_fs,
             s3_path_to_chunk_files="s3://bucket/path",
@@ -72,7 +72,7 @@ def test_init_invalid_date_range(icond2_om_chunks_meta: OmChunksMeta, mock_fs: f
         )
 
 
-def test_iter_files(chunk_reader: OmFileChunkReader):
+def test_iter_files(chunk_reader: OmChunkFileReader):
     files = list(chunk_reader.iter_files())
 
     assert len(files) == 6
@@ -81,7 +81,7 @@ def test_iter_files(chunk_reader: OmFileChunkReader):
     assert files[-1] == (3917, "s3://bucket/path/chunk_3917.om")
 
 
-def test_load_chunked_data_success(chunk_reader: OmFileChunkReader, icond2_om_chunks_meta: OmChunksMeta):
+def test_load_chunked_data_success(chunk_reader: OmChunkFileReader, icond2_om_chunks_meta: OmChunksMeta):
     mock_reader_instance = MagicMock()
     mock_reader_instance.__enter__ = Mock(return_value=mock_reader_instance)
     mock_reader_instance.__exit__ = Mock(return_value=False)
