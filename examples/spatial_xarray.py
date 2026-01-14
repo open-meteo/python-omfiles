@@ -62,11 +62,10 @@ im = ax.contourf(
     cmap="Spectral_r",
     vmin=min,
     vmax=max,
-    transform=ccrs.PlateCarree(),
     extend="both",
 )
-cb = plt.colorbar(im, ax=ax, orientation="vertical", pad=0.02, aspect=40, shrink=0.8)
-cb.set_label(VARIABLE, fontsize=14)
-plt.title(f"{MODEL_DOMAIN} {VARIABLE}", fontsize=14, fontweight="bold", pad=20)
+ax.gridlines(draw_labels=True, alpha=0.3)
+plt.colorbar(im, ax=ax, orientation="vertical", pad=0.05, aspect=40, shrink=0.55, label=VARIABLE)
+plt.title(f"{MODEL_DOMAIN} {VARIABLE}", fontsize=12, fontweight="bold", pad=16)
 plt.tight_layout()
 plt.savefig("xarray_map.png", dpi=300, bbox_inches="tight")

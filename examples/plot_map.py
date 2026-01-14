@@ -36,17 +36,16 @@ with OmFileReader(backend) as reader:
 
     child = reader.get_child_by_name(VARIABLE)
     print("child.name", child.name)
-
-    # Get the full data array
     print("child.shape", child.shape)
     print("child.chunks", child.chunks)
+    # Get the full data array
     data = child[:]
     print(f"Data shape: {data.shape}")
     print(f"Data range: {np.nanmin(data)} to {np.nanmax(data)}")
 
     # Create the plot
     fig = plt.figure(figsize=(12, 8))
-    ax = plt.axes(projection=ccrs.PlateCarree())  # use PlateCarree projection
+    ax = plt.axes(projection=ccrs.PlateCarree())
 
     # Add map features
     ax.add_feature(cfeature.COASTLINE, linewidth=0.8)
@@ -55,19 +54,19 @@ with OmFileReader(backend) as reader:
     ax.add_feature(cfeature.LAND, alpha=0.3)
 
     # Create coordinate arrays
-    num_y, num_x = child.shape
+    num_y, num_x = data.shape
     grid = OmGrid(reader.get_child_by_name("crs_wkt").read_scalar(), (num_y, num_x))
     lon_grid, lat_grid = grid.get_meshgrid()
+    crs = grid.crs
+    assert crs is not None, "CRS is None, this should only happen for gaussian grids"
 
     # Plot the data
-    im = ax.contourf(lon_grid, lat_grid, data, cmap="coolwarm", shading="auto")
-    plt.colorbar(im, ax=ax, shrink=0.6, label=VARIABLE)
-    ax.set_xlabel("Longitude")
-    ax.set_ylabel("Latitude")
+    im = ax.contourf(lon_grid, lat_grid, data, cmap="coolwarm")
     ax.gridlines(draw_labels=True, alpha=0.3)
-    plt.title(f"{MODEL_DOMAIN} {VARIABLE} Map\nCRS: {grid.crs.name}")
-    ax.grid(True, alpha=0.3)
+    ax.set_aspect("equal")
     # ax.set_global()
+    plt.colorbar(im, ax=ax, orientation="vertical", pad=0.05, aspect=40, shrink=0.55, label=VARIABLE)
+    plt.title(f"{MODEL_DOMAIN} {VARIABLE} Map\nCRS: {crs.name}", fontsize=12, fontweight="bold", pad=16)
     plt.tight_layout()
 
     output_filename = f"map_{VARIABLE}.png"

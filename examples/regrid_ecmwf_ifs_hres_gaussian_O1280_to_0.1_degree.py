@@ -24,7 +24,7 @@ VARIABLE = "temperature_2m"
 # See data organization details: https://github.com/open-meteo/open-data?tab=readme-ov-file#data-organization
 # Note: Spatial data is only retained for 7 days. The example file below may no longer exist.
 # Please update the URI to match a currently available file.
-S3_URI = f"s3://openmeteo/data_spatial/{MODEL_DOMAIN}/2025/10/01/0000Z/2025-10-01T0000.om"
+S3_URI = f"s3://openmeteo/data_spatial/{MODEL_DOMAIN}/2026/01/10/0000Z/2026-01-12T0000.om"
 
 backend = fsspec.open(
     f"blockcache::{S3_URI}",
@@ -52,7 +52,7 @@ with OmFileReader(backend) as reader:
 
     # Create plot
     fig = plt.figure(figsize=(12, 8))
-    ax = plt.axes(projection=ccrs.PlateCarree())  # use PlateCarree projection
+    ax = plt.axes(projection=ccrs.PlateCarree())
 
     # Add map features
     ax.add_feature(cfeature.COASTLINE, linewidth=0.8)
@@ -68,11 +68,11 @@ with OmFileReader(backend) as reader:
     lon_grid, lat_grid = np.meshgrid(lon, lat)
 
     # Plot the data
-    im = ax.contourf(lon_grid, lat_grid, regridded, levels=20, transform=ccrs.PlateCarree(), cmap="viridis")
-    plt.colorbar(im, ax=ax, shrink=0.6, label=child.name)
-    ax.gridlines(draw_labels=True, alpha=0.3)
-    plt.title(f"2D Map: {child.name}")
+    im = ax.contourf(lon_grid, lat_grid, regridded, levels=20, cmap="coolwarm")
     ax.set_global()
+    ax.gridlines(draw_labels=True, alpha=0.3)
+    plt.colorbar(im, ax=ax, orientation="vertical", pad=0.05, aspect=40, shrink=0.55, label=VARIABLE)
+    plt.title(f"{MODEL_DOMAIN} {VARIABLE} Regridded to 0.1° Map", fontsize=12, fontweight="bold", pad=16)
     plt.tight_layout()
 
     output_filename = f"map_ifs_{VARIABLE}.png"
