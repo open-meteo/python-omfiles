@@ -15,7 +15,7 @@ import fsspec
 import matplotlib.pyplot as plt
 import numpy as np
 from omfiles import OmFileReader
-from omfiles.om_grid import OmGrid
+from omfiles.grids import OmGrid
 
 MODEL_DOMAIN = "dmi_harmonie_arome_europe"
 VARIABLE = "relative_humidity_2m"

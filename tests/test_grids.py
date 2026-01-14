@@ -1,7 +1,6 @@
 import pyproj
 import pytest
-from omfiles.grids.gaussian import GaussianGrid
-from omfiles.om_grid import OmGrid
+from omfiles.grids import GaussianGrid, OmGrid
 
 
 # Fixtures for grids

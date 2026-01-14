@@ -15,7 +15,7 @@ import fsspec
 import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
-from omfiles.om_grid import OmGrid
+from omfiles.grids import OmGrid
 
 MODEL_DOMAIN = "dwd_icon"
 VARIABLE = "temperature_2m"

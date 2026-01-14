@@ -5,7 +5,7 @@ from dataclasses import dataclass, fields
 from typing import TYPE_CHECKING, List
 
 if TYPE_CHECKING:
-    from omfiles.om_grid import OmGrid
+    from omfiles.grids import OmGrid
 
 from omfiles import OmFileReader
 
@@ -49,7 +49,7 @@ class OmMetaBase:
     def get_grid(self, reader: OmFileReader) -> "OmGrid":
         """Create grid from metadata."""
         try:
-            from omfiles.om_grid import OmGrid
+            from omfiles.grids import OmGrid
         except ImportError:
             raise ImportError("omfiles[grids] is required for grid operations")
         """Create grid from metadata."""
@@ -62,7 +62,7 @@ class OmMetaBase:
 
 
 @dataclass
-class OmMetaSpatial(OmMetaBase):
+class OmSpatialMeta(OmMetaBase):
     """Representation of the meta.json for spatial datasets."""
 
     last_modified_time: str  # ISO8601 for last modification
@@ -72,7 +72,7 @@ class OmMetaSpatial(OmMetaBase):
 
 
 @dataclass
-class OmMetaChunks(OmMetaBase):
+class OmChunksMeta(OmMetaBase):
     """Representation of the meta.json for time oriented chunks."""
 
     chunk_time_length: int  # Number of time steps per chunk (file_length)
