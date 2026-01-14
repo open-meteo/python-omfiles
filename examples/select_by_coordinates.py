@@ -25,13 +25,11 @@ from xarray import Dataset
 # We load data from this Cached Fs-Spec Filesystem
 FS = CachingFileSystem(
     fs=S3FileSystem(anon=True, default_block_size=256, default_cache_type="none"),
-    # we keep the cache_check short: If files are modified on the remote,
-    # but we cache parts of these files locally, we potentially run into crashes/UB
+    # TODO: we'd need to verify files do not change on the remote if they still could change
     cache_check=60,
     block_size=256,
     cache_storage="cache",
     check_files=False,
-    cache_mapper=BasenameCacheMapper(directory_levels=3),
 )
 
 
@@ -102,7 +100,7 @@ def get_data_for_coordinates(
     Args:
         lat (float): Latitude in degrees.
         lon (float): Longitude in degrees.
-        domain_name (str): Name of the domain to use (must be in omfiles.om_domains.DOMAINS).
+        domain_name (str): Name of the domain to use (must have data on AWS S3 under openmeteo/data/{domain_name}/).
         variable_name (str): Name of the variable to fetch.
         start_date (datetime): Start date for the data.
         end_date (datetime): End date for the data.
@@ -111,7 +109,6 @@ def get_data_for_coordinates(
         xr.Dataset: Dataset containing the requested variable at the specified location.
     """
     meta = OmMetaJson.from_s3_json_path(f"openmeteo/data/{domain_name}/static/meta.json", FS)
-    print("domain info: ", meta)
 
     start_timestamp = np.datetime64(start_date)
     end_timestamp = np.datetime64(end_date)
@@ -159,7 +156,7 @@ def get_data_for_coordinates(
     time_array = np.concatenate(all_times)
     data_array = np.concatenate(all_data)
 
-    # Create the xarray dataset
+    # Create xarray dataset
     ds = xr.Dataset(
         data_vars={
             variable_name: (["time"], data_array),
@@ -209,8 +206,7 @@ domains_and_display_names = {
 }
 
 # Collect data from each domain
-domain_data = {}
-successful_domains = []
+domain_data: dict[str, xr.Dataset] = {}
 
 # Loop through all domains in the main function
 for domain_name in domains_and_display_names.keys():
@@ -225,28 +221,25 @@ for domain_name in domains_and_display_names.keys():
             variable_name=variable,
         )
         domain_data[domain_name] = ds
-        successful_domains.append(domain_name)
         print(f"Successfully fetched data from {domain_name}")
     except Exception as e:
         print(f"Could not fetch data from {domain_name}: {e}")
-        domain_data[domain_name] = None
 
-print(f"\nSuccessfully fetched data from {len(successful_domains)} domains: {successful_domains}")
+print(f"\nSuccessfully fetched data from {len(domain_data)} domains: {domain_data.keys()}")
 
-if not successful_domains:
+if len(domain_data) == 0:
     print("No data could be fetched from any domain. Exiting.")
     exit(1)
 
 # Domain colors for consistent line colors
-colors = plt.get_cmap("tab10")(np.linspace(0, 1, len(successful_domains)))
+colors = plt.get_cmap("tab10")(np.linspace(0, 1, len(domain_data)))
 
 plt.figure(figsize=(12, 6))
 
 # Plot data from each domain
-for i, domain_name in enumerate(successful_domains):
-    ds = domain_data[domain_name]
-    label = domains_and_display_names[domain_name]
-    ds[variable].plot(label=label, color=colors[i], linewidth=2)
+for i, (domain_name, ds) in enumerate(domain_data.items()):
+    label = domains_and_display_names.get(domain_name, domain_name)
+    plt.plot(ds["time"].values, ds[variable].values, label=label, color=colors[i], linewidth=2)
 
 # Enhance the plot
 plt.title(f"{variable.replace('_', ' ').title()} at {latitude:.2f}N, {longitude:.2f}E")
