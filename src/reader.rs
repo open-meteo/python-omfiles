@@ -472,7 +472,8 @@ impl OmFileReader {
                 let array_reader = reader
                     .expect_array_with_io_sizes(65536, 512)
                     .map_err(|_| Self::only_arrays_error())?;
-                let (read_ranges, squeeze_dims) = ranges.to_read_range(&self.shape)?;
+                let (read_ranges, squeeze_dims) =
+                    ranges.get_ranges_and_squeeze_dims(&self.shape)?;
                 let dtype = array_reader.data_type();
 
                 let untyped_py_array_or_error = match dtype {
@@ -638,7 +639,6 @@ fn read_and_process_array<T: Element + OmFileArrayDataType + Clone + Zero>(
         })
         .collect();
 
-    // Cheap O(1) reshape because data layout doesn't change
     Ok(array
         .into_shape_with_order(new_shape)
         .map_err(|e| PyValueError::new_err(e.to_string()))?)

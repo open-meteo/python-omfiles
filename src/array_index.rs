@@ -65,7 +65,10 @@ impl<'py> FromPyObject<'_, 'py> for ArrayIndex {
 }
 
 impl ArrayIndex {
-    pub fn to_read_range(&self, shape: &Vec<u64>) -> PyResult<(Vec<Range<u64>>, Vec<usize>)> {
+    pub fn get_ranges_and_squeeze_dims(
+        &self,
+        shape: &Vec<u64>,
+    ) -> PyResult<(Vec<Range<u64>>, Vec<usize>)> {
         // Input validation
         if self.0.len() > shape.len() {
             return Err(PyErr::new::<pyo3::exceptions::PyIndexError, _>(
@@ -316,7 +319,7 @@ mod tests {
             let neg_tuple = pyo3::types::PyTuple::new(py, [&neg_idx]).unwrap();
             let index = ArrayIndex::extract(neg_tuple.as_any().as_borrowed()).unwrap();
             let ranges = index
-                .to_read_range(&shape)
+                .get_ranges_and_squeeze_dims(&shape)
                 .expect("Could not convert to read_range!")
                 .0;
             assert_eq!(ranges[0].start, 3); // -2 should map to index 3 in size 5
@@ -326,7 +329,7 @@ mod tests {
             let slice_tuple = pyo3::types::PyTuple::new(py, [&slice]).unwrap();
             let index = ArrayIndex::extract(slice_tuple.as_any().as_borrowed()).unwrap();
             let ranges = index
-                .to_read_range(&shape)
+                .get_ranges_and_squeeze_dims(&shape)
                 .expect("Could not convert to read_range!")
                 .0;
             assert_eq!(ranges[0].start, 2); // -3 should map to index 2
@@ -346,7 +349,7 @@ mod tests {
             // Test ..., 1
             let tuple = pyo3::types::PyTuple::new(py, [&ellipsis, &integer]).unwrap();
             let index = ArrayIndex::extract(tuple.as_any().as_borrowed()).unwrap();
-            let ranges = index.to_read_range(&shape).unwrap().0;
+            let ranges = index.get_ranges_and_squeeze_dims(&shape).unwrap().0;
             assert_eq!(ranges.len(), 4);
             assert_eq!(ranges[0], Range { start: 0, end: 2 });
             assert_eq!(ranges[1], Range { start: 0, end: 3 });
@@ -364,7 +367,7 @@ mod tests {
             )
             .unwrap();
             let index = ArrayIndex::extract(tuple.as_any().as_borrowed()).unwrap();
-            let ranges = index.to_read_range(&shape).unwrap().0;
+            let ranges = index.get_ranges_and_squeeze_dims(&shape).unwrap().0;
 
             assert_eq!(ranges.len(), 4);
             assert_eq!(ranges[0], Range { start: 1, end: 2 });
@@ -399,7 +402,7 @@ mod tests {
             let neg_idx = (-6i64).into_pyobject(py).unwrap();
             let neg_tuple = pyo3::types::PyTuple::new(py, [&neg_idx]).unwrap();
             let index = ArrayIndex::extract(neg_tuple.as_any().as_borrowed()).unwrap();
-            let _should_fail = index.to_read_range(&shape).unwrap();
+            let _should_fail = index.get_ranges_and_squeeze_dims(&shape).unwrap();
         });
     }
 
@@ -413,7 +416,7 @@ mod tests {
             let neg_idx = (-6i64).into_pyobject(py).unwrap();
             let neg_tuple = pyo3::types::PyTuple::new(py, [&neg_idx]).unwrap();
             let index = ArrayIndex::extract(neg_tuple.as_any().as_borrowed()).unwrap();
-            let _should_fail = index.to_read_range(&shape).unwrap();
+            let _should_fail = index.get_ranges_and_squeeze_dims(&shape).unwrap();
         });
     }
 }
