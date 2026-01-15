@@ -4,6 +4,7 @@ import tempfile
 import numpy as np
 import numpy.typing as npt
 import pytest
+from omfiles.meta import OmChunksMeta
 from omfiles.omfiles import OmFileWriter
 
 from .test_utils import create_test_om_file
@@ -94,3 +95,14 @@ def empty_temp_om_file():
             import warnings
 
             warnings.warn(f"Failed to remove temporary file {filename}: {e}")
+
+
+@pytest.fixture
+def icon_d2_meta_json() -> str:
+    # return meta_str
+    return '{"chunk_time_length":121,"crs_wkt":"GEOGCRS[\\"WGS 84\\",\\n    DATUM[\\"World Geodetic System 1984\\",\\n        ELLIPSOID[\\"WGS 84\\",6378137,298.257223563]],\\n    CS[ellipsoidal,2],\\n        AXIS[\\"latitude\\",north],\\n        AXIS[\\"longitude\\",east],\\n        ANGLEUNIT[\\"degree\\",0.0174532925199433]\\n    USAGE[\\n        SCOPE[\\"grid\\"],\\n        BBOX[43.18,-3.94,58.08,20.339998]]]","data_end_time":1768503600,"last_run_availability_time":1768332519,"last_run_initialisation_time":1768327200,"last_run_modification_time":1768332519,"temporal_resolution_seconds":3600,"update_interval_seconds":10800}'
+
+
+@pytest.fixture
+def icond2_om_chunks_meta(icon_d2_meta_json: str):
+    return OmChunksMeta.from_metajson_string(icon_d2_meta_json)
