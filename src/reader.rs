@@ -618,19 +618,30 @@ fn read_and_process_array<T: Element + OmFileArrayDataType + Clone + Zero>(
     read_ranges: &[Range<u64>],
     squeeze_dims: &[usize],
 ) -> PyResult<ndarray::ArrayD<T>> {
-    let mut array = reader
+    let array = reader
         .read::<T>(read_ranges)
         .map_err(convert_omfilesrs_error)?;
 
-    // Remove dimensions marked for squeezing
-    // squeeze_dims is already sorted descending in to_read_range
-    for &dim in squeeze_dims {
-        // ndarray::ArrayBase::index_axis_move removes the dimension
-        // Axis(dim) must exist, and since we just read it as size 1, index 0 is valid.
-        array = array.index_axis_move(ndarray::Axis(dim), 0);
-    }
+    // Filter out dimensions of size 1 that correspond to integer indices
+    // This assumes the `array` returned by `read` has the full dimensionality
+    // matching `read_ranges` (which it does in omfiles-rs).
+    let new_shape: Vec<usize> = array
+        .shape()
+        .iter()
+        .enumerate()
+        .filter_map(|(i, &dim)| {
+            if squeeze_dims.contains(&i) {
+                None
+            } else {
+                Some(dim)
+            }
+        })
+        .collect();
 
-    Ok(array)
+    // Cheap O(1) reshape because data layout doesn't change
+    Ok(array
+        .into_shape_with_order(new_shape)
+        .map_err(|e| PyValueError::new_err(e.to_string()))?)
 }
 
 /// Small helper function to get the correct shape of the data. We need to
