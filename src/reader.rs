@@ -453,9 +453,9 @@ impl OmFileReader {
     ///
     /// Currently only slices with step 1 are supported.
     ///
-    /// The returned array will have singleton dimensions removed (squeezed).
-    /// For example, if you index a 3D array with [1,:,2], the result will
-    /// be a 1D array since dimensions 0 and 2 have size 1.
+    /// Follows NumPy indexing semantics:
+    /// - Integer indices remove that dimension
+    /// - Slice indices (even of length 1) preserve the dimension
     ///
     /// Args:
     ///     ranges (:py:data:`omfiles.types.BasicSelection`): Index expression to select data from the array.
@@ -472,7 +472,7 @@ impl OmFileReader {
                 let array_reader = reader
                     .expect_array_with_io_sizes(65536, 512)
                     .map_err(|_| Self::only_arrays_error())?;
-                let read_ranges = ranges.to_read_range(&self.shape)?;
+                let (read_ranges, squeeze_dims) = ranges.to_read_range(&self.shape)?;
                 let dtype = array_reader.data_type();
 
                 let untyped_py_array_or_error = match dtype {
@@ -489,43 +489,83 @@ impl OmFileReader {
                     | OmDataType::Double
                     | OmDataType::String => Err(Self::only_arrays_error()),
                     OmDataType::Int8Array => {
-                        let array = read_squeezed_typed_array::<i8>(&array_reader, &read_ranges)?;
+                        let array = read_and_process_array::<i8>(
+                            &array_reader,
+                            &read_ranges,
+                            &squeeze_dims,
+                        )?;
                         Ok(OmFileTypedArray::Int8(array))
                     }
                     OmDataType::Uint8Array => {
-                        let array = read_squeezed_typed_array::<u8>(&array_reader, &read_ranges)?;
+                        let array = read_and_process_array::<u8>(
+                            &array_reader,
+                            &read_ranges,
+                            &squeeze_dims,
+                        )?;
                         Ok(OmFileTypedArray::Uint8(array))
                     }
                     OmDataType::Int16Array => {
-                        let array = read_squeezed_typed_array::<i16>(&array_reader, &read_ranges)?;
+                        let array = read_and_process_array::<i16>(
+                            &array_reader,
+                            &read_ranges,
+                            &squeeze_dims,
+                        )?;
                         Ok(OmFileTypedArray::Int16(array))
                     }
                     OmDataType::Uint16Array => {
-                        let array = read_squeezed_typed_array::<u16>(&array_reader, &read_ranges)?;
+                        let array = read_and_process_array::<u16>(
+                            &array_reader,
+                            &read_ranges,
+                            &squeeze_dims,
+                        )?;
                         Ok(OmFileTypedArray::Uint16(array))
                     }
                     OmDataType::Int32Array => {
-                        let array = read_squeezed_typed_array::<i32>(&array_reader, &read_ranges)?;
+                        let array = read_and_process_array::<i32>(
+                            &array_reader,
+                            &read_ranges,
+                            &squeeze_dims,
+                        )?;
                         Ok(OmFileTypedArray::Int32(array))
                     }
                     OmDataType::Uint32Array => {
-                        let array = read_squeezed_typed_array::<u32>(&array_reader, &read_ranges)?;
+                        let array = read_and_process_array::<u32>(
+                            &array_reader,
+                            &read_ranges,
+                            &squeeze_dims,
+                        )?;
                         Ok(OmFileTypedArray::Uint32(array))
                     }
                     OmDataType::Int64Array => {
-                        let array = read_squeezed_typed_array::<i64>(&array_reader, &read_ranges)?;
+                        let array = read_and_process_array::<i64>(
+                            &array_reader,
+                            &read_ranges,
+                            &squeeze_dims,
+                        )?;
                         Ok(OmFileTypedArray::Int64(array))
                     }
                     OmDataType::Uint64Array => {
-                        let array = read_squeezed_typed_array::<u64>(&array_reader, &read_ranges)?;
+                        let array = read_and_process_array::<u64>(
+                            &array_reader,
+                            &read_ranges,
+                            &squeeze_dims,
+                        )?;
                         Ok(OmFileTypedArray::Uint64(array))
                     }
                     OmDataType::FloatArray => {
-                        let array = read_squeezed_typed_array::<f32>(&array_reader, &read_ranges)?;
+                        let array = read_and_process_array::<f32>(
+                            &array_reader,
+                            &read_ranges,
+                            &squeeze_dims,
+                        )?;
                         Ok(OmFileTypedArray::Float(array))
                     }
                     OmDataType::DoubleArray => {
-                        let array = read_squeezed_typed_array::<f64>(&array_reader, &read_ranges)?;
+                        let array = read_and_process_array::<f64>(
+                            &array_reader,
+                            &read_ranges,
+                            &squeeze_dims,
+                        )?;
                         Ok(OmFileTypedArray::Double(array))
                     }
                     OmDataType::StringArray => {
@@ -573,14 +613,23 @@ impl OmFileReader {
     }
 }
 
-fn read_squeezed_typed_array<T: Element + OmFileArrayDataType + Clone + Zero>(
+fn read_and_process_array<T: Element + OmFileArrayDataType + Clone + Zero>(
     reader: &OmFileArrayRs<impl OmFileReaderBackend>,
     read_ranges: &[Range<u64>],
+    squeeze_dims: &[usize],
 ) -> PyResult<ndarray::ArrayD<T>> {
-    let array = reader
+    let mut array = reader
         .read::<T>(read_ranges)
-        .map_err(convert_omfilesrs_error)?
-        .squeeze();
+        .map_err(convert_omfilesrs_error)?;
+
+    // Remove dimensions marked for squeezing
+    // squeeze_dims is already sorted descending in to_read_range
+    for &dim in squeeze_dims {
+        // ndarray::ArrayBase::index_axis_move removes the dimension
+        // Axis(dim) must exist, and since we just read it as size 1, index 0 is valid.
+        array = array.index_axis_move(ndarray::Axis(dim), 0);
+    }
+
     Ok(array)
 }
 

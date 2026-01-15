@@ -431,7 +431,7 @@ impl OmFileReaderAsync {
     ///     TypeError: If the data type is not supported.
     async fn read_array<'py>(&self, ranges: ArrayIndex) -> PyResult<OmFileTypedArray> {
         // Convert the Python ranges to Rust ranges
-        let read_ranges = ranges.to_read_range(&self.shape)?;
+        let read_ranges = ranges.to_read_range(&self.shape)?.0;
 
         let guard = self.reader.try_read().unwrap();
 
