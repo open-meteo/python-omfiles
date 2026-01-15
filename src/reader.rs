@@ -735,4 +735,68 @@ mod tests {
 
         Ok(())
     }
+
+    fn expect_float_array(
+        array: OmFileTypedArray,
+    ) -> ndarray::ArrayBase<ndarray::OwnedRepr<f32>, ndarray::Dim<ndarray::IxDynImpl>, f32> {
+        match array {
+            OmFileTypedArray::Float(data) => data,
+            _ => panic!("Unexpected data type"),
+        }
+    }
+
+    #[test]
+    fn test_squeezing_behavior() -> Result<(), Box<dyn std::error::Error>> {
+        // Test file has shape [5, 5]
+        create_test_binary_file!("squeeze_test.om")?;
+        let file_path = "test_files/squeeze_test.om";
+        Python::initialize();
+
+        let reader = OmFileReader::from_path(file_path).unwrap();
+
+        Python::attach(|py| {
+            // Case 1: Integer index (should squeeze)
+            // arr[0, :] -> Shape (5,)
+            let idx_int = ArrayIndex(vec![
+                IndexType::Int(0),
+                IndexType::Slice {
+                    start: None,
+                    stop: None,
+                    step: None,
+                },
+            ]);
+            let res = expect_float_array(reader.read_array(py, idx_int).unwrap());
+            assert_eq!(res.shape(), &[5]);
+
+            // Case 2: Slice index of length 1 (should NOT squeeze)
+            // arr[0:1, :] -> Shape (1, 5)
+            let idx_slice_1 = ArrayIndex(vec![
+                IndexType::Slice {
+                    start: Some(0),
+                    stop: Some(1),
+                    step: None,
+                },
+                IndexType::Slice {
+                    start: None,
+                    stop: None,
+                    step: None,
+                },
+            ]);
+            let res = expect_float_array(reader.read_array(py, idx_slice_1).unwrap());
+            assert_eq!(res.shape(), &[1, 5]);
+
+            // Case 3: Double Integer (Scalar)
+            // arr[0, 0] -> Shape ()
+            let idx_scalar = ArrayIndex(vec![IndexType::Int(0), IndexType::Int(0)]);
+            let res = expect_float_array(reader.read_array(py, idx_scalar).unwrap());
+            assert_eq!(res.shape(), &[] as &[usize]); // 0-dimensional array
+
+            // Case 4: Ellipsis + Integer
+            // arr[..., 0] -> Shape (5,) (assuming last dim is squeezed)
+            let idx_ellipsis = ArrayIndex(vec![IndexType::Ellipsis, IndexType::Int(0)]);
+            let res = expect_float_array(reader.read_array(py, idx_ellipsis).unwrap());
+            assert_eq!(res.shape(), &[5]);
+        });
+        Ok(())
+    }
 }
