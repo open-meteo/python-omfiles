@@ -99,7 +99,7 @@ class OmChunkFileReader:
         Args:
             chunk_index (int): Index of the chunk.
             s3_path (str): Path to the chunk file.
-            spatial_index (Tuple[int, int]): Spatial index (x, y).
+            spatial_index (Union[Tuple[int, int], Tuple[slice, slice]]): Spatial index (x, y) or slice ranges for the data to load.
 
         Returns:
             Tuple[np.ndarray, np.ndarray]: Time array and data array for this chunk.
@@ -117,7 +117,8 @@ class OmChunkFileReader:
                 x, y = spatial_index
                 data = reader[y, x, time_slice].astype(np.float32)
                 times = chunk_times[time_mask]
-                assert len(times) == len(data), f"Expected {len(times)} timestamps but got {len(data)}"
+                if len(times) != len(data):
+                    raise RuntimeError(f"Expected {len(times)} timestamps but got {len(data)}")
                 return times, data
             raise RuntimeError("Unreachable Error")
         except FileNotFoundError:

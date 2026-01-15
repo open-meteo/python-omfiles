@@ -55,7 +55,7 @@ print(f"Date range: {START_DATE} to {END_DATE}")
 
 
 # Collect data from each domain
-domain_data: dict[str, Tuple[npt.NDArray[np.datetime64], npt.NDArray[np.float64]]] = {}
+domain_data: dict[str, Tuple[npt.NDArray[np.datetime64], npt.NDArray[np.float32]]] = {}
 
 for domain_name in DOMAINS:
     try:
@@ -91,7 +91,7 @@ if len(domain_data) == 0:
 plt.figure(figsize=(12, 6))
 
 # Plot data from each domain
-for i, (domain_name, (times, data)) in enumerate(domain_data.items()):
+for domain_name, (times, data) in domain_data.items():
     plt.plot(times, data, label=domain_name, linewidth=1)
 
 # Enhance the plot

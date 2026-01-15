@@ -15,8 +15,8 @@ def mock_fs():
 
 @pytest.fixture
 def date_range():
-    start_date = np.datetime64("2024-01-01")
-    end_date = np.datetime64("2024-01-31")
+    start_date = np.datetime64("2024-01-01T00:00:00")
+    end_date = np.datetime64("2024-01-31T23:00:00")
     return start_date, end_date
 
 
@@ -55,7 +55,7 @@ def test_init_success(
     assert reader.s3_path_to_chunk_files == "s3://bucket/path"
     assert reader.start_date == start_date
     assert reader.end_date == end_date
-    assert reader.chunk_indices == [3912, 3913, 3914, 3915, 3916, 3917]
+    assert reader.chunk_indices == [3912, 3913, 3914, 3915, 3916, 3917, 3918]
 
 
 def test_init_invalid_date_range(icond2_om_chunks_meta: OmChunksMeta, mock_fs: fsspec.AbstractFileSystem):
@@ -75,10 +75,10 @@ def test_init_invalid_date_range(icond2_om_chunks_meta: OmChunksMeta, mock_fs: f
 def test_iter_files(chunk_reader: OmChunkFileReader):
     files = list(chunk_reader.iter_files())
 
-    assert len(files) == 6
+    assert len(files) == 7
     assert files[0] == (3912, "s3://bucket/path/chunk_3912.om")
     assert files[1] == (3913, "s3://bucket/path/chunk_3913.om")
-    assert files[-1] == (3917, "s3://bucket/path/chunk_3917.om")
+    assert files[-1] == (3918, "s3://bucket/path/chunk_3918.om")
 
 
 def test_load_chunked_data_success(chunk_reader: OmChunkFileReader, icond2_om_chunks_meta: OmChunksMeta):
@@ -103,6 +103,6 @@ def test_load_chunked_data_success(chunk_reader: OmChunkFileReader, icond2_om_ch
 
     # Times and data should have the same length
     assert len(times) == len(data)
-    # Should have data for January for 30 days * 24 hours + 1 hour for the last timestamp
-    assert len(times) == 721
+    # Should have data for January for 31 days * 24 hours
+    assert len(times) == 744
     assert data.dtype == np.float32
