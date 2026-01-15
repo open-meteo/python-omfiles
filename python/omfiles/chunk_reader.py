@@ -63,7 +63,7 @@ class OmChunkFileReader:
         Load data from all chunks for a given spatial index.
 
         Args:
-            spatial_index (Tuple[int, int]): Spatial index (x, y) of the data to load.
+            spatial_index (Union[Tuple[int, int], Tuple[slice, slice]]): Spatial index (x, y) or slice ranges for the data to load.
 
         Returns:
             Tuple[np.ndarray, np.ndarray]: Time array and data array.
@@ -83,8 +83,8 @@ class OmChunkFileReader:
                 all_times.append(times)
                 all_data.append(data)
 
-        time_array = np.concatenate(all_times)
-        data_array = np.concatenate(all_data)
+        time_array = np.concatenate(all_times, axis=-1)
+        data_array = np.concatenate(all_data, axis=-1)
         return time_array, data_array
 
     def _load_chunk_data(
@@ -117,8 +117,8 @@ class OmChunkFileReader:
                 x, y = spatial_index
                 data = reader[y, x, time_slice].astype(np.float32)
                 times = chunk_times[time_mask]
-                if len(times) != len(data):
-                    raise RuntimeError(f"Expected {len(times)} timestamps but got {len(data)}")
+                if times.shape[-1] != 1 and times.shape[-1] != data.shape[-1]:
+                    raise RuntimeError(f"Expected {times.shape[-1]} timestamps but got {data.shape[-1]}")
                 return times, data
             raise RuntimeError("Unreachable Error")
         except FileNotFoundError:
