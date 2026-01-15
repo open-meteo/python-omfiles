@@ -76,7 +76,7 @@ for domain_name in DOMAINS:
         assert grid is not None, "Grid not found"
         indices = grid.find_point_xy(LATITUDE, LONGITUDE)
         assert indices is not None, "Indices not found"
-        times, data = chunk_reader.load_chunked_data(indices)
+        times, data = chunk_reader.load_data(indices)
         domain_data[domain_name] = times, data
         print(f"Successfully fetched data from {domain_name}")
     except Exception as e:

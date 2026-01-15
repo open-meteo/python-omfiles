@@ -28,9 +28,9 @@ def chunk_reader(
 ):
     start_date, end_date = date_range
     return OmChunkFileReader(
-        om_meta=icond2_om_chunks_meta,
+        chunks_meta=icond2_om_chunks_meta,
         fs=mock_fs,
-        s3_path_to_chunk_files="s3://bucket/path",
+        chunk_files_path="s3://bucket/path",
         start_date=start_date,
         end_date=end_date,
     )
@@ -43,16 +43,16 @@ def test_init_success(
 ):
     start_date, end_date = date_range
     reader = OmChunkFileReader(
-        om_meta=icond2_om_chunks_meta,
+        chunks_meta=icond2_om_chunks_meta,
         fs=mock_fs,
-        s3_path_to_chunk_files="s3://bucket/path",
+        chunk_files_path="s3://bucket/path",
         start_date=start_date,
         end_date=end_date,
     )
 
-    assert reader.om_meta == icond2_om_chunks_meta
+    assert reader.chunks_meta == icond2_om_chunks_meta
     assert reader.fs == mock_fs
-    assert reader.s3_path_to_chunk_files == "s3://bucket/path"
+    assert reader.chunk_files_path == "s3://bucket/path"
     assert reader.start_date == start_date
     assert reader.end_date == end_date
     assert reader.chunk_indices == [3912, 3913, 3914, 3915, 3916, 3917, 3918]
@@ -64,9 +64,9 @@ def test_init_invalid_date_range(icond2_om_chunks_meta: OmChunksMeta, mock_fs: f
 
     with pytest.raises(ValueError, match="start_date must be <= end_date"):
         OmChunkFileReader(
-            om_meta=icond2_om_chunks_meta,
+            chunks_meta=icond2_om_chunks_meta,
             fs=mock_fs,
-            s3_path_to_chunk_files="s3://bucket/path",
+            chunk_files_path="s3://bucket/path",
             start_date=start_date,
             end_date=end_date,
         )
@@ -81,7 +81,7 @@ def test_iter_files(chunk_reader: OmChunkFileReader):
     assert files[-1] == (3918, "s3://bucket/path/chunk_3918.om")
 
 
-def test_load_chunked_data_success(chunk_reader: OmChunkFileReader, icond2_om_chunks_meta: OmChunksMeta):
+def test_load_data_success(chunk_reader: OmChunkFileReader, icond2_om_chunks_meta: OmChunksMeta):
     mock_reader_instance = MagicMock()
     mock_reader_instance.__enter__ = Mock(return_value=mock_reader_instance)
     mock_reader_instance.__exit__ = Mock(return_value=False)
@@ -99,7 +99,7 @@ def test_load_chunked_data_success(chunk_reader: OmChunkFileReader, icond2_om_ch
     mock_reader_instance.__getitem__ = Mock(side_effect=expected_data)
 
     with patch("omfiles.chunk_reader.OmFileReader.from_fsspec", return_value=mock_reader_instance):
-        times, data = chunk_reader.load_chunked_data((10, 20))
+        times, data = chunk_reader.load_data((10, 20))
 
     # Times and data should have the same length
     assert len(times) == len(data)

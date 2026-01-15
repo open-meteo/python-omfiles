@@ -15,13 +15,13 @@ from omfiles.meta import OmChunksMeta
 
 
 class OmChunkFileReader:
-    """Utility class to iterate over chunks of data."""
+    """Utility class to iterate over chunked om files."""
 
     def __init__(
         self,
-        om_meta: OmChunksMeta,
+        chunks_meta: OmChunksMeta,
         fs: "fsspec.AbstractFileSystem",
-        s3_path_to_chunk_files: str,
+        chunk_files_path: str,
         start_date: np.datetime64,
         end_date: np.datetime64,
     ) -> None:
@@ -29,22 +29,22 @@ class OmChunkFileReader:
         Initialize the chunk reader.
 
         Args:
-            om_meta (OmChunksMeta): Metadata for the OM files.
-            fs (fsspec.AbstractFileSystem): Filesystem for accessing the OM files.
-            s3_path_to_chunk_files (str): Path to the chunk files.
+            chunks_meta (OmChunksMeta): Metadata for the OM chunk files.
+            fs (fsspec.AbstractFileSystem): Filesystem for accessing the OM chunk files.
+            chunk_files_path (str): Path to the directory containing the chunk files compatible with the provided fs.
             start_date (np.datetime64): Start date of the data to load.
-            end_date (np.datetime64): End date of the data to load.
+            end_date (np.datetime64): End date of the data to load (inclusive).
         """
         if start_date > end_date:
             raise ValueError("start_date must be <= end_date")
 
-        self.om_meta = om_meta
+        self.chunks_meta = chunks_meta
         self.fs = fs
 
-        self.s3_path_to_chunk_files = s3_path_to_chunk_files
+        self.chunk_files_path = chunk_files_path
         self.start_date = start_date
         self.end_date = end_date
-        self.chunk_indices = self.om_meta.chunks_for_date_range(start_date, end_date)
+        self.chunk_indices = self.chunks_meta.chunks_for_date_range(start_date, end_date)
 
     def iter_files(self):
         """
@@ -54,9 +54,9 @@ class OmChunkFileReader:
             Tuple[int, str]: Chunk index and path to the chunk file.
         """
         for chunk_index in self.chunk_indices:
-            yield chunk_index, f"{self.s3_path_to_chunk_files}/chunk_{chunk_index}.om"
+            yield chunk_index, f"{self.chunk_files_path}/chunk_{chunk_index}.om"
 
-    def load_chunked_data(
+    def load_data(
         self, spatial_index: Union[Tuple[int, int], Tuple[slice, slice]]
     ) -> Tuple[npt.NDArray[np.datetime64], npt.NDArray[np.float32]]:
         """
@@ -104,7 +104,7 @@ class OmChunkFileReader:
         Returns:
             Tuple[np.ndarray, np.ndarray]: Time array and data array for this chunk.
         """
-        chunk_times = self.om_meta.get_chunk_time_range(chunk_index)
+        chunk_times = self.chunks_meta.get_chunk_time_range(chunk_index)
         time_mask = (chunk_times >= self.start_date) & (chunk_times <= self.end_date)
 
         if not np.any(time_mask):
