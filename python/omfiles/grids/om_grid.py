@@ -1,6 +1,6 @@
 """An OmGrid provides utilities to transform between geographic coordinates and grid indices."""
 
-from typing import NamedTuple, Optional, Tuple, Union
+from typing import Optional, Tuple, Union
 
 import numpy as np
 import numpy.typing as npt
