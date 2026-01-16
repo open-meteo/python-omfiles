@@ -1,9 +1,11 @@
 """Gaussian grid implementation for reduced Gaussian grids like ECMWF IFS."""
 
-from typing import Optional, Tuple
+from typing import NamedTuple, Optional, Tuple
 
 import numpy as np
 import numpy.typing as npt
+
+from omfiles.types import LatLon, XYIndex
 
 
 class GaussianGrid:
@@ -645,7 +647,7 @@ class GaussianGrid:
         """Grid shape as (ny, nx)."""
         return (self.ny, self.nx)
 
-    def get_coordinates(self, x: int, y: int) -> Tuple[float, float]:
+    def get_coordinates(self, x: int, y: int) -> LatLon:
         """
         Get lat/lon coordinates for grid point index.
 
@@ -663,7 +665,7 @@ class GaussianGrid:
 
         return self._get_coordinates_from_gridpoint(x)
 
-    def _get_coordinates_from_gridpoint(self, gridpoint: int) -> Tuple[float, float]:
+    def _get_coordinates_from_gridpoint(self, gridpoint: int) -> LatLon:
         """Get coordinates from flat grid point index."""
         y, x, nx = self._get_pos(gridpoint)
 
@@ -679,9 +681,9 @@ class GaussianGrid:
         if lon >= 180:
             lon -= 360
 
-        return (float(lat), float(lon))
+        return LatLon(float(lat), float(lon))
 
-    def find_point_xy(self, lat: float, lon: float) -> Optional[Tuple[int, int]]:
+    def find_point_xy(self, lat: float, lon: float) -> Optional[XYIndex]:
         """
         Find grid point index for given lat/lon coordinates.
 
@@ -698,9 +700,9 @@ class GaussianGrid:
 
         # Convert to flat grid point index
         gridpoint = self._integral(y_idx) + x_idx
-        return (gridpoint, 0)
+        return XYIndex(gridpoint, 0)
 
-    def _find_point_xy(self, lat: float, lon: float) -> Tuple[int, int]:
+    def _find_point_xy(self, lat: float, lon: float) -> XYIndex:
         # Calculate latitude line
         dy = 180.0 / (2.0 * self.latitude_lines + 0.5)
 
@@ -732,9 +734,9 @@ class GaussianGrid:
 
         # Return closest point with proper wrapping
         if distance < distance_upper:
-            return ((x + nx) % nx, y)
+            return XYIndex((x + nx) % nx, y)
         else:
-            return ((x_upper + nx_upper) % nx_upper, y_upper)
+            return XYIndex((x_upper + nx_upper) % nx_upper, y_upper)
 
     @property
     def latitude(self) -> npt.NDArray[np.float64]:

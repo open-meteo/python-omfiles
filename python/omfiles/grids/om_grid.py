@@ -1,9 +1,11 @@
 """An OmGrid provides utilities to transform between geographic coordinates and grid indices."""
 
-from typing import Optional, Tuple, Union
+from typing import NamedTuple, Optional, Tuple, Union
 
 import numpy as np
 import numpy.typing as npt
+
+from omfiles.types import LatLon, XYIndex
 
 try:
     from pyproj import CRS
@@ -55,11 +57,11 @@ class OmGrid:
         """Get array of longitude coordinates for all grid points."""
         return self._grid.longitude
 
-    def find_point_xy(self, lat: float, lon: float) -> Optional[Tuple[int, int]]:
+    def find_point_xy(self, lat: float, lon: float) -> Optional[XYIndex]:
         """Find grid point indices for given lat/lon coordinates."""
         return self._grid.find_point_xy(lat, lon)
 
-    def get_coordinates(self, x: int, y: int) -> Tuple[float, float]:
+    def get_coordinates(self, x: int, y: int) -> LatLon:
         """Get lat/lon coordinates for given grid point indices."""
         return self._grid.get_coordinates(x, y)
 

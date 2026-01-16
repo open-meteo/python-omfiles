@@ -75,7 +75,7 @@ with OmFileReader(backend) as reader:
     plt.title(f"{MODEL_DOMAIN} {VARIABLE} Regridded to 0.1° Map", fontsize=12, fontweight="bold", pad=16)
     plt.tight_layout()
 
-    output_filename = f"map_ifs_{VARIABLE}.png"
+    output_filename = f"map_{MODEL_DOMAIN}_{VARIABLE}.png"
     plt.savefig(output_filename, dpi=300, bbox_inches="tight")
     print(f"Plot saved as: {output_filename}")
     plt.close()
