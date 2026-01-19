@@ -15,8 +15,6 @@ except ImportError:
 from omfiles.grids.gaussian import GaussianGrid
 from omfiles.grids.regular import RegularGrid
 
-EPOCH = np.datetime64(0, "s")
-
 
 def _is_gaussian_grid(crs_wkt: str) -> bool:
     """Check if WKT string represents a Gaussian grid."""
