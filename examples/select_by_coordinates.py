@@ -73,9 +73,15 @@ for domain_name in DOMAINS:
         with OmFileReader.from_fsspec(FS, s3_path) as reader:
             grid = meta.get_grid(reader)
 
-        assert grid is not None, "Grid not found"
+        if grid is None:
+            print(f"Grid not found for domain {domain_name}")
+            continue
+
         indices = grid.find_point_xy(LATITUDE, LONGITUDE)
-        assert indices is not None, "Indices not found"
+        if indices is None:
+            print(f"Indices not found for domain {domain_name}")
+            continue
+
         times, data = chunk_reader.load_data(indices)
         domain_data[domain_name] = times, data
         print(f"Successfully fetched data from {domain_name}")

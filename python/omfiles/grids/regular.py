@@ -1,10 +1,12 @@
 """Regular latitude/longitude or projected grid."""
 
-from typing import Optional, Tuple
+from typing import NamedTuple, Optional, Tuple
 
 import numpy as np
 import numpy.typing as npt
 from pyproj import CRS, Transformer
+
+from omfiles.types import LatLon, XYIndex
 
 
 class RegularGrid:
@@ -89,7 +91,7 @@ class RegularGrid:
         self._longitude = lon_grid
         self._latitude = lat_grid
 
-    def find_point_xy(self, lat: float, lon: float) -> Optional[Tuple[int, int]]:
+    def find_point_xy(self, lat: float, lon: float) -> Optional[XYIndex]:
         """
         Find grid point indices (x, y) for given lat/lon coordinates.
 
@@ -111,9 +113,9 @@ class RegularGrid:
         if not (0 <= x_idx < self.nx and 0 <= y_idx < self.ny):
             return None
 
-        return (x_idx, y_idx)
+        return XYIndex(x_idx, y_idx)
 
-    def get_coordinates(self, x: int, y: int) -> Tuple[float, float]:
+    def get_coordinates(self, x: int, y: int) -> LatLon:
         """
         Get lat/lon coordinates for given grid point indices.
 
@@ -131,7 +133,7 @@ class RegularGrid:
         # Transform to WGS84
         lon, lat = self.to_wgs84.transform(x_proj, y_proj)
 
-        return (float(lat), float(lon))
+        return LatLon(float(lat), float(lon))
 
     def get_meshgrid(self) -> Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
         """

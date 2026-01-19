@@ -58,7 +58,8 @@ with OmFileReader(backend) as reader:
     grid = OmGrid(reader.get_child_by_name("crs_wkt").read_scalar(), (num_y, num_x))
     lon_grid, lat_grid = grid.get_meshgrid()
     crs = grid.crs
-    assert crs is not None, "CRS is None, this should only happen for gaussian grids"
+    if crs is None:
+        raise ValueError("CRS is None, this should only happen for gaussian grids")
 
     # Plot the data
     im = ax.contourf(lon_grid, lat_grid, data, cmap="coolwarm")
