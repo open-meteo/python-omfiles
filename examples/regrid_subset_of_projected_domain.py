@@ -25,7 +25,7 @@ VARIABLE = "temperature_2m"
 # See data organization details: https://github.com/open-meteo/open-data?tab=readme-ov-file#data-organization
 # Note: Spatial data is only retained for 7 days. The example file below may no longer exist.
 # Please update the URI to match a currently available file.
-S3_URI = f"s3://openmeteo/data_spatial/{MODEL_DOMAIN}/2026/01/10/0000Z/2026-01-12T0000.om"
+S3_URI = f"s3://openmeteo/data_spatial/{MODEL_DOMAIN}/2026/01/17/0000Z/2026-01-19T0000.om"
 
 LON_MIN = -130.0
 LON_MAX = -100.0
@@ -34,6 +34,30 @@ LAT_MAX = 50.0
 RESOLUTION_DEGREES = 0.1
 TARGET_LONS = np.arange(LON_MIN, LON_MAX, RESOLUTION_DEGREES, dtype=np.float32)
 TARGET_LATS = np.arange(LAT_MIN, LAT_MAX, RESOLUTION_DEGREES, dtype=np.float32)
+
+
+def find_boundary_grid_indices(grid: OmGrid, lons: np.ndarray, lats: np.ndarray):
+    """
+    Iterates over lons and lats to find the boundary grid indices.
+
+    If the selection is fully within the grid, it could be done way more efficiently
+    by only iterating over the top, bottom, left and right boundaries. If the
+    boundary-lines are not covered by the grid, however, we would not find the
+    correct grid indices. Therefore, this is more of a brute-force approach.
+    """
+    xmin, xmax = np.inf, -np.inf
+    ymin, ymax = np.inf, -np.inf
+    for lon in lons:
+        for lat in lats:
+            grid_point = grid.find_point_xy(float(lat), float(lon))
+            if grid_point is None:
+                continue
+            xmin = min(xmin, grid_point.x)
+            xmax = max(xmax, grid_point.x)
+            ymin = min(ymin, grid_point.y)
+            ymax = max(ymax, grid_point.y)
+    return xmin, xmax, ymin, ymax
+
 
 backend = fsspec.open(
     f"blockcache::{S3_URI}",
@@ -49,23 +73,12 @@ with OmFileReader(backend) as reader:
     num_y, num_x = child.shape
     grid = OmGrid(reader.get_child_by_name("crs_wkt").read_scalar(), (num_y, num_x))
     source_crs = grid.crs
-    assert source_crs is not None, "CRS is None, this should only happen for gaussian grids"
+    if source_crs is None:
+        raise ValueError("CRS is None, this should only happen for gaussian grids")
 
-    xmin = num_x - 1
-    xmax = 0
-    ymin = num_y - 1
-    ymax = 0
-    for lon in TARGET_LONS:
-        for lat in TARGET_LATS:
-            grid_point = grid.find_point_xy(float(lat), float(lon))
-            if grid_point is None:
-                continue
-            xmin = min(xmin, grid_point.x)
-            xmax = max(xmax, grid_point.x)
-            ymin = min(ymin, grid_point.y)
-            ymax = max(ymax, grid_point.y)
+    xmin, xmax, ymin, ymax = find_boundary_grid_indices(grid, TARGET_LONS, TARGET_LATS)
 
-    print(f"Target domain: ({ymin}, {ymax}) x ({xmin}, {xmax})")
+    print(f"Grid selection: ({ymin}, {ymax}) x ({xmin}, {xmax})")
     # Get meshgrid - already in geographic coordinates (WGS84)
     lon_grid, lat_grid = grid.get_meshgrid()
     print(f"Original grid shape: {lon_grid.shape}")
