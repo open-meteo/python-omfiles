@@ -11,5 +11,16 @@ from typing import NamedTuple, Tuple, Union
 BasicSelector = Union[int, slice, EllipsisType]
 BasicSelection = Union[BasicSelector, Tuple[Union[int, slice, EllipsisType], ...]]
 
-XYIndex = NamedTuple("XYIndex", [("x", int), ("y", int)])
-LatLon = NamedTuple("LatLon", [("lat", float), ("lon", float)])
+
+class XYIndex(NamedTuple):
+    """Represents a 2D index in a grid."""
+
+    x: int
+    y: int
+
+
+class LatLon(NamedTuple):
+    """Represents a latitude and longitude pair."""
+
+    lat: float
+    lon: float
