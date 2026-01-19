@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0](https://github.com/open-meteo/python-omfiles/compare/v1.0.1...v1.1.0) (2026-01-19)
+
+
+### Features
+
+* OmChunkFileReader reader ([#89](https://github.com/open-meteo/python-omfiles/issues/89)) ([c3173c9](https://github.com/open-meteo/python-omfiles/commit/c3173c9777a505aaae4acfe0d4fb61d7092dffba))
+* OmGrid interface based on crs_wkt  ([#32](https://github.com/open-meteo/python-omfiles/issues/32)) ([8db561c](https://github.com/open-meteo/python-omfiles/commit/8db561c04cb2617bea122c4cde0ec8c9a108a38f))
+
+
+### Bug Fixes
+
+* assert that fsspec returned the expect number of bytes ([0dfa0c5](https://github.com/open-meteo/python-omfiles/commit/0dfa0c5ed05db8904460ee745e93fa6d3fdbc5de))
+* asyncio_default_fixture_loop_scope warning ([#83](https://github.com/open-meteo/python-omfiles/issues/83)) ([ec63718](https://github.com/open-meteo/python-omfiles/commit/ec637181bbfa2484153fcf8a8797f080ab7d3476))
+* **deps:** update dependencies and necessary adjustments ([#87](https://github.com/open-meteo/python-omfiles/issues/87)) ([f87ed5e](https://github.com/open-meteo/python-omfiles/commit/f87ed5e63c4ee4d143aa7520cbe87f44912ae15d))
+* failing fs-spec test ([81ec4c3](https://github.com/open-meteo/python-omfiles/commit/81ec4c39d16291ad4e9875a522fe9c022ec54cfd))
+* Improve grid return types ([#93](https://github.com/open-meteo/python-omfiles/issues/93)) ([140c2d8](https://github.com/open-meteo/python-omfiles/commit/140c2d888fa90f5cc3def1d79038888fd5c84a50))
+* metadata traversal in legacy files ([#91](https://github.com/open-meteo/python-omfiles/issues/91)) ([a067756](https://github.com/open-meteo/python-omfiles/commit/a067756417e617562c9b3d6846759fa717c780b4))
+* only squeeze dimensions for integer indices ([#90](https://github.com/open-meteo/python-omfiles/issues/90)) ([0d4ab00](https://github.com/open-meteo/python-omfiles/commit/0d4ab00dbde7487289c67d6b89a22b93eca5540d))
+
 ## [1.0.1](https://github.com/open-meteo/python-omfiles/compare/v1.0.0...v1.0.1) (2025-10-14)
 
 
