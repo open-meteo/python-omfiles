@@ -110,3 +110,4 @@ plt.tight_layout()
 
 # Save the figure
 plt.savefig(f"{VARIABLE}_comparison.png", dpi=300)
+print(f"\nPlot saved as: {VARIABLE}_comparison.png")
