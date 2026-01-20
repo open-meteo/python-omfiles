@@ -7,6 +7,8 @@
 # ]
 # ///
 
+import datetime as dt
+
 import fsspec
 import numpy as np
 from omfiles import OmFileReader
@@ -15,10 +17,14 @@ MODEL_DOMAIN = "dwd_icon"
 VARIABLE = "temperature_2m"
 # Example: URI for a spatial data file in the `data_spatial` S3 bucket
 # See data organization details: https://github.com/open-meteo/open-data?tab=readme-ov-file#data-organization
-# Note: Spatial data is only retained for 7 days. The example file below may no longer exist.
-# Please update the URI to match a currently available file.
-S3_URI = f"s3://openmeteo/data_spatial/{MODEL_DOMAIN}/2026/01/10/0000Z/2026-01-12T0000.om"
-
+# Note: Spatial data is only retained for 7 days. The script uses one file within this period.
+date_time = dt.datetime.now(dt.UTC) - dt.timedelta(days=2)
+S3_URI = (
+    f"s3://openmeteo/data_spatial/{MODEL_DOMAIN}/{date_time.year}/"
+    f"{date_time.month:02}/{date_time.day:02}/0000Z/"
+    f"{date_time.strftime("%Y-%m-%d")}T0000.om"
+)
+print(f"Using om file: {S3_URI}")
 # Create and open filesystem, wrapping it in a blockcache
 backend = fsspec.open(
     f"blockcache::{S3_URI}",
