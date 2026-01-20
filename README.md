@@ -65,7 +65,7 @@ from omfiles import OmFileReader
 # See data organization details: https://github.com/open-meteo/open-data?tab=readme-ov-file#data-organization
 MODEL_DOMAIN = "dwd_icon"
 # Note: Spatial data is only retained for 7 days. The script uses one file within this period.
-date_time = dt.datetime.now(dt.UTC) - dt.timedelta(days=2)
+date_time = dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=2)
 S3_URI = (
     f"s3://openmeteo/data_spatial/{MODEL_DOMAIN}/{date_time.year}/"
     f"{date_time.month:02}/{date_time.day:02}/0000Z/"
