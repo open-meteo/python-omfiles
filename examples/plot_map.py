@@ -28,7 +28,7 @@ date_time = dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=2)
 S3_URI = (
     f"s3://openmeteo/data_spatial/{MODEL_DOMAIN}/{date_time.year}/"
     f"{date_time.month:02}/{date_time.day:02}/0000Z/"
-    f"{date_time.strftime("%Y-%m-%d")}T0000.om"
+    f"{date_time.strftime('%Y-%m-%d')}T0000.om"
 )
 print(f"Using om file: {S3_URI}")
 backend = fsspec.open(
