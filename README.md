@@ -75,7 +75,7 @@ print(f"Using om file: {S3_URI}")
 
 # Create and open filesystem, wrapping it in a blockcache
 backend = fsspec.open(
-    f"blockcache::{s3_uri}",
+    f"blockcache::{S3_URI}",
     mode="rb",
     s3={"anon": True, "default_block_size": 65536},  # s3 settings
     blockcache={"cache_storage": "cache"},  # blockcache settings
