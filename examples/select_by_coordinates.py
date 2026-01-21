@@ -71,7 +71,8 @@ for domain_name in DOMAINS:
         _, s3_path = first
         grid: OmGrid | None = None
         with OmFileReader.from_fsspec(FS, s3_path) as reader:
-            grid = meta.get_grid(reader)
+            # chunk files have shape (x, y, time), we only need the first two dimensions
+            grid = meta.get_grid(reader.shape[:2])
 
         if grid is None:
             print(f"Grid not found for domain {domain_name}")

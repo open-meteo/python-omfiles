@@ -2,12 +2,10 @@
 
 import json
 from dataclasses import dataclass, fields
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING, List, Tuple
 
 if TYPE_CHECKING:
     from omfiles.grids import OmGrid
-
-from omfiles import OmFileReader
 
 try:
     from typing import Self  # Python 3.11+
@@ -46,19 +44,14 @@ class OmMetaBase:
         meta_dict = json.loads(fs.cat_file(s3_json_path))
         return cls.from_dict(meta_dict)
 
-    def get_grid(self, reader: OmFileReader) -> "OmGrid":
+    def get_grid(self, shape: Tuple[int, int]) -> "OmGrid":
         """Create grid from metadata."""
         try:
             from omfiles.grids import OmGrid
         except ImportError:
             raise ImportError("omfiles[grids] is required for grid operations")
         """Create grid from metadata."""
-        if len(reader.shape) == 2:
-            return OmGrid(self.crs_wkt, reader.shape)
-        elif len(reader.shape) == 3:
-            return OmGrid(self.crs_wkt, reader.shape[:2])
-        else:
-            raise ValueError("Reader shape must be 2D or 3D")
+        return OmGrid(self.crs_wkt, shape)
 
 
 @dataclass
