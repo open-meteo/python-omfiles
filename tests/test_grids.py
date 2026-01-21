@@ -74,6 +74,9 @@ def test_regular_grid(icon_global_grid: OmGrid):
     assert icon_global_grid.find_point_xy(90, -180) == (0, 1440)
     assert icon_global_grid.find_point_xy(90, 179.75) == (2878, 1440)
     assert icon_global_grid.find_point_xy(0, 0) == (1440, 720)
+    assert icon_global_grid.shape == (1441, 2879)
+    assert icon_global_grid.latitude.shape == (1441, 2879)
+    assert icon_global_grid.longitude.shape == (1441, 2879)
 
 
 def test_regular_grid_roundtrip(icon_global_grid: OmGrid):
@@ -319,3 +322,7 @@ def test_ecmwf_grid(ecmwf_ifs_grid: GaussianGrid):
     position = ecmwf_ifs_grid.get_coordinates(flat_grid_coords[1], flat_grid_coords[0])
     assert abs(position[0] - 89.94619) < 0.005
     assert abs(position[1] - 0) < 0.005
+
+    assert ecmwf_ifs_grid.shape == (1, 6599680)
+    assert ecmwf_ifs_grid.latitude.shape == (1, 6599680)
+    assert ecmwf_ifs_grid.longitude.shape == (1, 6599680)
