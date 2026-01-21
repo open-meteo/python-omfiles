@@ -740,14 +740,14 @@ class GaussianGrid:
 
     @property
     def latitude(self) -> npt.NDArray[np.float64]:
-        """Get 1D array of latitude coordinates for all grid points."""
+        """Get 2D array of latitude coordinates for all grid points."""
         if not hasattr(self, "_latitude"):
             self._compute_coordinates()
         return self._latitude
 
     @property
     def longitude(self) -> npt.NDArray[np.float64]:
-        """Get 1D array of longitude coordinates for all grid points."""
+        """Get 2D array of longitude coordinates for all grid points."""
         if not hasattr(self, "_longitude"):
             self._compute_coordinates()
         return self._longitude
@@ -762,13 +762,5 @@ class GaussianGrid:
             lats[gridpoint] = lat
             lons[gridpoint] = lon
 
-        self._latitude = lats
-        self._longitude = lons
-
-    def get_meshgrid(self) -> Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
-        """
-        Meshgrids are not meaningful for Gaussian grids, because the grid points are not evenly spaced.
-        """
-        raise NotImplementedError(
-            "Meshgrids are not meaningful for Gaussian grids. Use earthkit.regrid to regrid to a regular grid."
-        )
+        self._latitude = lats.reshape(self.shape)
+        self._longitude = lons.reshape(self.shape)

@@ -64,8 +64,15 @@ class OmGrid:
         return self._grid.get_coordinates(x, y)
 
     def get_meshgrid(self) -> Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
-        """Get meshgrid of geographic coordinates."""
-        return self._grid.get_meshgrid()
+        """
+        Get meshgrid of geographic coordinates.
+
+        Useful for plotting with matplotlib/cartopy.
+
+        Returns:
+            (lon_grid, lat_grid) arrays of shape (ny, nx) in geographic coordinates
+        """
+        return (self._grid.longitude, self._grid.latitude)
 
     @property
     def is_gaussian(self) -> bool:

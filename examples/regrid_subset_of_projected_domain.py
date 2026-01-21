@@ -79,9 +79,6 @@ with OmFileReader(backend) as reader:
     # Create coordinate arrays
     num_y, num_x = child.shape
     grid = OmGrid(reader.get_child_by_name("crs_wkt").read_scalar(), (num_y, num_x))
-    source_crs = grid.crs
-    if source_crs is None:
-        raise ValueError("CRS is None, this should only happen for gaussian grids")
 
     xmin, xmax, ymin, ymax = find_boundary_grid_indices(grid, TARGET_LONS, TARGET_LATS)
 
