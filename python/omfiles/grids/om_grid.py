@@ -24,7 +24,7 @@ def _is_gaussian_grid(crs_wkt: str) -> bool:
 class OmGrid:
     """Wrapper for grid implementations - automatically delegates to appropriate grid type."""
 
-    def __init__(self, crs_wkt: str, shape: tuple[int, ...]):
+    def __init__(self, crs_wkt: str, shape: Tuple[int, int]):
         """
         Initialize grid from WKT projection string and data shape.
 
