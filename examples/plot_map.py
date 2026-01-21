@@ -63,9 +63,7 @@ with OmFileReader(backend) as reader:
     num_y, num_x = data.shape
     grid = OmGrid(reader.get_child_by_name("crs_wkt").read_scalar(), (num_y, num_x))
     lon_grid, lat_grid = grid.get_meshgrid()
-    crs = grid.crs
-    if crs is None:
-        raise ValueError("CRS is None, this should only happen for gaussian grids")
+    crs_name = grid.crs.name if not grid.crs is None else "Gaussian"
 
     # Plot the data
     im = ax.contourf(lon_grid, lat_grid, data, cmap="coolwarm")
@@ -73,7 +71,7 @@ with OmFileReader(backend) as reader:
     ax.set_aspect("equal")
     # ax.set_global()
     plt.colorbar(im, ax=ax, orientation="vertical", pad=0.05, aspect=40, shrink=0.55, label=VARIABLE)
-    plt.title(f"{MODEL_DOMAIN} {VARIABLE} Map\nCRS: {crs.name}", fontsize=12, fontweight="bold", pad=16)
+    plt.title(f"{MODEL_DOMAIN} {VARIABLE} Map\nCRS: {crs_name}", fontsize=12, fontweight="bold", pad=16)
     plt.tight_layout()
 
     output_filename = f"map_{VARIABLE}.png"
