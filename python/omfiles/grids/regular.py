@@ -134,14 +134,3 @@ class RegularGrid:
         lon, lat = self.to_wgs84.transform(x_proj, y_proj)
 
         return LatLon(float(lat), float(lon))
-
-    def get_meshgrid(self) -> Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
-        """
-        Get meshgrid of geographic coordinates.
-
-        Useful for plotting with matplotlib/cartopy.
-
-        Returns:
-            (lon_grid, lat_grid) arrays of shape (ny, nx) in geographic coordinates
-        """
-        return (self.longitude, self.latitude)

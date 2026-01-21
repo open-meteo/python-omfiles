@@ -764,11 +764,3 @@ class GaussianGrid:
 
         self._latitude = lats.reshape(self.shape)
         self._longitude = lons.reshape(self.shape)
-
-    def get_meshgrid(self) -> Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
-        """
-        Meshgrids are not meaningful for Gaussian grids, because the grid points are not evenly spaced.
-        """
-        raise NotImplementedError(
-            "Meshgrids are not meaningful for Gaussian grids. Use earthkit.regrid to regrid to a regular grid."
-        )
