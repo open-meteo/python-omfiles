@@ -5,7 +5,7 @@ build-backend = "maturin"
 [project]
 name = "omfiles"
 description = "Python bindings for the Open-Meteo file format"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 classifiers = [
     "Programming Language :: Rust",
     "Programming Language :: Python :: Implementation :: CPython",
@@ -67,9 +67,13 @@ dev = [
 ]
 
 [tool.maturin]
-python-source = "python"             # Python source code is in the `python` directory
 features = ["pyo3/extension-module"] # Define extension module in pyproject.toml instead of Cargo.toml to not mess with `cargo test`
+python-source = "python"             # Python source code is in the `python` directory
+module-name = "omfiles._rust"
 sdist-include = ["LICENSE", "README.md"]
+
+[tool.pyo3-stub-gen]
+module = "_rust"
 
 [tool.uv]
 # Rebuild package when any rust files change

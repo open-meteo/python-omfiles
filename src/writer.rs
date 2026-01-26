@@ -24,7 +24,7 @@ use std::{
 
 /// A Python wrapper for the Rust OmFileWriter implementation.
 #[gen_stub_pyclass]
-#[pyclass(module = "omfiles.omfiles")]
+#[pyclass]
 pub struct OmFileWriter {
     writer: Mutex<Option<OmFileWriterRs<WriterBackendImpl>>>,
 }

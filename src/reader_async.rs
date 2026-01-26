@@ -37,7 +37,7 @@ use std::{fs::File, ops::Range, sync::Arc};
 /// what the dimensions represent in advance or you need to explicitly encode them as
 /// some kind of attribute.
 #[gen_stub_pyclass]
-#[pyclass(module = "omfiles.omfiles")]
+#[pyclass]
 pub struct OmFileReaderAsync {
     /// The reader is stored in an Option to be able to properly close it,
     /// particularly when working with memory-mapped files.
