@@ -30,13 +30,6 @@ We provide pre-built wheels for the following platforms:
 - macOS x86_64 (`macosx_10_12_x86_64`)
 - macOS ARM64 (`macosx_11_0_arm64`)
 
-### Stability Notice
-
-**This project is now stable as of version 1.0.0.**
-The public API is considered stable and will follow [semantic versioning](https://semver.org/).
-Breaking changes will not be introduced in 1.x releases without a major version bump.
-
-
 ## Reading
 
 ### Reading Files without Hierarchy
