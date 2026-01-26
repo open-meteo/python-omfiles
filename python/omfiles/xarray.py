@@ -21,7 +21,7 @@ from xarray.core.dataset import Dataset
 from xarray.core.utils import FrozenDict
 from xarray.core.variable import Variable
 
-from .omfiles import OmFileReader, OmVariable
+from ._rust import OmFileReader, OmVariable
 
 # need some special secret attributes to tell us the dimensions
 DIMENSION_KEY = "_ARRAY_DIMENSIONS"
