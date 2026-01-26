@@ -228,12 +228,6 @@ jobs:
             is-min-deps: false
 
           # Additional Python versions for Linux x86_64
-          - name: Python 3.9
-            runner: ubuntu-24.04
-            platform-name: linux-x86_64
-            python-version: "3.9"
-            is-min-deps: false
-
           - name: Python 3.10
             runner: ubuntu-24.04
             platform-name: linux-x86_64
@@ -268,7 +262,7 @@ jobs:
           - name: Min Dependencies
             runner: ubuntu-24.04
             platform-name: linux-x86_64
-            python-version: "3.9"
+            python-version: "3.10"
             is-min-deps: true
     steps:
       # Use the test composite action
