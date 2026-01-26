@@ -30,7 +30,7 @@ from zarr.core.buffer.core import Buffer, NDBuffer
 from zarr.core.chunk_grids import ChunkGrid
 from zarr.core.common import JSON, BytesLike, ChunkCoords
 
-from .omfiles import RustPforCodec
+from ._rust import RustPforCodec
 
 
 def _from_zarr_dtype(dtype: Any) -> np.dtype:

@@ -11,7 +11,7 @@ except ImportError as e:
     ) from e
 import numpy as np
 
-from .omfiles import RustPforCodec
+from ._rust import RustPforCodec
 
 
 @dataclass

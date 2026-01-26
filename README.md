@@ -1,6 +1,6 @@
 # Python Bindings for Open Meteo File Format
 
-[![Python 3.9 | 3.10 | 3.11 | 3.12 | 3.13 | 3.14](https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.10 | 3.11 | 3.12 | 3.13 | 3.14](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue.svg)](https://www.python.org/downloads/)
 [![PyPI version](https://badge.fury.io/py/omfiles.svg)](https://pypi.org/project/omfiles/)
 [![Build and Test](https://github.com/open-meteo/python-omfiles/actions/workflows/build-test.yml/badge.svg)](https://github.com/open-meteo/python-omfiles/actions/workflows/build-test.yml)
 
@@ -29,13 +29,6 @@ We provide pre-built wheels for the following platforms:
 - Windows ARM64 (`win_arm64`)
 - macOS x86_64 (`macosx_10_12_x86_64`)
 - macOS ARM64 (`macosx_11_0_arm64`)
-
-### Stability Notice
-
-**This project is now stable as of version 1.0.0.**
-The public API is considered stable and will follow [semantic versioning](https://semver.org/).
-Breaking changes will not be introduced in 1.x releases without a major version bump.
-
 
 ## Reading
 

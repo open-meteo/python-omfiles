@@ -29,7 +29,7 @@ fn get_dtype_size(dtype_str: &str) -> PyResult<usize> {
 ///
 /// Supports numpy arrays of dtype: int8, int16, int32, int64, uint8, uint16, uint32, uint64.
 #[gen_stub_pyclass]
-#[pyclass(module = "omfiles.omfiles")]
+#[pyclass]
 #[derive(Debug, Clone)]
 pub struct RustPforCodec {}
 

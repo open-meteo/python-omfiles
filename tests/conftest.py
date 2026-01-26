@@ -4,8 +4,8 @@ import tempfile
 import numpy as np
 import numpy.typing as npt
 import pytest
+from omfiles import OmFileWriter
 from omfiles.meta import OmChunksMeta
-from omfiles.omfiles import OmFileWriter
 
 from .test_utils import create_test_om_file
 
