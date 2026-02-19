@@ -1,10 +1,9 @@
 name: Release Please
 
 on:
-  workflow_run:
-    workflows: ["PR Check"]
-    types:
-      - completed
+  push:
+    branches:
+      - ci-release-please-examples-version
 
 jobs:
   release-please:
