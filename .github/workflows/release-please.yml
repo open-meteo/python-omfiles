@@ -19,6 +19,7 @@ jobs:
       - uses: googleapis/release-please-action@v4
         id: release
         with:
+          target-branch: ci-release-please-examples-version
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout repository
