@@ -6,7 +6,7 @@
 #     "omfiles[fsspec]>=1.1.0",  # x-release-please-start-version
 #     "matplotlib",
 #     "cartopy",
-#     "earthkit-regrid==0.5.0",
+#     "earthkit-regrid==1.0.0",
 # ]
 # ///
 
