@@ -1,0 +1,15 @@
+name: Download wheels
+description: Download wheels artifact
+inputs:
+  name:
+    required: true
+  path:
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Download wheel
+      uses: actions/download-artifact@v4
+      with:
+        name: ${{ inputs.name }}
+        path: ${{ inputs.path }}

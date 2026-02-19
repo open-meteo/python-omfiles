@@ -1,0 +1,54 @@
+name: PR Check
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    uses: ./.github/workflows/lint.yml
+
+  rust_tests:
+    name: Rust tests (Linux x86_64)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/cache-rust-build
+      - uses: ./.github/actions/install-uv
+      - uses: ./.github/actions/install-python-deps
+      - uses: ./.github/actions/run-cargo-tests
+
+  build:
+    needs: rust_tests
+    name: Build Wheel (Linux x86_64)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/cache-rust-build
+      - uses: ./.github/actions/build-wheel
+        with:
+          target: x86_64-unknown-linux-gnu
+          args: --release --out dist --find-interpreter
+          manylinux: "2_28"
+          before-script-linux: python3 -m ensurepip && cat /etc/os-release && yum install clang -y
+      - uses: ./.github/actions/upload-wheels
+        with:
+          name: wheels-pr-linux-x86_64
+          path: dist
+
+  test:
+    needs: build
+    name: Test (Linux x86_64, Python 3.12)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/install-uv
+        with:
+          python-version: "3.12"
+      - uses: ./.github/actions/download-wheels
+        with:
+          name: wheels-pr-linux-x86_64
+          path: dist
+      - uses: ./.github/actions/run-python-tests

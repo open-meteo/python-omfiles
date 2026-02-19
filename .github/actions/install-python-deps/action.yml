@@ -1,0 +1,8 @@
+name: Install Python dependencies
+description: Install required Python dependencies using uv
+runs:
+  using: "composite"
+  steps:
+    - name: Install required python dependencies
+      run: uv sync --no-install-project
+      shell: bash

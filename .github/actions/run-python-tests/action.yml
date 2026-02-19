@@ -1,0 +1,23 @@
+name: Run Python tests
+description: Run Python tests with uv
+inputs:
+  min-deps:
+    required: false
+    default: "false"
+runs:
+  using: "composite"
+  steps:
+    - name: Run tests
+      shell: bash
+      run: |
+        WHEEL_PATH=$(ls dist/*.whl)
+        uv venv
+        if [[ "${{ inputs.min-deps }}" == "true" ]]; then
+          uv sync --resolution lowest-direct --no-install-project --no-default-groups --group=test
+          uv pip install --no-deps --force-reinstall "$WHEEL_PATH"
+          uv run --no-sync --no-default-groups --group=test pytest tests/
+        else
+          uv sync --no-install-project --no-default-groups --group=test
+          uv pip install --force-reinstall "$WHEEL_PATH"
+          uv run --no-sync pytest tests/
+        fi
