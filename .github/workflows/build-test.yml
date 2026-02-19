@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   lint:
-    uses: ./.github/workflows/reusable/lint.yml
+    uses: ./.github/workflows/lint.yml
 
   rust_tests:
     name: Rust tests - ${{ matrix.platform.name }}
