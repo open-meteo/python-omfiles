@@ -3,7 +3,7 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
-#     "omfiles[fsspec]>=1.1.0",
+#     "omfiles[fsspec]>=1.1.0",  # x-release-please-version
 #     "matplotlib",
 #     "cartopy",
 #     "earthkit-regrid==0.5.0",
