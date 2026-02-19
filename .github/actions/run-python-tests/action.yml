@@ -8,7 +8,7 @@ runs:
   using: "composite"
   steps:
     - name: Run tests
-      shell: bash
+      shell: sh
       run: |
         WHEEL_PATH=$(ls dist/*.whl)
         uv venv
