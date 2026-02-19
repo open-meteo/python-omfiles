@@ -1,12 +1,14 @@
 name: Release Please
 
 on:
-  push:
-    branches:
-      - ci-release-please-examples-version
+  workflow_run:
+    workflows: ["Build and Test"]
+    types:
+      - completed
 
 jobs:
   release-please:
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' }}
     runs-on: ubuntu-latest
     permissions:
       issues: write # to create labels (googleapis/release-please-action)
@@ -19,7 +21,6 @@ jobs:
       - uses: googleapis/release-please-action@v4
         id: release
         with:
-          target-branch: ci-release-please-examples-version
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout repository
