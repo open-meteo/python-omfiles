@@ -1,0 +1,24 @@
+name: Build wheel
+description: Build wheel with maturin
+inputs:
+  maturin-version:
+    required: true
+  target:
+    required: true
+  args:
+    required: true
+  manylinux:
+    required: false
+  before-script-linux:
+    required: false
+runs:
+  using: "composite"
+  steps:
+    - name: Build wheel
+      uses: PyO3/maturin-action@v1
+      with:
+        maturin-version: ${{ inputs.maturin-version }}
+        target: ${{ inputs.target }}
+        args: ${{ inputs.args }}
+        manylinux: ${{ inputs.manylinux }}
+        before-script-linux: ${{ inputs.before-script-linux }}
