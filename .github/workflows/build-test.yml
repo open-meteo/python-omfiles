@@ -36,16 +36,7 @@ jobs:
             runner: macos-15
     steps:
       - uses: actions/checkout@v6
-      - name: Cache Rust build
-        uses: actions/cache@v4
-        with:
-          path: |
-            target
-            ~/.cargo/registry
-            ~/.cargo/git
-          key: ${{ runner.os }}-test-${{ runner.arch }}-${{ hashFiles('**/Cargo.lock', '**/Cargo.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-test-${{ runner.arch }}-
+      - uses: ./.github/actions/cache-rust-build
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
