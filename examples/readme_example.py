@@ -3,7 +3,7 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
-#     "omfiles[fsspec]>=1.1.0",
+#     "omfiles[fsspec]>=1.1.0",  # x-release-please-start-version
 # ]
 # ///
 

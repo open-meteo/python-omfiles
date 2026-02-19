@@ -5,6 +5,10 @@
   },
   "release-type": "rust",
   "extra-files": [
-    "examples/regrid_ecmwf_ifs_hres_gaussian_O1280_to_0.1_degree.py"
+    "examples/readme_example.py",
+    "examples/regrid_ecmwf_ifs_hres_gaussian_O1280_to_0.1_degree.py",
+    "examples/regrid_subset_of_projected_domain.py",
+    "examples/select_by_coordinates.py",
+    "examples/spatial_xarray.py"
   ]
 }
