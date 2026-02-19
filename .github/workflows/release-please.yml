@@ -2,7 +2,7 @@ name: Release Please
 
 on:
   workflow_run:
-    workflows: ["Build and Test"]
+    workflows: ["PR Check"]
     types:
       - completed
 
