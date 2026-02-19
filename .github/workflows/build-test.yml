@@ -37,18 +37,8 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: ./.github/actions/cache-rust-build
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7
-        with:
-          version: "0.9.11"
-          enable-cache: true
-          cache-dependency-glob: "**/uv.lock"
-          # python-version: "3.12"
-
-      - name: Install required python dependencies
-        run: uv sync --no-install-project
-        shell: bash
+      - uses: ./.github/actions/install-uv
+      - uses: ./.github/actions/install-python-deps
 
       - name: Run cargo tests
         run: |
@@ -143,8 +133,7 @@ jobs:
           manylinux: ${{ matrix.platform.manylinux }}
           container: ${{ matrix.platform.is-musl == true && 'off' || '' }}
           before-script-linux: ${{ matrix.platform.before-script }}
-      - name: Upload wheels
-        uses: actions/upload-artifact@v4
+      - uses: ./.github/actions/upload-wheels
         with:
           name: wheels-${{ matrix.platform.name }}
           path: dist
@@ -154,13 +143,13 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: Build sdist
-        uses: PyO3/maturin-action@v1
+        uses: ./.github/actions/build-wheel
         with:
           maturin-version: 1.9.6
           command: sdist
           args: --out dist
       - name: Upload sdist
-        uses: actions/upload-artifact@v4
+        uses: ./.github/actions/upload-wheels
         with:
           name: wheels-sdist
           path: dist
@@ -248,19 +237,11 @@ jobs:
             python-version: "3.10"
             is-min-deps: true
     steps:
-      # Use the test composite action
       - uses: actions/checkout@v6
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7
+      - uses: ./.github/actions/install-uv
         with:
-          version: "0.9.11"
-          enable-cache: "true"
-          cache-dependency-glob: "**/uv.lock"
           python-version: ${{ matrix.config.python-version }}
-
-      - name: Download wheels
-        uses: actions/download-artifact@v4
+      - uses: ./.github/actions/download-wheels
         with:
           name: wheels-${{ matrix.config.platform-name }}
           path: dist
@@ -300,16 +281,10 @@ jobs:
         run: |
           apk add tar python3 py3-pip py3-psutil gcc python3-dev musl-dev linux-headers
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7
+      - uses: ./.github/actions/install-uv
         with:
-          version: "0.9.11"
-          enable-cache: "true"
-          cache-dependency-glob: "**/uv.lock"
           python-version: "3.12"
-
-      - name: Download wheels
-        uses: actions/download-artifact@v4
+      - uses: ./.github/actions/download-wheels
         with:
           name: wheels-linux-musl-x86_64
           path: dist
