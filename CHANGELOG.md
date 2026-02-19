@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1](https://github.com/open-meteo/python-omfiles/compare/v1.1.0...v1.1.1) (2026-02-19)
+
+
+### Bug Fixes
+
+* avoid deprecation warning in test_codecs.py ([#101](https://github.com/open-meteo/python-omfiles/issues/101)) ([2d43cd6](https://github.com/open-meteo/python-omfiles/commit/2d43cd67ebb15bee56351cb20af2bfea833f395f))
+* GaussianGrid shape of latitude and longitude should match grid shape ([#95](https://github.com/open-meteo/python-omfiles/issues/95)) ([c737607](https://github.com/open-meteo/python-omfiles/commit/c737607bf395b86bded875c7686380eef6b5bb3e))
+* pass shape tuple instead of reader to get_grid ([#96](https://github.com/open-meteo/python-omfiles/issues/96)) ([c844735](https://github.com/open-meteo/python-omfiles/commit/c84473519947fe4e0a1dbd2ca17f6d8297f7abe8))
+
 ## [1.1.0](https://github.com/open-meteo/python-omfiles/compare/v1.0.1...v1.1.0) (2026-01-19)
 
 
