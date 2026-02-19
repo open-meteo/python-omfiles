@@ -1,8 +1,6 @@
 name: Build wheel
 description: Build wheel with maturin
 inputs:
-  maturin-version:
-    required: true
   target:
     required: true
   args:
@@ -17,7 +15,7 @@ runs:
     - name: Build wheel
       uses: PyO3/maturin-action@v1
       with:
-        maturin-version: ${{ inputs.maturin-version }}
+        maturin-version: 1.9.6
         target: ${{ inputs.target }}
         args: ${{ inputs.args }}
         manylinux: ${{ inputs.manylinux }}
