@@ -162,6 +162,14 @@ root_var = writer.write_group(
 writer.close(root_var)
 ```
 
+### Examples
+
+There are some examples how to use this library in [examples/](https://github.com/open-meteo/python-omfiles/tree/main/examples). They should be run as [uv scripts](https://docs.astral.sh/uv/guides/scripts/), which will automatically setup the correct python environment.
+
+```bash
+uv run examples/plot_map.py
+```
+
 
 ## Development
 
