@@ -6,7 +6,6 @@ on:
       - main
     tags:
       - "*"
-  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -27,28 +26,21 @@ jobs:
     name: Rust tests - ${{ matrix.platform.name }}
     runs-on: ${{ matrix.platform.runner }}
     container: ${{ matrix.platform.container }}
-    if: ${{ (github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci')) || !matrix.platform.full-only }}
     strategy:
       matrix:
         platform:
           - name: Linux x86_64
             runner: ubuntu-24.04
-            full-only: false
           - name: Linux ARM64
             runner: ubuntu-24.04-arm
-            full-only: true
           - name: Windows x64
             runner: windows-latest
-            full-only: true
           - name: Windows ARM64
             runner: windows-11-arm
-            full-only: true
           - name: macOS x86_64
             runner: macos-15-intel
-            full-only: true
           - name: macOS ARM64
             runner: macos-15
-            full-only: true
     steps:
       - uses: actions/checkout@v6
       - name: Cache Rust build
@@ -99,7 +91,6 @@ jobs:
     name: Build Wheels - ${{ matrix.platform.name }}
     runs-on: ${{ matrix.platform.runner }}
     container: ${{ matrix.platform.container }}
-    if: ${{ (github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci')) || !matrix.platform.full-only }}
     strategy:
       matrix:
         platform:
@@ -109,7 +100,6 @@ jobs:
             before-script: python3 -m ensurepip && cat /etc/os-release && yum install clang -y
             manylinux: "2_28"
             is-musl: false
-            full-only: false
 
           - name: linux-aarch64
             runner: ubuntu-24.04
@@ -120,7 +110,6 @@ jobs:
               apt-get install --assume-yes --no-install-recommends crossbuild-essential-arm64
             manylinux: "2_28"
             is-musl: false
-            full-only: true
 
           - name: linux-musl-x86_64
             runner: ubuntu-24.04
@@ -129,31 +118,26 @@ jobs:
             before-script: cat /etc/os-release && apt install clang -y
             manylinux: musllinux_1_2
             is-musl: true
-            full-only: true
 
           - name: windows-x64
             runner: windows-latest
             target: x86_64-pc-windows-msvc
             is-musl: false
-            full-only: true
 
           - name: windows-arm64
             runner: windows-11-arm
             target: aarch64-pc-windows-msvc
             is-musl: false
-            full-only: true
 
           - name: macos-x86_64
             runner: macos-15-intel
             target: x86_64-apple-darwin
             is-musl: false
-            full-only: true
 
           - name: macos-arm64
             runner: macos-15
             target: aarch64-apple-darwin
             is-musl: false
-            full-only: true
     steps:
       - uses: actions/checkout@v6
       - name: Cache Rust build
@@ -201,7 +185,6 @@ jobs:
     needs: build
     name: Test - ${{ matrix.config.name }}
     runs-on: ${{ matrix.config.runner }}
-    if: ${{ (github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci')) || !matrix.config.full-only }}
     strategy:
       fail-fast: false
       matrix:
@@ -212,42 +195,36 @@ jobs:
             platform-name: linux-x86_64
             python-version: "3.12"
             is-min-deps: false
-            full-only: false
 
           - name: Linux ARM64
             runner: ubuntu-24.04-arm
             platform-name: linux-aarch64
             python-version: "3.12"
             is-min-deps: false
-            full-only: true
 
           - name: Windows
             runner: windows-latest
             platform-name: windows-x64
             python-version: "3.12"
             is-min-deps: false
-            full-only: true
 
           - name: Windows ARM64
             runner: windows-11-arm
             platform-name: windows-arm64
             python-version: "3.12"
             is-min-deps: false
-            full-only: true
 
           - name: macOS x86_64
             runner: macos-15-intel
             platform-name: macos-x86_64
             python-version: "3.12"
             is-min-deps: false
-            full-only: true
 
           - name: macOS ARM64
             runner: macos-15
             platform-name: macos-arm64
             python-version: "3.12"
             is-min-deps: false
-            full-only: true
 
           # Additional Python versions for Linux x86_64
           - name: Python 3.10
@@ -255,28 +232,24 @@ jobs:
             platform-name: linux-x86_64
             python-version: "3.10"
             is-min-deps: false
-            full-only: true
 
           - name: Python 3.11
             runner: ubuntu-24.04
             platform-name: linux-x86_64
             python-version: "3.11"
             is-min-deps: false
-            full-only: true
 
           - name: Python 3.13
             runner: ubuntu-24.04
             platform-name: linux-x86_64
             python-version: "3.13"
             is-min-deps: false
-            full-only: true
 
           - name: Python 3.14
             runner: ubuntu-24.04
             platform-name: linux-x86_64
             python-version: "3.14"
             is-min-deps: false
-            full-only: true
 
           # - name: Python 3.15
           #   runner: ubuntu-24.04
@@ -290,7 +263,6 @@ jobs:
             platform-name: linux-x86_64
             python-version: "3.10"
             is-min-deps: true
-            full-only: true
     steps:
       # Use the test composite action
       - uses: actions/checkout@v6
@@ -335,7 +307,6 @@ jobs:
     needs: build
     name: Test - Linux Musl
     runs-on: ubuntu-24.04
-    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci')
     container: ghcr.io/astral-sh/uv:0.9.11-alpine
     steps:
       - uses: actions/checkout@v6

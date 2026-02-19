@@ -1,0 +1,117 @@
+name: PR Check
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/ruff-action@v3
+      - run: |
+          ruff check
+          ruff format --check
+
+  rust_tests:
+    name: Rust tests (Linux x86_64)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Cache Rust build
+        uses: actions/cache@v4
+        with:
+          path: |
+            target
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-test-${{ runner.arch }}-${{ hashFiles('**/Cargo.lock', '**/Cargo.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-test-${{ runner.arch }}-
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.9.11"
+          enable-cache: true
+          cache-dependency-glob: "**/uv.lock"
+
+      - name: Install required python dependencies
+        run: uv sync --no-install-project
+        shell: bash
+
+      - name: Run cargo tests
+        run: |
+          PY_LIBDIR=$(uv run --no-sync python -c "import sysconfig; print(sysconfig.get_config_var('LIBDIR'))")
+          echo "Python libdir: $PY_LIBDIR"
+          export LD_LIBRARY_PATH="$PY_LIBDIR${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+          uv run --no-sync cargo test --no-default-features
+        shell: bash
+
+  build:
+    needs: rust_tests
+    name: Build Wheel (Linux x86_64)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Cache Rust build
+        uses: actions/cache@v4
+        with:
+          path: |
+            target
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-build-linux-x86_64-${{ hashFiles('**/Cargo.lock', '**/Cargo.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-build-linux-x86_64-
+
+      - name: Build wheel
+        uses: PyO3/maturin-action@v1
+        with:
+          maturin-version: 1.9.6
+          target: x86_64-unknown-linux-gnu
+          args: --release --out dist --find-interpreter
+          manylinux: "2_28"
+          before-script-linux: python3 -m ensurepip && cat /etc/os-release && yum install clang -y
+
+      - name: Upload wheel
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-pr-linux-x86_64
+          path: dist
+
+  test:
+    needs: build
+    name: Test (Linux x86_64, Python 3.12)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.9.11"
+          enable-cache: "true"
+          cache-dependency-glob: "**/uv.lock"
+          python-version: "3.12"
+
+      - name: Download wheel
+        uses: actions/download-artifact@v4
+        with:
+          name: wheels-pr-linux-x86_64
+          path: dist
+
+      - name: Run tests
+        shell: bash
+        run: |
+          WHEEL_PATH=$(ls dist/*.whl)
+          uv venv
+          uv sync --no-install-project --no-default-groups --group=test
+          uv pip install --force-reinstall "$WHEEL_PATH"
+          uv run --no-sync pytest tests/
