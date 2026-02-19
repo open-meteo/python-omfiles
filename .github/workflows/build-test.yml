@@ -27,7 +27,7 @@ jobs:
     name: Rust tests - ${{ matrix.platform.name }}
     runs-on: ${{ matrix.platform.runner }}
     container: ${{ matrix.platform.container }}
-    if: (github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci')) || !${{ matrix.platform.full-only }}
+    if: ${{ (github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci')) || !matrix.platform.full-only }}
     strategy:
       matrix:
         platform:
@@ -99,7 +99,7 @@ jobs:
     name: Build Wheels - ${{ matrix.platform.name }}
     runs-on: ${{ matrix.platform.runner }}
     container: ${{ matrix.platform.container }}
-    if: (github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci')) || !${{ matrix.platform.full-only }}
+    if: ${{ (github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci')) || !matrix.platform.full-only }}
     strategy:
       matrix:
         platform:
@@ -201,7 +201,7 @@ jobs:
     needs: build
     name: Test - ${{ matrix.config.name }}
     runs-on: ${{ matrix.config.runner }}
-    if: (github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci')) || !${{ matrix.config.full-only }}
+    if: ${{ (github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci')) || !matrix.config.full-only }}
     strategy:
       fail-fast: false
       matrix:
