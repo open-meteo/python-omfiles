@@ -9,6 +9,10 @@ inputs:
     required: false
   before-script-linux:
     required: false
+  maturin-container:
+    description: Container option passed to PyO3/maturin-action (e.g. "off" to disable)
+    required: false
+    default: ""
 runs:
   using: "composite"
   steps:
@@ -19,4 +23,5 @@ runs:
         target: ${{ inputs.target }}
         args: ${{ inputs.args }}
         manylinux: ${{ inputs.manylinux }}
+        container: ${{ inputs.maturin-container }}
         before-script-linux: ${{ inputs.before-script-linux }}

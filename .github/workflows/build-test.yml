@@ -101,6 +101,8 @@ jobs:
           target: ${{ matrix.platform.target }}
           args: --release --out dist --find-interpreter
           manylinux: ${{ matrix.platform.manylinux }}
+          # set maturin's container to "off" when using the job-level container (musl)
+          maturin-container: ${{ matrix.platform.is-musl && 'off' || '' }}
           before-script-linux: ${{ matrix.platform.before-script }}
       - uses: ./.github/actions/upload-wheels
         with:
