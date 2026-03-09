@@ -1,0 +1,97 @@
+"""Dask array integration for writing to OM files."""
+
+from __future__ import annotations
+
+import itertools
+from typing import TYPE_CHECKING, Optional, Sequence
+
+from omfiles._rust import OmFileWriter, OmVariable
+from omfiles.xarray import _validate_chunk_alignment
+
+if TYPE_CHECKING:
+    import dask.array as da
+
+
+def _dask_block_iterator(dask_array: da.Array):
+    """
+    Yield computed numpy arrays from a dask array in C-order block traversal.
+
+    The OM file format requires chunks to be written in sequential order
+    corresponding to a row-major (C-order) traversal of the chunk grid.
+    ``itertools.product`` naturally produces this ordering since the last
+    index varies fastest.
+    """
+    block_index_ranges = [range(n) for n in dask_array.numblocks]
+    for block_indices in itertools.product(*block_index_ranges):
+        yield dask_array.blocks[block_indices].compute()
+
+
+def write_dask_array(
+    writer: OmFileWriter,
+    data: da.Array,
+    chunks: Optional[Sequence[int]] = None,
+    scale_factor: float = 1.0,
+    add_offset: float = 0.0,
+    compression: str = "pfor_delta_2d",
+    name: str = "data",
+    children: Optional[Sequence[OmVariable]] = None,
+) -> OmVariable:
+    """
+    Write a dask array to an OM file using streaming/incremental writes.
+
+    Iterates over the blocks of the dask array, computing each block
+    on-the-fly, and streams them to the OM file writer. Only one block
+    is held in memory at a time.
+
+    The dask array's chunk structure is used to determine the OM file's
+    chunk dimensions by default. Dask chunks must be multiples of the OM
+    chunk sizes (except the last chunk along each dimension which may be
+    smaller). When a dask block contains more than one OM chunk in a
+    dimension, all trailing dimensions must be fully covered by each block.
+
+    Performance: write speed depends on the number of dask tasks, not just
+    data size. For best performance, use dask chunks much larger than the
+    OM chunk sizes — ideally covering the full extent of trailing dimensions.
+    For example, with OM chunks of (124, 124) on an (8192, 8192) array,
+    dask chunks of (124, 8192) will write ~10x faster than (124, 124).
+
+    Args:
+        writer: An open OmFileWriter instance.
+        data: A dask array to write.
+        chunks: OM file chunk sizes per dimension. If None, uses the dask
+                array's chunk sizes. Dask chunks must be multiples of these.
+        scale_factor: Scale factor for float compression (default: 1.0).
+        add_offset: Offset for float compression (default: 0.0).
+        compression: Compression algorithm (default: "pfor_delta_2d").
+        name: Variable name (default: "data").
+        children: Child variables (default: None).
+
+    Returns:
+        OmVariable representing the written array.
+
+    Raises:
+        TypeError: If data is not a dask array.
+        ValueError: If dask chunks are incompatible with OM chunks.
+        ImportError: If dask is not installed.
+    """
+    import dask.array as da
+
+    if not isinstance(data, da.Array):
+        raise TypeError(f"Expected a dask array, got {type(data)}")
+
+    if chunks is None:
+        chunks = [c[0] for c in data.chunks]
+
+    _validate_chunk_alignment(data.chunks, list(chunks), data.shape)
+
+    return writer.write_array_streaming(
+        dimensions=[int(d) for d in data.shape],
+        chunks=[int(c) for c in chunks],
+        chunk_iterator=_dask_block_iterator(data),
+        dtype=data.dtype.name,
+        scale_factor=scale_factor,
+        add_offset=add_offset,
+        compression=compression,
+        name=name,
+        children=list(children) if children else [],
+    )
