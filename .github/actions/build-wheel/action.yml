@@ -7,6 +7,7 @@ inputs:
     required: true
   command:
     required: false
+    default: "build"
   manylinux:
     required: false
   before-script-linux:
