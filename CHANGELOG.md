@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.2](https://github.com/open-meteo/python-omfiles/compare/v1.1.1...v1.1.2) (2026-03-11)
+
+
+### Bug Fixes
+
+* sdist distribution ([#110](https://github.com/open-meteo/python-omfiles/issues/110)) ([46b80bb](https://github.com/open-meteo/python-omfiles/commit/46b80bbe9600a6b428a69492d404da5d73c91fd1))
+* sdist distribution by actually building it ([#112](https://github.com/open-meteo/python-omfiles/issues/112)) ([8a21d82](https://github.com/open-meteo/python-omfiles/commit/8a21d825ad2ec24a77fbafdfb3b49eba5e4dbb29))
+
 ## [1.1.1](https://github.com/open-meteo/python-omfiles/compare/v1.1.0...v1.1.1) (2026-02-19)
 
 
