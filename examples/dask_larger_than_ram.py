@@ -11,17 +11,11 @@
 # This example demonstrates writing a dask array that is larger than the
 # available process memory to an OM file using streaming writes.
 #
-# A process memory limit is set via resource.setrlimit to simulate a
-# constrained environment. The dask array is never fully materialized —
-# only one chunk is held in memory at a time thanks to write_dask_array().
-#
-# NOTE: resource.setrlimit(RLIMIT_AS) is only enforced on Linux.
-# On macOS the kernel ignores RSS/AS limits, so the script uses
-# tracemalloc and ru_maxrss to prove that peak memory stays low.
+# The dask array is never fully materialized — only one chunk is held in
+# memory at a time thanks to write_dask_array(). tracemalloc is used to
+# prove that peak memory stays well below the total dataset size.
 
 import os
-import platform
-import resource
 import tempfile
 import tracemalloc
 
@@ -31,7 +25,6 @@ from omfiles import OmFileReader, OmFileWriter
 from omfiles.dask import write_dask_array
 
 # Configuration
-MEMORY_LIMIT_MB = 128  # process memory cap (enforced on Linux)
 DATASET_SIZE_MB = 512  # total size of the dask array
 CHUNK_SIZE = 1024  # chunk edge length (CHUNK_SIZE x CHUNK_SIZE)
 DTYPE = np.float32  # 4 bytes per element
@@ -43,47 +36,15 @@ side_length = int(np.sqrt(total_elements))  # square array for simplicity
 actual_size_mb = (side_length * side_length * bytes_per_element) / (1024 * 1024)
 
 
-def set_memory_limit(limit_mb: int) -> bool:
-    """Try to cap the process address space. Returns True if enforced."""
-    limit_bytes = limit_mb * 1024 * 1024
-    try:
-        _, hard = resource.getrlimit(resource.RLIMIT_AS)
-        resource.setrlimit(resource.RLIMIT_AS, (limit_bytes, hard))
-        if platform.system() == "Linux":
-            print(f"  Memory limit set to {limit_mb} MB (enforced on Linux)")
-            return True
-        else:
-            print(
-                f"  Memory limit requested ({limit_mb} MB) but {platform.system()} "
-                "does not enforce RLIMIT_AS — relying on memory tracking instead"
-            )
-            return False
-    except (ValueError, OSError, AttributeError) as e:
-        print(f"  Could not set memory limit: {e}")
-        return False
-
-
-def get_peak_rss_mb() -> float:
-    """Return peak RSS in MB (works on Linux and macOS)."""
-    usage = resource.getrusage(resource.RUSAGE_SELF)
-    if platform.system() == "Darwin":
-        return usage.ru_maxrss / (1024 * 1024)  # macOS reports bytes
-    return usage.ru_maxrss / 1024  # Linux reports kilobytes
-
-
 def main():
     print("=" * 60)
     print("Dask larger-than-RAM write example")
     print("=" * 60)
 
-    # Set memory limit
-    print(f"\nSetting process memory limit to {MEMORY_LIMIT_MB} MB...")
-    enforced = set_memory_limit(MEMORY_LIMIT_MB)
-
     # Start memory tracking
     tracemalloc.start()
 
-    # Create a dask array larger than the memory limit
+    # Create a dask array larger than available memory
     print(
         f"\nCreating dask array: {side_length} x {side_length} {DTYPE.__name__} "
         f"({actual_size_mb:.0f} MB, chunked {CHUNK_SIZE} x {CHUNK_SIZE})"
@@ -126,25 +87,19 @@ def main():
     current, peak = tracemalloc.get_traced_memory()
     tracemalloc.stop()
     peak_traced_mb = peak / (1024 * 1024)
-    peak_rss_mb = get_peak_rss_mb()
 
     print("\n" + "=" * 60)
     print("Memory summary")
     print("=" * 60)
     print(f"  Dataset size:          {actual_size_mb:.0f} MB")
-    if enforced:
-        print(f"  Process memory limit:  {MEMORY_LIMIT_MB} MB (enforced)")
-    else:
-        print(f"  Process memory limit:  {MEMORY_LIMIT_MB} MB (not enforced on {platform.system()})")
     print(f"  Peak traced (Python):  {peak_traced_mb:.1f} MB")
-    print(f"  Peak RSS (process):    {peak_rss_mb:.1f} MB")
-    print(f"  Ratio (dataset/peak):  {actual_size_mb / peak_rss_mb:.1f}x")
+    print(f"  Ratio (dataset/peak):  {actual_size_mb / peak_traced_mb:.1f}x")
     print()
 
-    if peak_rss_mb < actual_size_mb:
+    if peak_traced_mb < actual_size_mb:
         print("The entire dataset was written WITHOUT loading it all into memory.")
     else:
-        print("WARNING: Peak RSS exceeded dataset size — streaming may not have worked as expected.")
+        print("WARNING: Peak memory exceeded dataset size — streaming may not have worked as expected.")
 
     # Cleanup
     os.unlink(filepath)
