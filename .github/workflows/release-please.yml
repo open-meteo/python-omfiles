@@ -47,7 +47,7 @@ jobs:
       - name: Collect wheels
         if: ${{ steps.release.outputs.release_created }}
         run: |
-          find artifact-download -name "*.whl" -o -name "*.tar.gz" -o -name "*.zip" | xargs -I{} cp {} dist/
+          find artifact-download -name "*.whl" -o -name "*.tar.gz" | xargs -I{} cp {} dist/
           echo "Package files in dist directory:"
           ls -la dist/
         shell: bash
