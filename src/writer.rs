@@ -13,7 +13,7 @@ use omfiles_rs::{
     OmCompressionType, OmFilesError, OmOffsetSize,
 };
 use pyo3::{
-    exceptions::{PyRuntimeError, PyValueError},
+    exceptions::{PyRuntimeError, PyStopIteration, PyValueError},
     prelude::*,
 };
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
@@ -96,6 +96,42 @@ impl OmFileWriter {
 
             let variable_meta = array_writer.finalize();
             Ok(variable_meta)
+        })
+    }
+
+    fn write_array_streaming_internal<'py, T>(
+        &mut self,
+        py: Python<'py>,
+        dimensions: Vec<u64>,
+        chunks: Vec<u64>,
+        scale_factor: f32,
+        add_offset: f32,
+        compression: OmCompressionType,
+        chunk_iterator: &Bound<'py, PyAny>,
+    ) -> PyResult<OmFileWriterArrayFinalized>
+    where
+        T: Element + OmFileArrayDataType,
+    {
+        self.with_writer(|writer| {
+            let mut array_writer = writer
+                .prepare_array::<T>(dimensions, chunks, compression, scale_factor, add_offset)
+                .map_err(convert_omfilesrs_error)?;
+
+            loop {
+                let next_item = chunk_iterator.call_method0("__next__");
+                match next_item {
+                    Ok(item) => {
+                        let array: PyReadonlyArrayDyn<'_, T> = item.extract()?;
+                        array_writer
+                            .write_data(array.as_array(), None, None)
+                            .map_err(convert_omfilesrs_error)?;
+                    }
+                    Err(err) if err.is_instance_of::<PyStopIteration>(py) => break,
+                    Err(err) => return Err(err),
+                }
+            }
+
+            Ok(array_writer.finalize())
         })
     }
 
@@ -287,6 +323,116 @@ impl OmFileWriter {
             self.write_array_internal(array, chunks, scale_factor, add_offset, compression)
         } else {
             Err(Self::unsupported_array_type_error(element_type))
+        }?;
+
+        self.with_writer(|writer| {
+            let offset_size = writer
+                .write_array(array_meta, name, &children)
+                .map_err(convert_omfilesrs_error)?;
+
+            Ok(OmVariable {
+                name: name.to_string(),
+                offset: offset_size.offset,
+                size: offset_size.size,
+            })
+        })
+    }
+
+    /// Write an array to the .om file by streaming chunks from a Python iterator.
+    ///
+    /// This method is designed for writing large arrays that do not fit in memory.
+    /// Instead of providing the full array, you provide the full array dimensions
+    /// and an iterator that yields numpy array chunks.
+    ///
+    /// Chunks MUST be yielded in row-major order (C-order) of the chunk grid.
+    /// Each chunk's shape determines how many internal file chunks it covers.
+    ///
+    /// Args:
+    ///     dimensions: Shape of the full array (e.g., [1000, 2000])
+    ///     chunks: Chunk sizes for each dimension (e.g., [100, 200])
+    ///     chunk_iterator: Python iterable yielding numpy arrays, one per chunk region
+    ///     dtype: String name of the numpy dtype (e.g., "float32", "int64")
+    ///     scale_factor: Scale factor for data compression (default: 1.0)
+    ///     add_offset: Offset value for data compression (default: 0.0)
+    ///     compression: Compression algorithm to use (default: "pfor_delta_2d")
+    ///     name: Name of the variable (default: "data")
+    ///     children: List of child variables (default: [])
+    ///
+    /// Returns:
+    ///     :py:data:`omfiles.OmVariable` representing the written array in the file structure
+    ///
+    /// Raises:
+    ///     ValueError: If the dtype is unsupported or parameters are invalid
+    ///     RuntimeError: If there's an error during compression or I/O
+    #[pyo3(
+        text_signature = "(dimensions, chunks, chunk_iterator, dtype, scale_factor=1.0, add_offset=0.0, compression='pfor_delta_2d', name='data', children=[])",
+        signature = (dimensions, chunks, chunk_iterator, dtype, scale_factor=None, add_offset=None, compression=None, name=None, children=None)
+    )]
+    fn write_array_streaming(
+        &mut self,
+        py: Python<'_>,
+        dimensions: Vec<u64>,
+        chunks: Vec<u64>,
+        chunk_iterator: &Bound<'_, PyAny>,
+        dtype: &str,
+        scale_factor: Option<f32>,
+        add_offset: Option<f32>,
+        compression: Option<&str>,
+        name: Option<&str>,
+        children: Option<Vec<OmVariable>>,
+    ) -> PyResult<OmVariable> {
+        let name = name.unwrap_or("data");
+        let children: Vec<OmOffsetSize> = children
+            .unwrap_or_default()
+            .iter()
+            .map(Into::into)
+            .collect();
+
+        let scale_factor = scale_factor.unwrap_or(1.0);
+        let add_offset = add_offset.unwrap_or(0.0);
+        let compression = compression
+            .map(|s| PyCompressionType::from_str(s))
+            .transpose()?
+            .unwrap_or(PyCompressionType::PforDelta2d)
+            .to_omfilesrs();
+
+        let iter = chunk_iterator.call_method0("__iter__")?;
+
+        let array_meta = match dtype {
+            "float32" => self.write_array_streaming_internal::<f32>(
+                py, dimensions, chunks, scale_factor, add_offset, compression, &iter,
+            ),
+            "float64" => self.write_array_streaming_internal::<f64>(
+                py, dimensions, chunks, scale_factor, add_offset, compression, &iter,
+            ),
+            "int8" => self.write_array_streaming_internal::<i8>(
+                py, dimensions, chunks, scale_factor, add_offset, compression, &iter,
+            ),
+            "uint8" => self.write_array_streaming_internal::<u8>(
+                py, dimensions, chunks, scale_factor, add_offset, compression, &iter,
+            ),
+            "int16" => self.write_array_streaming_internal::<i16>(
+                py, dimensions, chunks, scale_factor, add_offset, compression, &iter,
+            ),
+            "uint16" => self.write_array_streaming_internal::<u16>(
+                py, dimensions, chunks, scale_factor, add_offset, compression, &iter,
+            ),
+            "int32" => self.write_array_streaming_internal::<i32>(
+                py, dimensions, chunks, scale_factor, add_offset, compression, &iter,
+            ),
+            "uint32" => self.write_array_streaming_internal::<u32>(
+                py, dimensions, chunks, scale_factor, add_offset, compression, &iter,
+            ),
+            "int64" => self.write_array_streaming_internal::<i64>(
+                py, dimensions, chunks, scale_factor, add_offset, compression, &iter,
+            ),
+            "uint64" => self.write_array_streaming_internal::<u64>(
+                py, dimensions, chunks, scale_factor, add_offset, compression, &iter,
+            ),
+            _ => Err(PyValueError::new_err(format!(
+                "Unsupported dtype: {}",
+                dtype
+            ))),
         }?;
 
         self.with_writer(|writer| {

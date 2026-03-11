@@ -12,3 +12,10 @@ __all__ = [
     "OmVariable",
     "types",
 ]
+
+try:
+    from .xarray import write_dataset
+
+    __all__.append("write_dataset")
+except ImportError:
+    pass
