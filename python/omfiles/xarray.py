@@ -340,6 +340,7 @@ def write_dataset(
     ds: Dataset,
     path: str | os.PathLike,
     *,
+    fs: Any | None = None,
     encoding: dict[str, dict[str, Any]] | None = None,
     chunks: dict[str, int] | None = None,
     scale_factor: float = 1.0,
@@ -353,7 +354,10 @@ def write_dataset(
 
     Args:
         ds: The xarray Dataset to write.
-        path: Output file path.
+        path: Output file path (local path or path within the fsspec filesystem).
+        fs: Optional fsspec filesystem object. When provided, the file is written
+            via ``OmFileWriter.from_fsspec(fs, path)`` instead of the default
+            local-file writer.
         encoding: Per-variable overrides. Keys per variable: ``"chunks"``,
             ``"scale_factor"``, ``"add_offset"``, ``"compression"``.
         chunks: Global default chunk sizes as ``{dim_name: chunk_size}``.
@@ -362,7 +366,10 @@ def write_dataset(
         compression: Global default compression algorithm.
     """
     path = str(path)
-    writer = OmFileWriter(path)
+    if fs is not None:
+        writer = OmFileWriter.from_fsspec(fs, path)
+    else:
+        writer = OmFileWriter(path)
     all_children: list[OmVariable] = []
 
     def _write_variable(name: str, var: Variable, is_dim_coord: bool) -> None:
