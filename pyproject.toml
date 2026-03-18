@@ -55,6 +55,7 @@ documentation = [
     "myst-parser>=4.0"
 ]
 test = [
+    "ruff>=0.15",
     "pytest>=8.0",
     "pytest-asyncio>=1.1.0",
     "psutil>=6.0.0",
