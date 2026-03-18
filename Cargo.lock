@@ -837,7 +837,7 @@ dependencies = [
 [[package]]
 name = "om-file-format-sys"
 version = "0.0.0"
-source = "git+https://github.com/open-meteo/om-file-format?rev=9feec4b8f01fee2843ddb940ddc4dd92b2981437#9feec4b8f01fee2843ddb940ddc4dd92b2981437"
+source = "git+https://github.com/open-meteo/om-file-format?rev=4a9ecdcc28e6fc762cf3542a5d7ae3832b7d1f3c#4a9ecdcc28e6fc762cf3542a5d7ae3832b7d1f3c"
 dependencies = [
  "bindgen",
  "cc",
@@ -847,7 +847,7 @@ dependencies = [
 [[package]]
 name = "omfiles"
 version = "0.1.0"
-source = "git+https://github.com/open-meteo/rust-omfiles?rev=a96adaf2c0808821452eaa5e54ea5032d5834184#a96adaf2c0808821452eaa5e54ea5032d5834184"
+source = "git+https://github.com/open-meteo/rust-omfiles?rev=5019cd968f50b489c6c192693f0da4a0ef1d9658#5019cd968f50b489c6c192693f0da4a0ef1d9658"
 dependencies = [
  "async-executor",
  "async-lock",
