@@ -22,7 +22,7 @@ runs:
     - name: Build wheel
       uses: PyO3/maturin-action@v1
       with:
-        maturin-version: 1.9.6
+        maturin-version: 1.12.6
         command: ${{ inputs.command }}
         target: ${{ inputs.target }}
         args: ${{ inputs.args }}
