@@ -30,7 +30,7 @@ jobs:
       - uses: ./.github/actions/build-wheel
         with:
           target: x86_64-unknown-linux-gnu
-          args: --release --out dist --find-interpreter
+          args: --release --out dist
           manylinux: "2_28"
           before-script-linux: python3 -m ensurepip && cat /etc/os-release && yum install clang -y
       - uses: ./.github/actions/upload-wheels
