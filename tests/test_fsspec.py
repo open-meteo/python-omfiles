@@ -12,9 +12,8 @@ import pytest
 import xarray as xr
 from fsspec.implementations.local import LocalFileSystem
 from fsspec.implementations.memory import MemoryFileSystem
-from s3fs import S3FileSystem
-
 from omfiles.xarray import write_dataset
+from s3fs import S3FileSystem
 
 from .test_utils import filter_numpy_size_warning, find_chunk_for_timestamp
 
