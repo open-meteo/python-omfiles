@@ -11,13 +11,13 @@ from omfiles.dask import write_dask_array
 @pytest.fixture
 def dask_array_2d():
     np_data = np.arange(200, dtype=np.float32).reshape(10, 20)
-    return da.from_array(np_data, chunks=(5, 10))
+    return da.from_array(np_data, chunks=(5, 10))  # type: ignore[arg-type]
 
 
 @pytest.fixture
 def dask_array_3d():
     np_data = np.arange(192, dtype=np.int32).reshape(4, 6, 8)
-    return da.from_array(np_data, chunks=(2, 3, 4))
+    return da.from_array(np_data, chunks=(2, 3, 4))  # type: ignore[arg-type]
 
 
 def test_dask_roundtrip_2d(dask_array_2d):
@@ -52,7 +52,7 @@ def test_dask_roundtrip_3d(dask_array_3d):
 
 def test_dask_boundary_chunks():
     np_data = np.arange(91, dtype=np.float32).reshape(7, 13)
-    darr = da.from_array(np_data, chunks=(4, 5))
+    darr = da.from_array(np_data, chunks=(4, 5))  # type: ignore[arg-type]
 
     with tempfile.NamedTemporaryFile(suffix=".om") as f:
         writer = OmFileWriter(f.name)
@@ -77,7 +77,7 @@ def test_dask_custom_name(dask_array_2d):
 def test_dask_non_multiple_chunks_raises():
     """Dask chunks that aren't multiples of OM chunks should raise."""
     np_data = np.arange(30, dtype=np.float32).reshape(6, 5)
-    darr = da.from_array(np_data, chunks=(3, 5))
+    darr = da.from_array(np_data, chunks=(3, 5))  # type: ignore[arg-type]
 
     with tempfile.NamedTemporaryFile(suffix=".om") as f:
         writer = OmFileWriter(f.name)
@@ -88,7 +88,7 @@ def test_dask_non_multiple_chunks_raises():
 def test_dask_larger_chunks_than_om_2d():
     """Dask blocks spanning multiple OM chunks along dim 1 (full trailing dim)."""
     np_data = np.arange(200, dtype=np.float32).reshape(10, 20)
-    darr = da.from_array(np_data, chunks=(10, 20))
+    darr = da.from_array(np_data, chunks=(10, 20))  # type: ignore[arg-type]
 
     with tempfile.NamedTemporaryFile(suffix=".om") as f:
         writer = OmFileWriter(f.name)
@@ -105,7 +105,7 @@ def test_dask_larger_chunks_than_om_2d():
 def test_dask_larger_chunks_than_om_3d():
     """Dask blocks with full trailing dims, multiple OM chunks in dim 0."""
     np_data = np.arange(192, dtype=np.int32).reshape(4, 6, 8)
-    darr = da.from_array(np_data, chunks=(4, 6, 8))
+    darr = da.from_array(np_data, chunks=(4, 6, 8))  # type: ignore[arg-type]
 
     with tempfile.NamedTemporaryFile(suffix=".om") as f:
         writer = OmFileWriter(f.name)
@@ -122,7 +122,7 @@ def test_dask_larger_chunks_than_om_3d():
 def test_dask_single_om_chunk_per_slow_dim():
     """Dask blocks with 1 OM chunk in dim 0, partial trailing dim coverage."""
     np_data = np.arange(200, dtype=np.float32).reshape(10, 20)
-    darr = da.from_array(np_data, chunks=(5, 10))
+    darr = da.from_array(np_data, chunks=(5, 10))  # type: ignore[arg-type]
 
     with tempfile.NamedTemporaryFile(suffix=".om") as f:
         writer = OmFileWriter(f.name)
@@ -139,7 +139,7 @@ def test_dask_single_om_chunk_per_slow_dim():
 def test_dask_misaligned_trailing_dims_raises():
     """Dask blocks with multi-chunk dim 0 but partial trailing dim raises."""
     np_data = np.arange(200, dtype=np.float32).reshape(10, 20)
-    darr = da.from_array(np_data, chunks=(10, 10))
+    darr = da.from_array(np_data, chunks=(10, 10))  # type: ignore[arg-type]
 
     with tempfile.NamedTemporaryFile(suffix=".om") as f:
         writer = OmFileWriter(f.name)
@@ -152,7 +152,7 @@ def test_dask_not_a_dask_array_raises():
     with tempfile.NamedTemporaryFile(suffix=".om") as f:
         writer = OmFileWriter(f.name)
         with pytest.raises(TypeError, match="Expected a dask array"):
-            write_dask_array(writer, np_data)
+            write_dask_array(writer, np_data)  # type: ignore[arg-type]
 
 
 def test_dask_streaming_memory_stays_bounded():
