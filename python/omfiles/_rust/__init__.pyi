@@ -573,46 +573,6 @@ class OmFileWriter:
         Raises:
             ValueError: If the data type is unsupported or if parameters are invalid
         """
-    def write_array_streaming(
-        self,
-        dimensions: typing.Sequence[builtins.int],
-        chunks: typing.Sequence[builtins.int],
-        chunk_iterator: typing.Any,
-        dtype: builtins.str,
-        scale_factor: typing.Optional[builtins.float] = None,
-        add_offset: typing.Optional[builtins.float] = None,
-        compression: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-        children: typing.Optional[typing.Sequence[OmVariable]] = None,
-    ) -> OmVariable:
-        r"""
-        Write an array to the .om file by streaming chunks from a Python iterator.
-
-        This method is designed for writing large arrays that do not fit in memory.
-        Instead of providing the full array, you provide the full array dimensions
-        and an iterator that yields numpy array chunks.
-
-        Chunks MUST be yielded in row-major order (C-order) of the chunk grid.
-        Each chunk's shape determines how many internal file chunks it covers.
-
-        Args:
-            dimensions: Shape of the full array (e.g., [1000, 2000])
-            chunks: Chunk sizes for each dimension (e.g., [100, 200])
-            chunk_iterator: Python iterable yielding numpy arrays, one per chunk region
-            dtype: String name of the numpy dtype (e.g., "float32", "int64")
-            scale_factor: Scale factor for data compression (default: 1.0)
-            add_offset: Offset value for data compression (default: 0.0)
-            compression: Compression algorithm to use (default: "pfor_delta_2d")
-            name: Name of the variable (default: "data")
-            children: List of child variables (default: [])
-
-        Returns:
-            :py:data:`omfiles.OmVariable` representing the written array in the file structure
-
-        Raises:
-            ValueError: If the dtype is unsupported or parameters are invalid
-            RuntimeError: If there's an error during compression or I/O
-        """
     def write_scalar(
         self, value: typing.Any, name: builtins.str, children: typing.Optional[typing.Sequence[OmVariable]] = None
     ) -> OmVariable:
