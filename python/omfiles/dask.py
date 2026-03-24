@@ -134,7 +134,7 @@ def write_dask_array(
         dimensions=[int(d) for d in data.shape],
         chunks=[int(c) for c in chunks],
         chunk_iterator=_dask_block_iterator(data),
-        dtype=data.dtype.name,
+        dtype=data.dtype,
         scale_factor=scale_factor,
         add_offset=add_offset,
         compression=compression,

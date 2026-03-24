@@ -20,7 +20,7 @@ def test_streaming_single_chunk():
             dimensions=list(shape),
             chunks=chunks,
             chunk_iterator=chunk_iter(),
-            dtype="float32",
+            dtype=np.dtype(np.float32),
             scale_factor=10000.0,
         )
         writer.close(var)
@@ -49,7 +49,7 @@ def test_streaming_multiple_chunks_2d():
             dimensions=list(shape),
             chunks=chunks,
             chunk_iterator=chunk_iter(),
-            dtype="float32",
+            dtype=np.dtype(np.float32),
             scale_factor=10000.0,
         )
         writer.close(var)
@@ -101,7 +101,7 @@ def test_streaming_all_dtypes():
                 dimensions=list(shape),
                 chunks=chunks,
                 chunk_iterator=chunk_iter(),
-                dtype=np.dtype(dt).name,
+                dtype=np.dtype(dt),
                 scale_factor=10000.0,
             )
             writer.close(var)
@@ -138,7 +138,7 @@ def test_streaming_3d_array():
             dimensions=list(shape),
             chunks=chunks,
             chunk_iterator=chunk_iter(),
-            dtype="int32",
+            dtype=np.dtype(np.int32),
         )
         writer.close(var)
 
@@ -168,7 +168,7 @@ def test_streaming_boundary_chunks():
             dimensions=list(shape),
             chunks=chunks,
             chunk_iterator=chunk_iter(),
-            dtype="float32",
+            dtype=np.dtype(np.float32),
             scale_factor=10000.0,
         )
         writer.close(var)
@@ -207,7 +207,7 @@ def test_streaming_matches_write_array():
             dimensions=list(shape),
             chunks=chunks,
             chunk_iterator=chunk_iter(),
-            dtype="float32",
+            dtype=np.dtype(np.float32),
             scale_factor=10000.0,
         )
         writer2.close(var2)
@@ -221,10 +221,10 @@ def test_streaming_matches_write_array():
 def test_streaming_unsupported_dtype_raises():
     with tempfile.NamedTemporaryFile(suffix=".om") as f:
         writer = OmFileWriter(f.name)
-        with pytest.raises(ValueError, match="Unsupported dtype"):
+        with pytest.raises(ValueError, match="Unsupported array data type"):
             writer.write_array_streaming(
                 dimensions=[10],
                 chunks=[5],
                 chunk_iterator=iter([]),
-                dtype="complex128",
+                dtype=np.dtype(np.complex128),
             )

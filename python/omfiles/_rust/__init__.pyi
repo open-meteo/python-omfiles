@@ -578,7 +578,7 @@ class OmFileWriter:
         dimensions: typing.Sequence[builtins.int],
         chunks: typing.Sequence[builtins.int],
         chunk_iterator: typing.Any,
-        dtype: builtins.str,
+        dtype: numpy.dtype,
         scale_factor: typing.Optional[builtins.float] = None,
         add_offset: typing.Optional[builtins.float] = None,
         compression: typing.Optional[builtins.str] = None,
@@ -599,7 +599,7 @@ class OmFileWriter:
             dimensions: Shape of the full array (e.g., [1000, 2000])
             chunks: Chunk sizes for each dimension (e.g., [100, 200])
             chunk_iterator: Python iterable yielding numpy arrays, one per chunk region
-            dtype: String name of the numpy dtype (e.g., "float32", "int64")
+            dtype: Numpy dtype of the array.
             scale_factor: Scale factor for data compression (default: 1.0)
             add_offset: Offset value for data compression (default: 0.0)
             compression: Compression algorithm to use (default: "pfor_delta_2d")

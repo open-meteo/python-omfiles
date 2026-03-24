@@ -47,7 +47,8 @@ enum OmElementType {
 
 impl OmElementType {
     /// Resolve from a numpy `PyArrayDescr` (used by `write_array`).
-    fn from_numpy_dtype(py: Python<'_>, d: &Bound<'_, PyArrayDescr>) -> PyResult<Self> {
+    fn from_numpy_dtype(d: &Bound<'_, PyArrayDescr>) -> PyResult<Self> {
+        let py = d.py();
         if d.is_equiv_to(&dtype::<f32>(py)) {
             Ok(Self::Float32)
         } else if d.is_equiv_to(&dtype::<f64>(py)) {
@@ -70,23 +71,6 @@ impl OmElementType {
             Ok(Self::Uint64)
         } else {
             Err(OmFileWriter::unsupported_array_type_error(d.clone()))
-        }
-    }
-
-    /// Resolve from a dtype string like `"float32"` (used by `write_array_streaming`).
-    fn from_str(s: &str) -> PyResult<Self> {
-        match s {
-            "float32" => Ok(Self::Float32),
-            "float64" => Ok(Self::Float64),
-            "int8" => Ok(Self::Int8),
-            "uint8" => Ok(Self::Uint8),
-            "int16" => Ok(Self::Int16),
-            "uint16" => Ok(Self::Uint16),
-            "int32" => Ok(Self::Int32),
-            "uint32" => Ok(Self::Uint32),
-            "int64" => Ok(Self::Int64),
-            "uint64" => Ok(Self::Uint64),
-            _ => Err(PyValueError::new_err(format!("Unsupported dtype: {}", s))),
         }
     }
 }
@@ -396,7 +380,7 @@ impl OmFileWriter {
     ) -> PyResult<OmVariable> {
         let params =
             WriteArrayParams::from_options(name, children, scale_factor, add_offset, compression)?;
-        let element_type = OmElementType::from_numpy_dtype(data.py(), &data.dtype())?;
+        let element_type = OmElementType::from_numpy_dtype(&data.dtype())?;
         let dimensions = data.shape().iter().map(|x| *x as u64).collect();
         let feeder = Feeder::Full { data };
 
@@ -416,7 +400,7 @@ impl OmFileWriter {
     ///     dimensions: Shape of the full array (e.g., [1000, 2000])
     ///     chunks: Chunk sizes for each dimension (e.g., [100, 200])
     ///     chunk_iterator: Python iterable yielding numpy arrays, one per chunk region
-    ///     dtype: String name of the numpy dtype (e.g., "float32", "int64")
+    ///     dtype: Numpy dtype of the array.
     ///     scale_factor: Scale factor for data compression (default: 1.0)
     ///     add_offset: Offset value for data compression (default: 0.0)
     ///     compression: Compression algorithm to use (default: "pfor_delta_2d")
@@ -433,13 +417,13 @@ impl OmFileWriter {
         text_signature = "(dimensions, chunks, chunk_iterator, dtype, scale_factor=1.0, add_offset=0.0, compression='pfor_delta_2d', name='data', children=[])",
         signature = (dimensions, chunks, chunk_iterator, dtype, scale_factor=None, add_offset=None, compression=None, name=None, children=None)
     )]
-    fn write_array_streaming(
+    fn write_array_streaming<'py>(
         &mut self,
         py: Python<'_>,
         dimensions: Vec<u64>,
         chunks: Vec<u64>,
         chunk_iterator: &Bound<'_, PyAny>,
-        dtype: &str,
+        dtype: &Bound<'py, PyArrayDescr>,
         scale_factor: Option<f32>,
         add_offset: Option<f32>,
         compression: Option<&str>,
@@ -448,7 +432,7 @@ impl OmFileWriter {
     ) -> PyResult<OmVariable> {
         let params =
             WriteArrayParams::from_options(name, children, scale_factor, add_offset, compression)?;
-        let element_type = OmElementType::from_str(dtype)?;
+        let element_type = OmElementType::from_numpy_dtype(dtype)?;
         let iter = chunk_iterator.call_method0("__iter__")?;
         let feeder = Feeder::Streaming { py, iter };
 
