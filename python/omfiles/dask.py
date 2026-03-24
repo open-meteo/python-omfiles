@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import itertools
 import math
-from typing import TYPE_CHECKING, Optional, Sequence
+from typing import Optional, Sequence
 
 from omfiles._rust import OmFileWriter, OmVariable
 
-if TYPE_CHECKING:
+try:
     import dask.array as da
+except ImportError:
+    raise ImportError("omfiles[dask] is required for dask functionality")
 
 
 def _validate_chunk_alignment(
@@ -120,8 +122,6 @@ def write_dask_array(
         ValueError: If dask chunks are incompatible with OM chunks.
         ImportError: If dask is not installed.
     """
-    import dask.array as da
-
     if not isinstance(data, da.Array):
         raise TypeError(f"Expected a dask array, got {type(data)}")
 
