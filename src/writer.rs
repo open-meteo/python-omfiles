@@ -9,7 +9,7 @@ use numpy::{
 };
 use omfiles_rs::{
     traits::{OmFileArrayDataType, OmFileScalarDataType, OmFileWriterBackend},
-    writer::{OmFileWriter as OmFileWriterRs, OmFileWriterArray, OmFileWriterArrayFinalized},
+    writer::{OmFileWriter as OmFileWriterRs, OmFileWriterArray},
     OmCompressionType, OmFilesError, OmOffsetSize,
 };
 use pyo3::{
@@ -22,10 +22,14 @@ use std::{
     sync::{Mutex, PoisonError},
 };
 
-// ---------------------------------------------------------------------------
-// Canonical element-type enum — normalizes numpy dtype and string dtype into
-// a single representation so that the 10-way type dispatch only exists once.
-// ---------------------------------------------------------------------------
+/// Helper to convert OmOffsetSize to OmVariable
+fn to_variable(name: &str, os: OmOffsetSize) -> OmVariable {
+    OmVariable {
+        name: name.to_string(),
+        offset: os.offset,
+        size: os.size,
+    }
+}
 
 /// All array element types supported by the writer.
 enum OmElementType {
@@ -87,59 +91,42 @@ impl OmElementType {
     }
 }
 
-// ---------------------------------------------------------------------------
-// DataFeeder trait — abstracts how data is fed into a typed OmFileWriterArray.
-// The generic method lets the single dispatcher pick T, then call feed::<T>().
-// Used as a generic bound (F: DataFeeder), never as dyn — fully monomorphized.
-// ---------------------------------------------------------------------------
-
 /// Abstracts over the two write strategies (full array vs streaming iterator).
-trait DataFeeder<'py> {
-    fn feed<T: Element + OmFileArrayDataType>(
-        self,
-        writer: &mut OmFileWriterArray<'_, T, WriterBackendImpl>,
-    ) -> PyResult<()>;
+enum Feeder<'a, 'py> {
+    /// Feeds an entire numpy array in a single `write_data` call.
+    Full {
+        data: &'a Bound<'py, PyUntypedArray>,
+    },
+    /// Feeds data chunk-by-chunk from a Python iterator.
+    Streaming {
+        py: Python<'py>,
+        iter: Bound<'py, PyAny>,
+    },
 }
 
-/// Feeds an entire numpy array in a single `write_data` call.
-struct FullArrayFeeder<'a, 'py> {
-    data: &'a Bound<'py, PyUntypedArray>,
-}
-
-impl<'a, 'py> DataFeeder<'py> for FullArrayFeeder<'a, 'py> {
-    fn feed<T: Element + OmFileArrayDataType>(
-        self,
-        w: &mut OmFileWriterArray<'_, T, WriterBackendImpl>,
-    ) -> PyResult<()> {
-        let array = self.data.cast::<PyArrayDyn<T>>()?.readonly();
-        w.write_data(array.as_array(), None, None)
-            .map_err(convert_omfilesrs_error)
-    }
-}
-
-/// Feeds data chunk-by-chunk from a Python iterator.
-struct StreamingFeeder<'py> {
-    py: Python<'py>,
-    iter: Bound<'py, PyAny>,
-}
-
-impl<'py> DataFeeder<'py> for StreamingFeeder<'py> {
+impl<'a, 'py> Feeder<'a, 'py> {
     fn feed<T: Element + OmFileArrayDataType>(
         self,
         w: &mut OmFileWriterArray<'_, T, WriterBackendImpl>,
     ) -> PyResult<()> {
-        loop {
-            match self.iter.call_method0("__next__") {
-                Ok(item) => {
-                    let array: PyReadonlyArrayDyn<'_, T> = item.extract()?;
-                    w.write_data(array.as_array(), None, None)
-                        .map_err(convert_omfilesrs_error)?;
-                }
-                Err(err) if err.is_instance_of::<PyStopIteration>(self.py) => break,
-                Err(err) => return Err(err),
+        match self {
+            Feeder::Full { data } => {
+                let array = data.cast::<PyArrayDyn<T>>()?.readonly();
+                w.write_data(array.as_array(), None, None)
+                    .map_err(convert_omfilesrs_error)
             }
+            Feeder::Streaming { py, iter } => loop {
+                match iter.call_method0("__next__") {
+                    Ok(item) => {
+                        let array: PyReadonlyArrayDyn<'_, T> = item.extract()?;
+                        w.write_data(array.as_array(), None, None)
+                            .map_err(convert_omfilesrs_error)?;
+                    }
+                    Err(err) if err.is_instance_of::<PyStopIteration>(py) => break Ok(()),
+                    Err(err) => break Err(err),
+                }
+            },
         }
-        Ok(())
     }
 }
 
@@ -211,130 +198,80 @@ impl OmFileWriter {
         PyErr::new::<PyValueError, _>(format!("Unsupported scalar data type: {}", type_name))
     }
 
-    // Helper method for safe writer access.
+    /// Helper method for safe writer access.
     fn with_writer<F, R>(&self, f: F) -> PyResult<R>
     where
         F: FnOnce(&mut OmFileWriterRs<WriterBackendImpl>) -> PyResult<R>,
     {
         let mut guard = self.writer.lock().map_err(|e| Self::lock_error(e))?;
-
         match guard.as_mut() {
             Some(writer) => f(writer),
             None => Err(Self::closed_error()),
         }
     }
 
-    /// Prepare a typed array writer, feed data into it, and finalize.
+    /// Unified 10-way type dispatch.
     ///
-    /// The `feed_data` closure is the only thing that differs between full writes
-    /// (one `write_data` call) and streaming writes (a loop over an iterator).
-    /// Because `F` is `FnOnce`, the compiler monomorphizes each call-site —
-    /// no dynamic dispatch, zero overhead.
-    fn write_array_unified<T, F>(
-        &mut self,
-        dimensions: Vec<u64>,
-        chunks: Vec<u64>,
-        scale_factor: f32,
-        add_offset: f32,
-        compression: OmCompressionType,
-        feed_data: F,
-    ) -> PyResult<OmFileWriterArrayFinalized>
-    where
-        T: Element + OmFileArrayDataType,
-        F: FnOnce(&mut OmFileWriterArray<'_, T, WriterBackendImpl>) -> PyResult<()>,
-    {
-        self.with_writer(|writer| {
-            let mut array_writer = writer
-                .prepare_array::<T>(dimensions, chunks, compression, scale_factor, add_offset)
-                .map_err(convert_omfilesrs_error)?;
-
-            feed_data(&mut array_writer)?;
-
-            Ok(array_writer.finalize())
-        })
-    }
-
-    /// The **single** 10-way type dispatch.
-    ///
-    /// Resolves `element_type` to a concrete `T`, calls `write_array_unified`
-    /// with `feeder.feed::<T>()`, then registers the result as a named variable.
+    /// Resolves `element_type` to a concrete `T`, prepares a typed array writer,
+    /// feeds data, finalizes, and registers the result as a named variable.
     /// Both `write_array` and `write_array_streaming` delegate here.
-    fn write_array_dispatched<'py, F: DataFeeder<'py>>(
-        &mut self,
+    fn write_array_dispatched(
+        &self,
         element_type: OmElementType,
         dimensions: Vec<u64>,
         chunks: Vec<u64>,
         params: &WriteArrayParams<'_>,
-        feeder: F,
-    ) -> PyResult<OmVariable> {
-        // Each match arm is identical except for the type, this macro generates the correct match arms.
-        macro_rules! dispatch {
-            ($($variant:ident => $T:ty),+ $(,)?) => {
-                match element_type {
-                    $(OmElementType::$variant => self.write_array_unified::<$T, _>(
-                        dimensions,
-                        chunks,
-                        params.scale_factor,
-                        params.add_offset,
-                        params.compression,
-                        |w| feeder.feed::<$T>(w),
-                    ),)+
-                }
-            };
-        }
-
-        let array_meta = dispatch! {
-            Float32 => f32,
-            Float64 => f64,
-            Int8    => i8,
-            Uint8   => u8,
-            Int16   => i16,
-            Uint16  => u16,
-            Int32   => i32,
-            Uint32  => u32,
-            Int64   => i64,
-            Uint64  => u64,
-        }?;
-
-        self.finalize_array_variable(array_meta, params.name, &params.children)
-    }
-
-    /// Finalize array metadata and register it in the file structure as a named variable.
-    fn finalize_array_variable(
-        &self,
-        array_meta: OmFileWriterArrayFinalized,
-        name: &str,
-        children: &[OmOffsetSize],
+        feeder: Feeder<'_, '_>,
     ) -> PyResult<OmVariable> {
         self.with_writer(|writer| {
-            let offset_size = writer
-                .write_array(array_meta, name, children)
-                .map_err(convert_omfilesrs_error)?;
+            macro_rules! dispatch {
+                ($($variant:ident => $T:ty),+ $(,)?) => {
+                    match element_type {
+                        $(OmElementType::$variant => {
+                            let mut w = writer
+                                .prepare_array::<$T>(
+                                    dimensions, chunks, params.compression,
+                                    params.scale_factor, params.add_offset,
+                                )
+                                .map_err(convert_omfilesrs_error)?;
+                            feeder.feed::<$T>(&mut w)?;
+                            w.finalize()
+                        }),+
+                    }
+                };
+            }
 
-            Ok(OmVariable {
-                name: name.to_string(),
-                offset: offset_size.offset,
-                size: offset_size.size,
-            })
+            let array_meta = dispatch! {
+                Float32 => f32,
+                Float64 => f64,
+                Int8    => i8,
+                Uint8   => u8,
+                Int16   => i16,
+                Uint16  => u16,
+                Int32   => i32,
+                Uint32  => u32,
+                Int64   => i64,
+                Uint64  => u64,
+            };
+
+            writer
+                .write_array(array_meta, params.name, &params.children)
+                .map_err(convert_omfilesrs_error)
+                .map(|os| to_variable(params.name, os))
         })
     }
 
     fn store_scalar<T: OmFileScalarDataType + 'static>(
-        &mut self,
+        &self,
         value: T,
         name: &str,
         children: &[OmOffsetSize],
     ) -> PyResult<OmVariable> {
         self.with_writer(|writer| {
-            let offset_size = writer
+            writer
                 .write_scalar(value, name, children)
-                .map_err(convert_omfilesrs_error)?;
-
-            Ok(OmVariable {
-                name: name.to_string(),
-                offset: offset_size.offset,
-                size: offset_size.size,
-            })
+                .map_err(convert_omfilesrs_error)
+                .map(|os| to_variable(name, os))
         })
     }
 }
@@ -400,8 +337,9 @@ impl OmFileWriter {
         let mut guard = self.writer.lock().map_err(|e| Self::lock_error(e))?;
 
         if let Some(writer) = guard.as_mut() {
-            let result = writer.write_trailer(root_variable.into());
-            result.map_err(convert_omfilesrs_error)?;
+            writer
+                .write_trailer(root_variable.into())
+                .map_err(convert_omfilesrs_error)?;
             // Take ownership and drop to ensure proper file closure
             guard.take();
         } else {
@@ -415,7 +353,6 @@ impl OmFileWriter {
     #[getter]
     fn closed(&self) -> PyResult<bool> {
         let guard = self.writer.lock().map_err(|e| Self::lock_error(e))?;
-
         Ok(guard.is_none())
     }
 
@@ -461,7 +398,7 @@ impl OmFileWriter {
             WriteArrayParams::from_options(name, children, scale_factor, add_offset, compression)?;
         let element_type = OmElementType::from_numpy_dtype(data.py(), &data.dtype())?;
         let dimensions = data.shape().iter().map(|x| *x as u64).collect();
-        let feeder = FullArrayFeeder { data };
+        let feeder = Feeder::Full { data };
 
         self.write_array_dispatched(element_type, dimensions, chunks, &params, feeder)
     }
@@ -513,7 +450,7 @@ impl OmFileWriter {
             WriteArrayParams::from_options(name, children, scale_factor, add_offset, compression)?;
         let element_type = OmElementType::from_str(dtype)?;
         let iter = chunk_iterator.call_method0("__iter__")?;
-        let feeder = StreamingFeeder { py, iter };
+        let feeder = Feeder::Streaming { py, iter };
 
         self.write_array_dispatched(element_type, dimensions, chunks, &params, feeder)
     }
@@ -622,15 +559,10 @@ impl OmFileWriter {
         let children: Vec<OmOffsetSize> = children.iter().map(Into::into).collect();
 
         self.with_writer(|writer| {
-            let offset_size = writer
+            writer
                 .write_none(name, &children)
-                .map_err(convert_omfilesrs_error)?;
-
-            Ok(OmVariable {
-                name: name.to_string(),
-                offset: offset_size.offset,
-                size: offset_size.size,
-            })
+                .map_err(convert_omfilesrs_error)
+                .map(|os| to_variable(name, os))
         })
     }
 }
