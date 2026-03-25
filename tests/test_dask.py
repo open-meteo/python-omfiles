@@ -155,3 +155,41 @@ def test_dask_chunk_ndim_mismatch_raises(empty_temp_om_file, bad_chunks):
     writer = OmFileWriter(empty_temp_om_file)
     with pytest.raises(ValueError, match=r"chunks has \d+ element"):
         write_dask_array(writer, darr, chunks=bad_chunks)
+
+
+def test_dask_irregular_chunks_misaligned_raises(empty_temp_om_file):
+    """
+    Non-first dask block spans multiple OM chunks while trailing dim is not
+    fully covered.
+
+    Array (12, 16), dask chunks ((4, 8), (8, 8)), OM chunks [4, 8]:
+      block (1,0) shape (8, 8) → 2 OM rows but only 1 of 2 OM columns.
+    """
+    np_data = np.arange(192, dtype=np.float32).reshape(12, 16)
+    darr = da.from_array(np_data, chunks=((4, 8), (8, 8)))  # type: ignore[arg-type]
+
+    writer = OmFileWriter(empty_temp_om_file)
+    with pytest.raises(ValueError, match="not fully covered"):
+        write_dask_array(writer, darr, chunks=[4, 8])
+
+
+def test_dask_irregular_chunks_valid_roundtrip(empty_temp_om_file):
+    """
+    Non-first dask block spans multiple OM chunks but trailing dim IS fully
+    covered — this configuration is valid and must produce correct output.
+
+    Array (12, 16), dask chunks ((4, 8), (16,)), OM chunks [4, 8]:
+      block (1,0) shape (8, 16) → 2 OM rows and all OM columns — safe.
+    """
+    np_data = np.arange(192, dtype=np.float32).reshape(12, 16)
+    darr = da.from_array(np_data, chunks=((4, 8), (16,)))  # type: ignore[arg-type]
+
+    writer = OmFileWriter(empty_temp_om_file)
+    var = write_dask_array(writer, darr, chunks=[4, 8], scale_factor=10000.0)
+    writer.close(var)
+
+    reader = OmFileReader(empty_temp_om_file)
+    result = reader[:]
+    reader.close()
+
+    np.testing.assert_array_almost_equal(result, np_data, decimal=4)

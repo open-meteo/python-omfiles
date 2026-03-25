@@ -41,20 +41,19 @@ def _validate_chunk_alignment(
 
     first_multi = None
     for d in range(ndim):
-        local_n = math.ceil(data_chunks[d][0] / om_chunks[d])
+        local_n = max(math.ceil(c / om_chunks[d]) for c in data_chunks[d])
         if local_n > 1:
             first_multi = d
             break
 
     if first_multi is not None:
         for d in range(first_multi + 1, ndim):
-            local_n = math.ceil(data_chunks[d][0] / om_chunks[d])
-            global_n = math.ceil(array_shape[d] / om_chunks[d])
-            if local_n != global_n:
+            dim_chunks = data_chunks[d]
+            if not (len(dim_chunks) == 1 and dim_chunks[0] == array_shape[d]):
                 raise ValueError(
                     f"Dask blocks have multiple OM chunks in dimension {first_multi}, "
                     f"but dimension {d} is not fully covered by each dask block "
-                    f"(dask chunk {data_chunks[d][0]} vs array size {array_shape[d]}). "
+                    f"(dask chunks {dim_chunks} vs array size {array_shape[d]}). "
                     f"Rechunk so trailing dimensions are fully covered."
                 )
 
