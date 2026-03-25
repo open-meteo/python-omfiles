@@ -1,9 +1,7 @@
 """Dask array integration for writing to OM files."""
 
-import itertools
 import math
-from collections.abc import Generator
-from typing import Optional, Sequence
+from typing import Iterator, Optional, Sequence
 
 import numpy as np
 
@@ -61,17 +59,15 @@ def _validate_chunk_alignment(
                 )
 
 
-def _dask_block_iterator(dask_array: da.Array) -> Generator[np.ndarray, None, None]:
+def _dask_block_iterator(dask_array: da.Array) -> Iterator[np.ndarray]:
     """
     Yield computed numpy arrays from a dask array in C-order block traversal.
 
     The OM file format requires chunks to be written in sequential order
     corresponding to a row-major (C-order) traversal of the chunk grid.
-    ``itertools.product`` naturally produces this ordering since the last
-    index varies fastest.
+    ndindex does this: the last dimension is iterated over first.
     """
-    block_index_ranges = [range(n) for n in dask_array.numblocks]
-    for block_indices in itertools.product(*block_index_ranges):
+    for block_indices in np.ndindex(*dask_array.numblocks):
         yield dask_array.blocks[block_indices].compute()
 
 
@@ -125,14 +121,12 @@ def write_dask_array(
     if not isinstance(data, da.Array):
         raise TypeError(f"Expected a dask array, got {type(data)}")
 
-    if chunks is None:
-        chunks = [c[0] for c in data.chunks]
-
-    _validate_chunk_alignment(data.chunks, list(chunks), data.shape)
+    om_chunks = list(chunks) if chunks is not None else [int(c[0]) for c in data.chunks]
+    _validate_chunk_alignment(data.chunks, om_chunks, data.shape)
 
     return writer.write_array_streaming(
         dimensions=[int(d) for d in data.shape],
-        chunks=[int(c) for c in chunks],
+        chunks=om_chunks,
         chunk_iterator=_dask_block_iterator(data),
         dtype=data.dtype,
         scale_factor=scale_factor,
