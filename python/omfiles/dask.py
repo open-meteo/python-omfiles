@@ -1,10 +1,11 @@
 """Dask array integration for writing to OM files."""
 
-from __future__ import annotations
-
 import itertools
 import math
+from collections.abc import Generator
 from typing import Optional, Sequence
+
+import numpy as np
 
 from omfiles._rust import OmFileWriter, OmVariable
 
@@ -60,7 +61,7 @@ def _validate_chunk_alignment(
                 )
 
 
-def _dask_block_iterator(dask_array: da.Array):
+def _dask_block_iterator(dask_array: da.Array) -> Generator[np.ndarray, None, None]:
     """
     Yield computed numpy arrays from a dask array in C-order block traversal.
 
@@ -120,7 +121,6 @@ def write_dask_array(
     Raises:
         TypeError: If data is not a dask array.
         ValueError: If dask chunks are incompatible with OM chunks.
-        ImportError: If dask is not installed.
     """
     if not isinstance(data, da.Array):
         raise TypeError(f"Expected a dask array, got {type(data)}")
@@ -139,5 +139,5 @@ def write_dask_array(
         add_offset=add_offset,
         compression=compression,
         name=name,
-        children=list(children) if children else [],
+        children=list(children) if children is not None else [],
     )
