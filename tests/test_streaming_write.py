@@ -1,5 +1,3 @@
-import tempfile
-
 import numpy as np
 import pytest
 from omfiles import OmFileReader, OmFileWriter
@@ -175,7 +173,7 @@ def test_streaming_boundary_chunks(empty_temp_om_file):
     np.testing.assert_array_almost_equal(result, data, decimal=4)
 
 
-def test_streaming_matches_write_array(empty_temp_om_file):
+def test_streaming_matches_write_array(empty_temp_om_file, empty_temp_om_file_2):
     shape = (10, 20)
     chunks = [5, 10]
     data = np.arange(np.prod(shape), dtype=np.float32).reshape(shape)
@@ -187,27 +185,26 @@ def test_streaming_matches_write_array(empty_temp_om_file):
     result1 = reader1[:]
     reader1.close()
 
-    with tempfile.NamedTemporaryFile(suffix=".om") as f2:
-        writer2 = OmFileWriter(f2.name)
+    writer2 = OmFileWriter(empty_temp_om_file_2)
 
-        def chunk_iter():
-            for i in range(0, shape[0], chunks[0]):
-                for j in range(0, shape[1], chunks[1]):
-                    ie = min(i + chunks[0], shape[0])
-                    je = min(j + chunks[1], shape[1])
-                    yield data[i:ie, j:je].copy()
+    def chunk_iter():
+        for i in range(0, shape[0], chunks[0]):
+            for j in range(0, shape[1], chunks[1]):
+                ie = min(i + chunks[0], shape[0])
+                je = min(j + chunks[1], shape[1])
+                yield data[i:ie, j:je].copy()
 
-        var2 = writer2.write_array_streaming(
-            dimensions=list(shape),
-            chunks=chunks,
-            chunk_iterator=chunk_iter(),
-            dtype=np.dtype(np.float32),
-            scale_factor=10000.0,
-        )
-        writer2.close(var2)
-        reader2 = OmFileReader(f2.name)
-        result2 = reader2[:]
-        reader2.close()
+    var2 = writer2.write_array_streaming(
+        dimensions=list(shape),
+        chunks=chunks,
+        chunk_iterator=chunk_iter(),
+        dtype=np.dtype(np.float32),
+        scale_factor=10000.0,
+    )
+    writer2.close(var2)
+    reader2 = OmFileReader(empty_temp_om_file_2)
+    result2 = reader2[:]
+    reader2.close()
 
     np.testing.assert_array_equal(result1, result2)
 
