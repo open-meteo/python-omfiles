@@ -577,7 +577,7 @@ class OmFileWriter:
         self,
         dimensions: typing.Sequence[builtins.int],
         chunks: typing.Sequence[builtins.int],
-        chunk_iterator: typing.Any,
+        chunk_iterator: typing.Iterator,
         dtype: numpy.dtype,
         scale_factor: typing.Optional[builtins.float] = None,
         add_offset: typing.Optional[builtins.float] = None,

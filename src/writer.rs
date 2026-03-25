@@ -15,6 +15,7 @@ use omfiles_rs::{
 use pyo3::{
     exceptions::{PyRuntimeError, PyStopIteration, PyValueError},
     prelude::*,
+    types::PyIterator,
 };
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
 use std::{
@@ -422,7 +423,8 @@ impl OmFileWriter {
         py: Python<'_>,
         dimensions: Vec<u64>,
         chunks: Vec<u64>,
-        chunk_iterator: &Bound<'_, PyAny>,
+        #[gen_stub(override_type(type_repr="typing.Iterator", imports=("typing")))]
+        chunk_iterator: &Bound<'_, PyIterator>,
         dtype: &Bound<'py, PyArrayDescr>,
         scale_factor: Option<f32>,
         add_offset: Option<f32>,
