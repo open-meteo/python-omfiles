@@ -1,5 +1,3 @@
-import tracemalloc
-
 import dask.array as da
 import numpy as np
 import pytest
@@ -128,7 +126,6 @@ def test_dask_single_om_chunk_per_slow_dim(empty_temp_om_file):
 
 
 def test_dask_misaligned_trailing_dims_raises(empty_temp_om_file):
-    """Dask blocks with multi-chunk dim 0 but partial trailing dim raises."""
     np_data = np.arange(200, dtype=np.float32).reshape(10, 20)
     darr = da.from_array(np_data, chunks=(10, 10))  # type: ignore[arg-type]
 
@@ -142,3 +139,19 @@ def test_dask_not_a_dask_array_raises(empty_temp_om_file):
     writer = OmFileWriter(empty_temp_om_file)
     with pytest.raises(TypeError, match="Expected a dask array"):
         write_dask_array(writer, np_data)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    "bad_chunks",
+    [
+        pytest.param([5], id="too_few"),
+        pytest.param([5, 10, 4], id="too_many"),
+    ],
+)
+def test_dask_chunk_ndim_mismatch_raises(empty_temp_om_file, bad_chunks):
+    np_data = np.arange(200, dtype=np.float32).reshape(10, 20)
+    darr = da.from_array(np_data, chunks=(5, 10))  # type: ignore[arg-type]
+
+    writer = OmFileWriter(empty_temp_om_file)
+    with pytest.raises(ValueError, match=r"chunks has \d+ element"):
+        write_dask_array(writer, darr, chunks=bad_chunks)
