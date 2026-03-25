@@ -2,7 +2,6 @@ import datetime
 import os
 import tempfile
 import threading
-from typing import Tuple
 
 import fsspec
 import numpy as np

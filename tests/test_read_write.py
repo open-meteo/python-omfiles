@@ -28,19 +28,19 @@ def test_round_trip_array_datatypes():
     shape = (5, 5, 5, 2)
     chunks = [2, 2, 2, 1]
     test_cases = [
-        (np.random.rand(*shape).astype(np.float32), "float32"),
-        (np.random.rand(*shape).astype(np.float64), "float64"),
-        (np.random.randint(-128, 127, size=shape, dtype=np.int8), "int8"),
-        (np.random.randint(-32768, 32767, size=shape, dtype=np.int16), "int16"),
-        (np.random.randint(-2147483648, 2147483647, size=shape, dtype=np.int32), "int32"),
-        (np.random.randint(-9223372036854775808, 9223372036854775807, size=shape, dtype=np.int64), "int64"),
-        (np.random.randint(0, 255, size=shape, dtype=np.uint8), "uint8"),
-        (np.random.randint(0, 65535, size=shape, dtype=np.uint16), "uint16"),
-        (np.random.randint(0, 4294967295, size=shape, dtype=np.uint32), "uint32"),
-        (np.random.randint(0, 18446744073709551615, size=shape, dtype=np.uint64), "uint64"),
+        np.random.rand(*shape).astype(np.float32),
+        np.random.rand(*shape).astype(np.float64),
+        np.random.randint(-128, 127, size=shape, dtype=np.int8),
+        np.random.randint(-32768, 32767, size=shape, dtype=np.int16),
+        np.random.randint(-2147483648, 2147483647, size=shape, dtype=np.int32),
+        np.random.randint(-9223372036854775808, 9223372036854775807, size=shape, dtype=np.int64),
+        np.random.randint(0, 255, size=shape, dtype=np.uint8),
+        np.random.randint(0, 65535, size=shape, dtype=np.uint16),
+        np.random.randint(0, 4294967295, size=shape, dtype=np.uint32),
+        np.random.randint(0, 18446744073709551615, size=shape, dtype=np.uint64),
     ]
 
-    for test_data, dtype in test_cases:
+    for test_data in test_cases:
         with tempfile.NamedTemporaryFile(suffix=".om") as temp_file:
             writer = omfiles.OmFileWriter(temp_file.name)
             variable = writer.write_array(test_data, chunks=chunks, scale_factor=10000.0, add_offset=0.0)
