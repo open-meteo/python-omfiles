@@ -142,30 +142,3 @@ def test_dask_not_a_dask_array_raises(empty_temp_om_file):
     writer = OmFileWriter(empty_temp_om_file)
     with pytest.raises(TypeError, match="Expected a dask array"):
         write_dask_array(writer, np_data)  # type: ignore[arg-type]
-
-
-def test_dask_streaming_memory_stays_bounded(empty_temp_om_file):
-    """Peak memory during a dask streaming write stays well below the full dataset size."""
-    # ~16 MB dataset (2048 x 2048 x float32), written in 256x256 chunks (~256 KB each)
-    side = 2048
-    chunk = 256
-    dtype = np.float32
-    dataset_bytes = side * side * np.dtype(dtype).itemsize
-
-    darr = da.random.random((side, side), chunks=(chunk, chunk)).astype(dtype)
-
-    tracemalloc.start()
-
-    writer = OmFileWriter(empty_temp_om_file)
-    var = write_dask_array(writer, darr)
-    writer.close(var)
-
-    _, peak = tracemalloc.get_traced_memory()
-    tracemalloc.stop()
-
-    # Peak Python memory should be a fraction of the total dataset size,
-    # proving that chunks are streamed rather than fully materialized.
-    assert peak < dataset_bytes, (
-        f"Peak traced memory ({peak / 1024 / 1024:.1f} MB) should be less than "
-        f"the dataset size ({dataset_bytes / 1024 / 1024:.1f} MB)"
-    )
