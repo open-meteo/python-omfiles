@@ -400,7 +400,7 @@ impl OmFileWriter {
     ///     dimensions: Shape of the full array (e.g., [1000, 2000])
     ///     chunks: Chunk sizes for each dimension (e.g., [100, 200])
     ///     chunk_iterator: Python iterable yielding numpy arrays, one per chunk region
-    ///     dtype: Numpy dtype of the array.
+    ///     dtype: Numpy dtype of the array (e.g., np.dtype(np.float32))
     ///     scale_factor: Scale factor for data compression (default: 1.0)
     ///     add_offset: Offset value for data compression (default: 0.0)
     ///     compression: Compression algorithm to use (default: "pfor_delta_2d")
