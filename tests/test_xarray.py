@@ -330,3 +330,132 @@ def test_write_dataset_non_dimension_coordinate(empty_temp_om_file):
     assert "valid_time" in loaded.coords
     assert "valid_time" not in loaded.data_vars
     np.testing.assert_array_equal(loaded["valid_time"].values, valid_time_data)
+
+
+@filter_numpy_size_warning
+def test_write_dataset_dask_roundtrip(empty_temp_om_file):
+    da = pytest.importorskip("dask.array")
+
+    np_data = np.random.rand(10, 20).astype(np.float32)
+    dask_data = da.from_array(np_data, chunks=(5, 10))
+
+    ds = xr.Dataset(
+        {"temperature": (["lat", "lon"], dask_data)},
+        coords={
+            "lat": np.arange(10, dtype=np.float32),
+            "lon": np.arange(20, dtype=np.float32),
+        },
+    )
+
+    write_dataset(ds, empty_temp_om_file, scale_factor=100000.0)
+    ds2 = xr.open_dataset(empty_temp_om_file, engine="om")
+
+    np.testing.assert_array_almost_equal(ds2["temperature"].values, np_data, decimal=4)
+    np.testing.assert_array_equal(ds2.coords["lat"].values, ds.coords["lat"].values)
+    np.testing.assert_array_equal(ds2.coords["lon"].values, ds.coords["lon"].values)
+
+
+@filter_numpy_size_warning
+def test_write_dataset_dask_mixed_variables(empty_temp_om_file):
+    da = pytest.importorskip("dask.array")
+
+    np_temp = np.random.rand(10, 20).astype(np.float32)
+    dask_temp = da.from_array(np_temp, chunks=(5, 10))
+    np_precip = np.random.rand(10, 20).astype(np.float32)
+
+    ds = xr.Dataset(
+        {
+            "temperature": (["lat", "lon"], dask_temp),
+            "precipitation": (["lat", "lon"], np_precip),
+        },
+        coords={
+            "lat": np.arange(10, dtype=np.float32),
+            "lon": np.arange(20, dtype=np.float32),
+        },
+    )
+
+    write_dataset(ds, empty_temp_om_file, scale_factor=100000.0)
+    ds2 = xr.open_dataset(empty_temp_om_file, engine="om")
+
+    np.testing.assert_array_almost_equal(ds2["temperature"].values, np_temp, decimal=4)
+    np.testing.assert_array_almost_equal(ds2["precipitation"].values, np_precip, decimal=4)
+
+
+@filter_numpy_size_warning
+def test_write_dataset_dask_boundary_chunks(empty_temp_om_file):
+    da = pytest.importorskip("dask.array")
+
+    np_data = np.arange(91, dtype=np.float32).reshape(7, 13)
+    dask_data = da.from_array(np_data, chunks=(4, 5))
+
+    ds = xr.Dataset({"data": (["x", "y"], dask_data)})
+
+    write_dataset(ds, empty_temp_om_file, scale_factor=100000.0)
+    ds2 = xr.open_dataset(empty_temp_om_file, engine="om")
+
+    np.testing.assert_array_almost_equal(ds2["data"].values, np_data, decimal=4)
+
+
+@filter_numpy_size_warning
+def test_write_dataset_dask_with_attributes(empty_temp_om_file):
+    da = pytest.importorskip("dask.array")
+
+    np_data = np.random.rand(5, 5).astype(np.float32)
+    dask_data = da.from_array(np_data, chunks=(5, 5))
+
+    ds = xr.Dataset(
+        {"temp": (["x", "y"], dask_data, {"units": "K", "long_name": "temperature"})},
+        attrs={"source": "test"},
+    )
+
+    write_dataset(ds, empty_temp_om_file, scale_factor=100000.0)
+    ds2 = xr.open_dataset(empty_temp_om_file, engine="om")
+
+    np.testing.assert_array_almost_equal(ds2["temp"].values, np_data, decimal=4)
+    assert ds2["temp"].attrs["units"] == "K"
+    assert ds2["temp"].attrs["long_name"] == "temperature"
+    assert ds2.attrs["source"] == "test"
+
+
+@filter_numpy_size_warning
+@pytest.mark.parametrize("dtype", [np.int32, np.int64, np.uint32])
+def test_write_dataset_dask_integer_dtypes(dtype, empty_temp_om_file):
+    da = pytest.importorskip("dask.array")
+
+    np_data = np.arange(25, dtype=dtype).reshape(5, 5)
+    dask_data = da.from_array(np_data, chunks=(5, 5))
+
+    ds = xr.Dataset({"values": (["x", "y"], dask_data)})
+
+    write_dataset(ds, empty_temp_om_file)
+    ds2 = xr.open_dataset(empty_temp_om_file, engine="om")
+
+    np.testing.assert_array_equal(ds2["values"].values, np_data)
+    assert ds2["values"].dtype == dtype
+
+
+@filter_numpy_size_warning
+def test_write_dataset_dask_larger_chunks_than_om(empty_temp_om_file):
+    """Dask blocks larger than OM chunks with explicit smaller OM chunk sizes."""
+    da = pytest.importorskip("dask.array")
+
+    np_data = np.random.rand(10, 20).astype(np.float32)
+    dask_data = da.from_array(np_data, chunks=(10, 20))
+
+    ds = xr.Dataset(
+        {"temperature": (["lat", "lon"], dask_data)},
+        coords={
+            "lat": np.arange(10, dtype=np.float32),
+            "lon": np.arange(20, dtype=np.float32),
+        },
+    )
+
+    write_dataset(
+        ds,
+        empty_temp_om_file,
+        chunks={"lat": 5, "lon": 10},
+        scale_factor=100000.0,
+    )
+    ds2 = xr.open_dataset(empty_temp_om_file, engine="om")
+
+    np.testing.assert_array_almost_equal(ds2["temperature"].values, np_data, decimal=4)
