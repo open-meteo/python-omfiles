@@ -1,0 +1,15 @@
+name: Cache Rust build
+description: Caches Rust build artifacts and dependencies
+runs:
+  using: "composite"
+  steps:
+    - name: Cache Rust build
+      uses: actions/cache@v4
+      with:
+        path: |
+          target
+          ~/.cargo/registry
+          ~/.cargo/git
+        key: ${{ runner.os }}-test-${{ runner.arch }}-${{ hashFiles('**/Cargo.lock', '**/Cargo.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-test-${{ runner.arch }}-

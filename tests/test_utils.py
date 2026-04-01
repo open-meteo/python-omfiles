@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 import functools
 import gc
 import os
@@ -21,6 +22,29 @@ def create_test_om_file(
     writer.close(variable)
 
     return filename, test_data
+
+
+def find_chunk_for_timestamp(
+    target_time: datetime.datetime, domain_file_length: int, domain_temporal_resolution_seconds: int
+) -> int:
+    """
+    Find the chunk number that contains a specific timestamp.
+    """
+
+    # Calculate seconds since epoch for the target time
+    epoch = datetime.datetime(1970, 1, 1, tzinfo=datetime.timezone.utc)
+    target_seconds = int((target_time - epoch).total_seconds())
+    chunk = target_seconds // (domain_file_length * domain_temporal_resolution_seconds)
+
+    # # Calculate the timerange for the chunk as np.ndarray of datetime.datetime
+    # chunk_start = np.datetime64(
+    #     epoch + datetime.timedelta(0, chunk * domain_file_length * domain_temporal_resolution_seconds)
+    # )
+    # chunk_end = np.datetime64(
+    #     epoch + datetime.timedelta(0, (chunk + 1) * domain_file_length * domain_temporal_resolution_seconds)
+    # )
+
+    return chunk
 
 
 def filter_numpy_size_warning(func):

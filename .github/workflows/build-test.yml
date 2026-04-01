@@ -6,7 +6,6 @@ on:
       - main
     tags:
       - "*"
-  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -14,14 +13,7 @@ permissions:
 
 jobs:
   lint:
-    name: Lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/ruff-action@v3
-      - run: |
-          ruff check
-          ruff format --check
+    uses: ./.github/workflows/lint.yml
 
   rust_tests:
     name: Rust tests - ${{ matrix.platform.name }}
@@ -30,58 +22,24 @@ jobs:
     strategy:
       matrix:
         platform:
-          - name: linux-x86_64
-            runner: ubuntu-latest
-          - name: windows-x64
+          - name: Linux x86_64
+            runner: ubuntu-24.04
+          - name: Linux ARM64
+            runner: ubuntu-24.04-arm
+          - name: Windows x64
             runner: windows-latest
-          - name: macos-x86_64
-            runner: macos-13
-          - name: macos-arm64
-            runner: macos-14
+          - name: Windows ARM64
+            runner: windows-11-arm
+          - name: macOS x86_64
+            runner: macos-15-intel
+          - name: macOS ARM64
+            runner: macos-15
     steps:
-      - uses: actions/checkout@v4
-      - name: Cache Rust build
-        uses: actions/cache@v4
-        with:
-          path: |
-            target
-            ~/.cargo/registry
-            ~/.cargo/git
-          key: ${{ runner.os }}-test-${{ runner.arch }}-${{ hashFiles('**/Cargo.lock', '**/Cargo.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-test-${{ runner.arch }}-
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v6
-        with:
-          version: "0.8.19"
-          enable-cache: true
-          cache-dependency-glob: "**/uv.lock"
-          python-version: ${{ inputs.python-version }}
-
-      - name: Install required python dependencies
-        run: uv sync --no-install-project
-        shell: bash
-
-      - name: Run cargo tests
-        run: |
-          # pyo3 and uv do not work well together...
-          PY_LIBDIR=$(uv run --no-sync python -c "import sysconfig; print(sysconfig.get_config_var('LIBDIR'))")
-          echo "Python libdir: $PY_LIBDIR"
-          # setting LD_LIBRARY_PATH for Linux: https://github.com/astral-sh/uv/issues/11006#issuecomment-2672486381
-          export LD_LIBRARY_PATH="$PY_LIBDIR${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" # LINUX
-          if [[ "$RUNNER_OS" == "Windows" ]]; then
-            uv run --no-sync python -c "import sys; print(sys.path)"
-            uv run --no-sync where python
-            export PYTHONPATH="$(echo .venv/Lib/site-packages)"
-          else
-            # setting PYTHONHOME and PYTHONPATH seem to be the best solution for macOS at the moment
-            # https://github.com/PyO3/pyo3/issues/1741#issuecomment-955805634
-            export PYTHONHOME="$(uv run --no-sync python -c 'import sys; print(sys.base_prefix)')" # MACOS
-            export PYTHONPATH="$(echo .venv/lib/python*/site-packages)" # MACOS
-          fi
-          uv run --no-sync cargo test --no-default-features
-        shell: bash
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/cache-rust-build
+      - uses: ./.github/actions/install-uv
+      - uses: ./.github/actions/install-python-deps
+      - uses: ./.github/actions/run-cargo-tests
 
   build:
     needs: rust_tests
@@ -92,14 +50,14 @@ jobs:
       matrix:
         platform:
           - name: linux-x86_64
-            runner: ubuntu-latest
-            target: x86_64
+            runner: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
             before-script: python3 -m ensurepip && cat /etc/os-release && yum install clang -y
             manylinux: "2_28"
             is-musl: false
 
           - name: linux-aarch64
-            runner: ubuntu-latest
+            runner: ubuntu-24.04
             target: aarch64-unknown-linux-gnu
             skip_tests: true
             before-script: |
@@ -109,7 +67,7 @@ jobs:
             is-musl: false
 
           - name: linux-musl-x86_64
-            runner: ubuntu-22.04
+            runner: ubuntu-24.04
             target: x86_64-unknown-linux-musl
             container: docker://messense/rust-musl-cross:x86_64-musl
             before-script: cat /etc/os-release && apt install clang -y
@@ -118,55 +76,50 @@ jobs:
 
           - name: windows-x64
             runner: windows-latest
-            target: x64
+            target: x86_64-pc-windows-msvc
+            is-musl: false
+
+          - name: windows-arm64
+            runner: windows-11-arm
+            target: aarch64-pc-windows-msvc
             is-musl: false
 
           - name: macos-x86_64
-            runner: macos-13
-            target: x86_64
+            runner: macos-15-intel
+            target: x86_64-apple-darwin
             is-musl: false
 
           - name: macos-arm64
-            runner: macos-14
-            target: aarch64
+            runner: macos-15
+            target: aarch64-apple-darwin
             is-musl: false
     steps:
-      - uses: actions/checkout@v4
-      - name: Cache Rust build
-        uses: actions/cache@v4
-        with:
-          path: |
-            target
-            ~/.cargo/registry
-            ~/.cargo/git
-          key: ${{ runner.os }}-build-${{ matrix.platform.name }}-${{ hashFiles('**/Cargo.lock', '**/Cargo.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-build-${{ matrix.platform.name }}-
-      - name: Build wheels
-        uses: PyO3/maturin-action@v1
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/cache-rust-build
+      - uses: ./.github/actions/build-wheel
         with:
           target: ${{ matrix.platform.target }}
-          args: --release --out dist --find-interpreter
+          args: --release --out dist
           manylinux: ${{ matrix.platform.manylinux }}
-          container: ${{ matrix.platform.is-musl == true && 'off' || '' }}
+          # set maturin's container to "off" when using the job-level container (musl)
+          maturin-container: ${{ matrix.platform.is-musl && 'off' || '' }}
           before-script-linux: ${{ matrix.platform.before-script }}
-      - name: Upload wheels
-        uses: actions/upload-artifact@v4
+      - uses: ./.github/actions/upload-wheels
         with:
           name: wheels-${{ matrix.platform.name }}
           path: dist
 
   sdist:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Build sdist
-        uses: PyO3/maturin-action@v1
+        uses: ./.github/actions/build-wheel
         with:
           command: sdist
           args: --out dist
       - name: Upload sdist
-        uses: actions/upload-artifact@v4
+        uses: ./.github/actions/upload-wheels
         with:
           name: wheels-sdist
           path: dist
@@ -181,91 +134,111 @@ jobs:
         config:
           # Platform tests with Python 3.12
           - name: Linux x86_64
-            runner: ubuntu-latest
+            runner: ubuntu-24.04
             platform-name: linux-x86_64
-            is-musl: false
             python-version: "3.12"
-            test-type: standard
+            is-min-deps: false
 
-          - name: Linux musl
-            runner: ubuntu-22.04
-            platform-name: linux-musl-x86_64
-            is-musl: true
+          - name: Linux ARM64
+            runner: ubuntu-24.04-arm
+            platform-name: linux-aarch64
             python-version: "3.12"
-            test-type: standard
+            is-min-deps: false
 
           - name: Windows
             runner: windows-latest
             platform-name: windows-x64
-            is-musl: false
             python-version: "3.12"
-            test-type: standard
+            is-min-deps: false
+
+          - name: Windows ARM64
+            runner: windows-11-arm
+            platform-name: windows-arm64
+            python-version: "3.12"
+            is-min-deps: false
 
           - name: macOS x86_64
-            runner: macos-13
+            runner: macos-15-intel
             platform-name: macos-x86_64
-            is-musl: false
             python-version: "3.12"
-            test-type: standard
+            is-min-deps: false
 
           - name: macOS ARM64
-            runner: macos-14
+            runner: macos-15
             platform-name: macos-arm64
-            is-musl: false
             python-version: "3.12"
-            test-type: standard
+            is-min-deps: false
 
           # Additional Python versions for Linux x86_64
-          - name: Python 3.9
-            runner: ubuntu-latest
-            platform-name: linux-x86_64
-            is-musl: false
-            python-version: "3.9"
-            test-type: standard
-
           - name: Python 3.10
-            runner: ubuntu-latest
+            runner: ubuntu-24.04
             platform-name: linux-x86_64
-            is-musl: false
             python-version: "3.10"
-            test-type: standard
+            is-min-deps: false
 
           - name: Python 3.11
-            runner: ubuntu-latest
+            runner: ubuntu-24.04
             platform-name: linux-x86_64
-            is-musl: false
             python-version: "3.11"
-            test-type: standard
+            is-min-deps: false
 
           - name: Python 3.13
-            runner: ubuntu-latest
+            runner: ubuntu-24.04
             platform-name: linux-x86_64
-            is-musl: false
             python-version: "3.13"
-            test-type: standard
+            is-min-deps: false
 
-          - name: Python 3.14 Pre Release
-            runner: ubuntu-latest
+          - name: Python 3.14
+            runner: ubuntu-24.04
             platform-name: linux-x86_64
-            is-musl: false
             python-version: "3.14"
-            test-type: standard
+            is-min-deps: false
+
+          # - name: Python 3.15
+          #   runner: ubuntu-24.04
+          #   platform-name: linux-x86_64
+          #   python-version: "3.15"
+          #   is-min-deps: false
 
           # Minimum dependencies test
           - name: Min Dependencies
-            runner: ubuntu-latest
+            runner: ubuntu-24.04
             platform-name: linux-x86_64
-            is-musl: false
-            python-version: "3.9"
-            test-type: min_deps
+            python-version: "3.10"
+            is-min-deps: true
     steps:
-      # Use the test composite action
-      - uses: actions/checkout@v4
-
-      - name: Run tests
-        uses: ./.github/actions/test
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/install-uv
         with:
           python-version: ${{ matrix.config.python-version }}
-          is-musl: ${{ matrix.config.is-musl }}
-          test-type: ${{ matrix.config.test-type }}
-          platform-name: ${{ matrix.config.platform-name }}
+      - uses: ./.github/actions/download-wheels
+        with:
+          name: wheels-${{ matrix.config.platform-name }}
+          path: dist
+      - uses: ./.github/actions/run-python-tests
+        with:
+          min-deps: ${{ matrix.config.is-min-deps }}
+
+  test-musl:
+    needs: build
+    name: Test - Linux Musl
+    runs-on: ubuntu-24.04
+    container: ghcr.io/astral-sh/uv:0.9.11-alpine
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install dependencies
+        shell: sh
+        run: |
+          apk add tar python3 py3-pip py3-psutil gcc python3-dev musl-dev linux-headers
+
+      - uses: ./.github/actions/install-uv
+        with:
+          python-version: "3.12"
+      - uses: ./.github/actions/download-wheels
+        with:
+          name: wheels-linux-musl-x86_64
+          path: dist
+
+      - name: Run musl tests
+        uses: ./.github/actions/run-python-tests

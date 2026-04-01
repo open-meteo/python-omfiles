@@ -30,7 +30,7 @@ fn get_dtype_size(dtype_str: &str) -> PyResult<usize> {
 ///
 /// Supports numpy arrays of dtype: int8, int16, int32, int64, uint8, uint16, uint32, uint64.
 #[gen_stub_pyclass]
-#[pyclass(module = "omfiles.omfiles")]
+#[pyclass(skip_from_py_object)]
 #[derive(Debug, Clone)]
 pub struct RustPforCodec {}
 
@@ -66,7 +66,7 @@ impl RustPforCodec {
 
         // Get contiguous data from numpy array
         let bytes_written = if dtype.is_equiv_to(&numpy::dtype::<i8>(py)) {
-            let array = array.downcast::<PyArrayDyn<i8>>()?;
+            let array = array.cast::<PyArrayDyn<i8>>()?;
             let encoded_size = unsafe {
                 om_file_format_sys::p4nzenc8(
                     array.as_slice_mut()?.as_mut_ptr() as *mut u8,
@@ -76,7 +76,7 @@ impl RustPforCodec {
             };
             encoded_size
         } else if dtype.is_equiv_to(&numpy::dtype::<i16>(py)) {
-            let array = array.downcast::<PyArrayDyn<i16>>()?;
+            let array = array.cast::<PyArrayDyn<i16>>()?;
             let encoded_size = unsafe {
                 om_file_format_sys::p4nzenc128v16(
                     array.as_slice_mut()?.as_mut_ptr() as *mut u16,
@@ -86,7 +86,7 @@ impl RustPforCodec {
             };
             encoded_size
         } else if dtype.is_equiv_to(&numpy::dtype::<i32>(py)) {
-            let array = array.downcast::<PyArrayDyn<i32>>()?;
+            let array = array.cast::<PyArrayDyn<i32>>()?;
             let encoded_size = unsafe {
                 om_file_format_sys::p4nzenc128v32(
                     array.as_slice_mut()?.as_mut_ptr() as *mut u32,
@@ -96,7 +96,7 @@ impl RustPforCodec {
             };
             encoded_size
         } else if dtype.is_equiv_to(&numpy::dtype::<i64>(py)) {
-            let array = array.downcast::<PyArrayDyn<i64>>()?;
+            let array = array.cast::<PyArrayDyn<i64>>()?;
             let encoded_size = unsafe {
                 om_file_format_sys::p4nzenc64(
                     array.as_slice_mut()?.as_mut_ptr() as *mut u64,
@@ -106,7 +106,7 @@ impl RustPforCodec {
             };
             encoded_size
         } else if dtype.is_equiv_to(&numpy::dtype::<u8>(py)) {
-            let array = array.downcast::<PyArrayDyn<u8>>()?;
+            let array = array.cast::<PyArrayDyn<u8>>()?;
             let encoded_size = unsafe {
                 om_file_format_sys::p4ndenc8(
                     array.as_slice_mut()?.as_mut_ptr(),
@@ -116,7 +116,7 @@ impl RustPforCodec {
             };
             encoded_size
         } else if dtype.is_equiv_to(&numpy::dtype::<u16>(py)) {
-            let array = array.downcast::<PyArrayDyn<u16>>()?;
+            let array = array.cast::<PyArrayDyn<u16>>()?;
             let encoded_size = unsafe {
                 om_file_format_sys::p4ndenc128v16(
                     array.as_slice_mut()?.as_mut_ptr(),
@@ -126,7 +126,7 @@ impl RustPforCodec {
             };
             encoded_size
         } else if dtype.is_equiv_to(&numpy::dtype::<u32>(py)) {
-            let array = array.downcast::<PyArrayDyn<u32>>()?;
+            let array = array.cast::<PyArrayDyn<u32>>()?;
             let encoded_size = unsafe {
                 om_file_format_sys::p4ndenc128v32(
                     array.as_slice_mut()?.as_mut_ptr(),
@@ -136,7 +136,7 @@ impl RustPforCodec {
             };
             encoded_size
         } else if dtype.is_equiv_to(&numpy::dtype::<u64>(py)) {
-            let array = array.downcast::<PyArrayDyn<u64>>()?;
+            let array = array.cast::<PyArrayDyn<u64>>()?;
             let encoded_size = unsafe {
                 om_file_format_sys::p4ndenc64(
                     array.as_slice_mut()?.as_mut_ptr(),

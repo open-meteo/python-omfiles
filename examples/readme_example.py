@@ -3,24 +3,34 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
-#     "omfiles@git+https://github.com/open-meteo/python-omfiles.git@aa13dfb3809c6a39ed89cbdd7b65700d576ad081",
-#     "fsspec>=2025.7.0",
-#     "s3fs",
+#     "omfiles[fsspec]>=1.1.2",  # x-release-please-version
 # ]
 # ///
+
+import datetime as dt
 
 import fsspec
 import numpy as np
 from omfiles import OmFileReader
 
-# URI of the file on S3
-s3_uri = "s3://openmeteo/data_spatial/dwd_icon/2025/09/23/0000Z/2025-09-30T0000.om"
+MODEL_DOMAIN = "dwd_icon"
+VARIABLE = "temperature_2m"
+# Example: URI for a spatial data file in the `data_spatial` S3 bucket
+# See data organization details: https://github.com/open-meteo/open-data?tab=readme-ov-file#data-organization
+# Note: Spatial data is only retained for 7 days. The script uses one file within this period.
+date_time = dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=2)
+S3_URI = (
+    f"s3://openmeteo/data_spatial/{MODEL_DOMAIN}/{date_time.year}/"
+    f"{date_time.month:02}/{date_time.day:02}/0000Z/"
+    f"{date_time.strftime('%Y-%m-%d')}T0000.om"
+)
+print(f"Using om file: {S3_URI}")
 # Create and open filesystem, wrapping it in a blockcache
 backend = fsspec.open(
-    f"blockcache::{s3_uri}",
+    f"blockcache::{S3_URI}",
     mode="rb",
     s3={"anon": True, "default_block_size": 65536},  # s3 settings
-    blockcache={"cache_storage": "cache", "same_names": True},  # blockcache settings
+    blockcache={"cache_storage": "cache"},  # blockcache settings
 )
 # Create reader from the fsspec file object using a context manager.
 # This will automatically close the file when the block is exited.
@@ -31,7 +41,7 @@ with OmFileReader(backend) as root:
     print(f"root.is_scalar: {root.is_scalar}")  # False
     print(f"root.is_group: {root.is_group}")  # True
 
-    temperature_reader = root.get_child_by_name("temperature_2m")
+    temperature_reader = root.get_child_by_name(VARIABLE)
     print(f"temperature_reader.is_array: {temperature_reader.is_array}")  # True
     print(f"temperature_reader.is_scalar: {temperature_reader.is_scalar}")  # False
     print(f"temperature_reader.is_group: {temperature_reader.is_group}")  # False

@@ -1,0 +1,31 @@
+name: Build wheel
+description: Build wheel with maturin
+inputs:
+  target:
+    required: true
+  args:
+    required: true
+  command:
+    required: false
+    default: "build"
+  manylinux:
+    required: false
+  before-script-linux:
+    required: false
+  maturin-container:
+    description: Container option passed to PyO3/maturin-action (e.g. "off" to disable)
+    required: false
+    default: ""
+runs:
+  using: "composite"
+  steps:
+    - name: Build wheel
+      uses: PyO3/maturin-action@v1
+      with:
+        maturin-version: 1.12.6
+        command: ${{ inputs.command }}
+        target: ${{ inputs.target }}
+        args: ${{ inputs.args }}
+        manylinux: ${{ inputs.manylinux }}
+        container: ${{ inputs.maturin-container }}
+        before-script-linux: ${{ inputs.before-script-linux }}

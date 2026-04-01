@@ -1,0 +1,17 @@
+name: Install uv
+description: Setup uv with caching
+inputs:
+  python-version:
+    description: Python version to use
+    required: false
+    default: ""
+runs:
+  using: "composite"
+  steps:
+    - name: Install uv
+      uses: astral-sh/setup-uv@v7
+      with:
+        version: "0.9.11"
+        enable-cache: true
+        cache-dependency-glob: "**/uv.lock"
+        python-version: ${{ inputs.python-version }}

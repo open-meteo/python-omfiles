@@ -3,13 +3,13 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
-#     "omfiles@git+https://github.com/open-meteo/python-omfiles.git@aa13dfb3809c6a39ed89cbdd7b65700d576ad081",
-#     "fsspec>=2025.7.0",
-#     "s3fs",
+#     "omfiles[fsspec,grids]>=1.1.0",  # x-release-please-version
 #     "matplotlib",
 #     "cartopy",
 # ]
 # ///
+
+import datetime as dt
 
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
@@ -17,64 +17,64 @@ import fsspec
 import matplotlib.pyplot as plt
 import numpy as np
 from omfiles import OmFileReader
+from omfiles.grids import OmGrid
 
-# The following two incantations are equivalent
-#
-# from fsspec.implementations.cached import CachingFileSystem
-# from s3fs import S3FileSystem
-# s3_path = "s3://openmeteo/data_spatial/dwd_icon/2025/09/23/0000Z/2025-09-30T0000.om"
-# s3_fs = S3FileSystem(anon=True, default_block_size=65536, default_cache_type="none")
-# backend = CachingFileSystem(
-#     fs=s3_fs, cache_check=3600, block_size=65536, cache_storage="cache", check_files=False, same_names=True
-# )
-# with OmFileReader.from_fsspec(backend, s3_path) as reader:
-
+MODEL_DOMAIN = "dmi_harmonie_arome_europe"
+VARIABLE = "relative_humidity_2m"
+# Example: URI for a spatial data file in the `data_spatial` S3 bucket
+# See data organization details: https://github.com/open-meteo/open-data?tab=readme-ov-file#data-organization
+# Note: Spatial data is only retained for 7 days. The script uses one file within this period.
+date_time = dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=2)
+S3_URI = (
+    f"s3://openmeteo/data_spatial/{MODEL_DOMAIN}/{date_time.year}/"
+    f"{date_time.month:02}/{date_time.day:02}/0000Z/"
+    f"{date_time.strftime('%Y-%m-%d')}T0000.om"
+)
+print(f"Using om file: {S3_URI}")
 backend = fsspec.open(
-    f"blockcache::s3://openmeteo/data_spatial/dwd_icon/2025/09/23/0000Z/2025-09-30T0000.om",
+    f"blockcache::{S3_URI}",
     mode="rb",
     s3={"anon": True, "default_block_size": 65536},
-    blockcache={"cache_storage": "cache", "same_names": True},
+    blockcache={"cache_storage": "cache"},
 )
 with OmFileReader(backend) as reader:
     print("reader.is_group", reader.is_group)
 
-    child = reader.get_child_by_name("relative_humidity_2m")
+    child = reader.get_child_by_name(VARIABLE)
     print("child.name", child.name)
-
-    # Get the full data array
     print("child.shape", child.shape)
     print("child.chunks", child.chunks)
+    # Get the full data array
     data = child[:]
     print(f"Data shape: {data.shape}")
     print(f"Data range: {np.nanmin(data)} to {np.nanmax(data)}")
 
     # Create the plot
     fig = plt.figure(figsize=(12, 8))
-    ax = plt.axes(projection=ccrs.PlateCarree())  # use PlateCarree projection
+    ax = plt.axes(projection=ccrs.PlateCarree())
 
     # Add map features
-    ax.add_feature(cfeature.COASTLINE)
-    ax.add_feature(cfeature.BORDERS)
+    ax.add_feature(cfeature.COASTLINE, linewidth=0.8)
+    ax.add_feature(cfeature.BORDERS, linewidth=0.5)
     ax.add_feature(cfeature.OCEAN, alpha=0.3)
     ax.add_feature(cfeature.LAND, alpha=0.3)
 
     # Create coordinate arrays
-    # Currently, the files don't contain any information about the spatial coordinates,
-    # so you need to provide these coordinate arrays manually.
-    height, width = data.shape
-    lon = np.linspace(-180, 180, width)  # Adjust these bounds
-    lat = np.linspace(-90, 90, height)  # Adjust these bounds
-    lon_grid, lat_grid = np.meshgrid(lon, lat)
+    num_y, num_x = data.shape
+    grid = OmGrid(reader.get_child_by_name("crs_wkt").read_scalar(), (num_y, num_x))
+    lon_grid, lat_grid = grid.get_meshgrid()
+    crs_name = grid.crs.name if not grid.crs is None else "Gaussian"
 
     # Plot the data
-    im = ax.contourf(lon_grid, lat_grid, data, levels=20, transform=ccrs.PlateCarree(), cmap="viridis")
-    plt.colorbar(im, ax=ax, shrink=0.6, label=child.name)
+    im = ax.contourf(lon_grid, lat_grid, data, cmap="coolwarm")
     ax.gridlines(draw_labels=True, alpha=0.3)
-    plt.title(f"2D Map: {child.name}")
-    ax.set_global()
+    ax.set_aspect("equal")
+    # ax.set_global()
+    plt.colorbar(im, ax=ax, orientation="vertical", pad=0.05, aspect=40, shrink=0.55, label=VARIABLE)
+    plt.title(f"{MODEL_DOMAIN} {VARIABLE} Map\nCRS: {crs_name}", fontsize=12, fontweight="bold", pad=16)
     plt.tight_layout()
 
-    output_filename = f"map_{child.name.replace('/', '_')}.png"
+    output_filename = f"map_{VARIABLE}.png"
     plt.savefig(output_filename, dpi=300, bbox_inches="tight")
     print(f"Plot saved as: {output_filename}")
     plt.close()

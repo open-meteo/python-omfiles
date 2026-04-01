@@ -7,8 +7,8 @@ use async_lock::RwLock;
 use delegate::delegate;
 use num_traits::Zero;
 use numpy::{
-    ndarray::{self, Array0},
-    Element, PyArray0,
+    ndarray::{self},
+    Element,
 };
 use omfiles_rs::{
     reader_async::OmFileReaderAsync as OmFileReaderAsyncRs,
@@ -37,7 +37,7 @@ use std::{fs::File, ops::Range, sync::Arc};
 /// what the dimensions represent in advance or you need to explicitly encode them as
 /// some kind of attribute.
 #[gen_stub_pyclass]
-#[pyclass(module = "omfiles.omfiles")]
+#[pyclass]
 pub struct OmFileReaderAsync {
     /// The reader is stored in an Option to be able to properly close it,
     /// particularly when working with memory-mapped files.
@@ -135,10 +135,23 @@ impl OmFileReaderAsync {
                 .map_err(|_| Self::only_scalars_error())?;
 
             let value = scalar_reader.read_scalar::<T>();
-            let array_base = Array0::from_elem([], value.unwrap());
-            let py_scalar = PyArray0::from_owned_array(py, array_base);
 
-            return Ok(py_scalar.into_any().unbind());
+            let numpy = py.import("numpy")?;
+            let np_type = match std::any::type_name::<T>() {
+                "f32" => numpy.getattr("float32")?,
+                "f64" => numpy.getattr("float64")?,
+                "i8" => numpy.getattr("int8")?,
+                "u8" => numpy.getattr("uint8")?,
+                "i16" => numpy.getattr("int16")?,
+                "u16" => numpy.getattr("uint16")?,
+                "i32" => numpy.getattr("int32")?,
+                "u32" => numpy.getattr("uint32")?,
+                "i64" => numpy.getattr("int64")?,
+                "u64" => numpy.getattr("uint64")?,
+                _ => return Err(PyErr::new::<PyValueError, _>("Unsupported type")),
+            };
+            let py_scalar = np_type.call1((value,))?;
+            Ok(py_scalar.into())
         })
     }
 }
@@ -418,7 +431,7 @@ impl OmFileReaderAsync {
     ///     TypeError: If the data type is not supported.
     async fn read_array<'py>(&self, ranges: ArrayIndex) -> PyResult<OmFileTypedArray> {
         // Convert the Python ranges to Rust ranges
-        let read_ranges = ranges.to_read_range(&self.shape)?;
+        let (read_ranges, squeeze_dims) = ranges.get_ranges_and_squeeze_dims(&self.shape)?;
 
         let guard = self.reader.try_read().unwrap();
 
@@ -434,43 +447,53 @@ impl OmFileReaderAsync {
         let data_type = reader.data_type();
         let result = match data_type {
             OmDataType::Int8Array => {
-                let array = read_squeezed_typed_array::<i8>(reader, &read_ranges).await?;
+                let array =
+                    read_and_process_array::<i8>(reader, &read_ranges, &squeeze_dims).await?;
                 Ok(OmFileTypedArray::Int8(array))
             }
             OmDataType::Int16Array => {
-                let array = read_squeezed_typed_array::<i16>(reader, &read_ranges).await?;
+                let array =
+                    read_and_process_array::<i16>(reader, &read_ranges, &squeeze_dims).await?;
                 Ok(OmFileTypedArray::Int16(array))
             }
             OmDataType::Int32Array => {
-                let array = read_squeezed_typed_array::<i32>(reader, &read_ranges).await?;
+                let array =
+                    read_and_process_array::<i32>(reader, &read_ranges, &squeeze_dims).await?;
                 Ok(OmFileTypedArray::Int32(array))
             }
             OmDataType::Int64Array => {
-                let array = read_squeezed_typed_array::<i64>(reader, &read_ranges).await?;
+                let array =
+                    read_and_process_array::<i64>(reader, &read_ranges, &squeeze_dims).await?;
                 Ok(OmFileTypedArray::Int64(array))
             }
             OmDataType::Uint8Array => {
-                let array = read_squeezed_typed_array::<u8>(reader, &read_ranges).await?;
+                let array =
+                    read_and_process_array::<u8>(reader, &read_ranges, &squeeze_dims).await?;
                 Ok(OmFileTypedArray::Uint8(array))
             }
             OmDataType::Uint16Array => {
-                let array = read_squeezed_typed_array::<u16>(reader, &read_ranges).await?;
+                let array =
+                    read_and_process_array::<u16>(reader, &read_ranges, &squeeze_dims).await?;
                 Ok(OmFileTypedArray::Uint16(array))
             }
             OmDataType::Uint32Array => {
-                let array = read_squeezed_typed_array::<u32>(reader, &read_ranges).await?;
+                let array =
+                    read_and_process_array::<u32>(reader, &read_ranges, &squeeze_dims).await?;
                 Ok(OmFileTypedArray::Uint32(array))
             }
             OmDataType::Uint64Array => {
-                let array = read_squeezed_typed_array::<u64>(reader, &read_ranges).await?;
+                let array =
+                    read_and_process_array::<u64>(reader, &read_ranges, &squeeze_dims).await?;
                 Ok(OmFileTypedArray::Uint64(array))
             }
             OmDataType::FloatArray => {
-                let array = read_squeezed_typed_array::<f32>(reader, &read_ranges).await?;
+                let array =
+                    read_and_process_array::<f32>(reader, &read_ranges, &squeeze_dims).await?;
                 Ok(OmFileTypedArray::Float(array))
             }
             OmDataType::DoubleArray => {
-                let array = read_squeezed_typed_array::<f64>(reader, &read_ranges).await?;
+                let array =
+                    read_and_process_array::<f64>(reader, &read_ranges, &squeeze_dims).await?;
                 Ok(OmFileTypedArray::Double(array))
             }
             _ => {
@@ -486,7 +509,7 @@ impl OmFileReaderAsync {
     /// Read the scalar value of the variable.
     ///
     /// Returns:
-    ///     object: The scalar value as a Python object (str, int, or float).
+    ///     object: The scalar value as a numpy scalar or a Python string.
     ///
     /// Raises:
     ///     ValueError: If the variable is not a scalar.
@@ -510,9 +533,10 @@ impl OmFileReaderAsync {
     }
 }
 
-async fn read_squeezed_typed_array<T>(
+async fn read_and_process_array<T>(
     reader: &OmFileReaderAsyncRs<AsyncReaderBackendImpl>,
     read_ranges: &[Range<u64>],
+    squeeze_dims: &[usize],
 ) -> PyResult<ndarray::ArrayD<T>>
 where
     T: Element + OmFileArrayDataType + Clone + Zero + Send + Sync + 'static,
@@ -525,7 +549,25 @@ where
         .await
         .map_err(convert_omfilesrs_error)?;
 
-    Ok(array.squeeze())
+    // Filter out dimensions of size 1 that correspond to integer indices
+    // This assumes the `array` returned by `read` has the full dimensionality
+    // matching `read_ranges` (which it does in omfiles-rs).
+    let new_shape: Vec<usize> = array
+        .shape()
+        .iter()
+        .enumerate()
+        .filter_map(|(i, &dim)| {
+            if squeeze_dims.contains(&i) {
+                None
+            } else {
+                Some(dim)
+            }
+        })
+        .collect();
+
+    Ok(array
+        .into_shape_with_order(new_shape)
+        .map_err(|e| PyValueError::new_err(e.to_string()))?)
 }
 
 /// Small helper function to get the correct shape of the data. We need to
