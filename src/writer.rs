@@ -553,6 +553,14 @@ impl OmFileWriter {
     }
 }
 
+impl Drop for OmFileWriter {
+    fn drop(&mut self) {
+        if let Ok(mut guard) = self.writer.lock() {
+            guard.take();
+        }
+    }
+}
+
 /// Concrete wrapper type for the backend implementation, delegating to the appropriate backend.
 enum WriterBackendImpl {
     File(File),

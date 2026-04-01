@@ -1,3 +1,4 @@
+import gc
 import tempfile
 
 import numpy as np
@@ -86,8 +87,12 @@ def test_write_non_contiguous_array_raises(data, empty_temp_om_file):
     assert not data.flags["C_CONTIGUOUS"]
 
     writer = omfiles.OmFileWriter(empty_temp_om_file)
-    with pytest.raises(RuntimeError) as exc_info:
-        writer.write_array(data, chunks=[1] * data.ndim, scale_factor=10000.0)
+    try:
+        with pytest.raises(RuntimeError) as exc_info:
+            writer.write_array(data, chunks=[1] * data.ndim, scale_factor=10000.0)
+    finally:
+        del writer
+        gc.collect()
 
     assert "Array not contiguous" == exc_info.value.args[0]
 
