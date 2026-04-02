@@ -1,6 +1,6 @@
 # Python Bindings for Open Meteo File Format
 
-[![Python 3.9 | 3.10 | 3.11 | 3.12 | 3.13 | 3.14](https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.10 | 3.11 | 3.12 | 3.13 | 3.14](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue.svg)](https://www.python.org/downloads/)
 [![PyPI version](https://badge.fury.io/py/omfiles.svg)](https://pypi.org/project/omfiles/)
 [![Build and Test](https://github.com/open-meteo/python-omfiles/actions/workflows/build-test.yml/badge.svg)](https://github.com/open-meteo/python-omfiles/actions/workflows/build-test.yml)
 
@@ -30,13 +30,6 @@ We provide pre-built wheels for the following platforms:
 - macOS x86_64 (`macosx_10_12_x86_64`)
 - macOS ARM64 (`macosx_11_0_arm64`)
 
-### Stability Notice
-
-**This project is now stable as of version 1.0.0.**
-The public API is considered stable and will follow [semantic versioning](https://semver.org/).
-Breaking changes will not be introduced in 1.x releases without a major version bump.
-
-
 ## Reading
 
 ### Reading Files without Hierarchy
@@ -55,19 +48,27 @@ reader.close() # Close the reader to release resources
 ### Reading Hierarchical Files, e.g. S3 Spatial Files
 
 ```python
+import datetime as dt
+
 import fsspec
 import numpy as np
 from omfiles import OmFileReader
 
 # Example: URI for a spatial data file in the `data_spatial` S3 bucket
 # See data organization details: https://github.com/open-meteo/open-data?tab=readme-ov-file#data-organization
-# Note: Spatial data is only retained for 7 days. The example file below may no longer exist.
-# Please update the URI to match a currently available file.
-s3_uri = "s3://openmeteo/data_spatial/dwd_icon/2025/09/23/0000Z/2025-09-30T0000.om"
+MODEL_DOMAIN = "dwd_icon"
+# Note: Spatial data is only retained for 7 days. The script uses one file within this period.
+date_time = dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=2)
+S3_URI = (
+    f"s3://openmeteo/data_spatial/{MODEL_DOMAIN}/{date_time.year}/"
+    f"{date_time.month:02}/{date_time.day:02}/0000Z/"
+    f"{date_time.strftime('%Y-%m-%d')}T0000.om"
+)
+print(f"Using om file: {S3_URI}")
 
 # Create and open filesystem, wrapping it in a blockcache
 backend = fsspec.open(
-    f"blockcache::{s3_uri}",
+    f"blockcache::{S3_URI}",
     mode="rb",
     s3={"anon": True, "default_block_size": 65536},  # s3 settings
     blockcache={"cache_storage": "cache"},  # blockcache settings
@@ -159,6 +160,14 @@ root_var = writer.write_group(
 )
 # Finalize the file using root_var as entry-point into the hierarchy
 writer.close(root_var)
+```
+
+### Examples
+
+There are some examples how to use this library in [examples/](https://github.com/open-meteo/python-omfiles/tree/main/examples). They should be run as [uv scripts](https://docs.astral.sh/uv/guides/scripts/) to automatically setup the correct python environment.
+
+```bash
+uv run examples/plot_map.py
 ```
 
 

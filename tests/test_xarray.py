@@ -1,8 +1,8 @@
 import numpy as np
-import omfiles.omfiles as om
 import omfiles.xarray as om_xarray
 import pytest
 import xarray as xr
+from omfiles import OmFileReader, OmFileWriter
 from xarray.core import indexing
 
 from .test_utils import create_test_om_file, filter_numpy_size_warning
@@ -16,7 +16,7 @@ def test_om_backend_xarray_dtype(dtype, empty_temp_om_file):
 
     create_test_om_file(empty_temp_om_file, shape=(5, 5), dtype=dtype)
 
-    reader = om.OmFileReader(empty_temp_om_file)
+    reader = OmFileReader(empty_temp_om_file)
     backend_array = om_xarray.OmBackendArray(reader=reader)
 
     assert isinstance(backend_array.dtype, np.dtype)
@@ -57,7 +57,7 @@ def test_xarray_hierarchical_file(empty_temp_om_file):
     precipitation_data = np.random.rand(5, 5, 10).astype(np.float32)
 
     # Write hierarchical structure
-    writer = om.OmFileWriter(empty_temp_om_file)
+    writer = OmFileWriter(empty_temp_om_file)
 
     # dimensionality metadata
     temperature_dimension_var = writer.write_scalar("LATITUDE,LONGITUDE,ALTITUDE,TIME", name="_ARRAY_DIMENSIONS")

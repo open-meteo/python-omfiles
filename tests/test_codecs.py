@@ -3,7 +3,8 @@ import sys
 import numpy as np
 import pytest
 
-pytest.importorskip("zarr.codecs.numcodecs")
+# skip test if numcodecs.zarr3 cannot be imported
+pytest.importorskip("numcodecs.zarr3")
 from omfiles._zarr3 import PforCodec, PforSerializer
 from zarr import create_array
 from zarr.abc.store import Store

@@ -1,3 +1,4 @@
+import gc
 import tempfile
 
 import numpy as np
@@ -28,19 +29,19 @@ def test_round_trip_array_datatypes():
     shape = (5, 5, 5, 2)
     chunks = [2, 2, 2, 1]
     test_cases = [
-        (np.random.rand(*shape).astype(np.float32), "float32"),
-        (np.random.rand(*shape).astype(np.float64), "float64"),
-        (np.random.randint(-128, 127, size=shape, dtype=np.int8), "int8"),
-        (np.random.randint(-32768, 32767, size=shape, dtype=np.int16), "int16"),
-        (np.random.randint(-2147483648, 2147483647, size=shape, dtype=np.int32), "int32"),
-        (np.random.randint(-9223372036854775808, 9223372036854775807, size=shape, dtype=np.int64), "int64"),
-        (np.random.randint(0, 255, size=shape, dtype=np.uint8), "uint8"),
-        (np.random.randint(0, 65535, size=shape, dtype=np.uint16), "uint16"),
-        (np.random.randint(0, 4294967295, size=shape, dtype=np.uint32), "uint32"),
-        (np.random.randint(0, 18446744073709551615, size=shape, dtype=np.uint64), "uint64"),
+        np.random.rand(*shape).astype(np.float32),
+        np.random.rand(*shape).astype(np.float64),
+        np.random.randint(-128, 127, size=shape, dtype=np.int8),
+        np.random.randint(-32768, 32767, size=shape, dtype=np.int16),
+        np.random.randint(-2147483648, 2147483647, size=shape, dtype=np.int32),
+        np.random.randint(-9223372036854775808, 9223372036854775807, size=shape, dtype=np.int64),
+        np.random.randint(0, 255, size=shape, dtype=np.uint8),
+        np.random.randint(0, 65535, size=shape, dtype=np.uint16),
+        np.random.randint(0, 4294967295, size=shape, dtype=np.uint32),
+        np.random.randint(0, 18446744073709551615, size=shape, dtype=np.uint64),
     ]
 
-    for test_data, dtype in test_cases:
+    for test_data in test_cases:
         with tempfile.NamedTemporaryFile(suffix=".om") as temp_file:
             writer = omfiles.OmFileWriter(temp_file.name)
             variable = writer.write_array(test_data, chunks=chunks, scale_factor=10000.0, add_offset=0.0)
@@ -56,6 +57,44 @@ def test_round_trip_array_datatypes():
             assert read_data.shape == test_data.shape
             # use assert_array_almost_equal since our floating point values are compressed lossy
             np.testing.assert_array_almost_equal(read_data, test_data, decimal=4)
+
+
+def test_write_contiguous_array_succeeds(empty_temp_om_file):
+    data = np.arange(24, dtype=np.float32).reshape(4, 6)
+    assert data.flags["C_CONTIGUOUS"]
+
+    writer = omfiles.OmFileWriter(empty_temp_om_file)
+    variable = writer.write_array(data, chunks=[2, 3], scale_factor=10000.0)
+    writer.close(variable)
+
+    reader = omfiles.OmFileReader(empty_temp_om_file)
+    read_data = reader[:]
+    reader.close()
+
+    assert read_data.shape == data.shape
+    assert read_data.dtype == data.dtype
+    np.testing.assert_array_almost_equal(read_data, data, decimal=4)
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        np.arange(24, dtype=np.float32).reshape(4, 6).T,
+        np.arange(24, dtype=np.float32).reshape(4, 6)[:, ::2],
+    ],
+)
+def test_write_non_contiguous_array_raises(data, empty_temp_om_file):
+    assert not data.flags["C_CONTIGUOUS"]
+
+    writer = omfiles.OmFileWriter(empty_temp_om_file)
+    try:
+        with pytest.raises(RuntimeError) as exc_info:
+            writer.write_array(data, chunks=[1] * data.ndim, scale_factor=10000.0)
+    finally:
+        del writer
+        gc.collect()
+
+    assert "Array not contiguous" == exc_info.value.args[0]
 
 
 def test_write_hierarchical_file(empty_temp_om_file):

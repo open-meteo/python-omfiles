@@ -5,11 +5,10 @@ build-backend = "maturin"
 [project]
 name = "omfiles"
 description = "Python bindings for the Open-Meteo file format"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 classifiers = [
     "Programming Language :: Rust",
     "Programming Language :: Python :: Implementation :: CPython",
-    "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dynamic = ["version"]
 readme = "README.md"
@@ -21,7 +20,7 @@ maintainers = [
     { name = "Terraputix", email = "terraputix@mailbox.org" },
 ]
 dependencies = [
-    "numpy>=1.20.0",
+    "numpy>=1.21.0",
 ]
 
 [project.urls]
@@ -36,14 +35,18 @@ codec = [
     "numcodecs>=0.12.1",
 ]
 xarray = ["xarray>=2023.1.0"]
-fsspec = ["fsspec>=2023.10.0", "s3fs>=2023.1.0"]
+fsspec = ["fsspec>=2023.1.0", "s3fs>=2023.1.0"]
+grids = ["pyproj>=3.1.0"]
+dask = ["dask[array]>=2023.1.0"]
 all = [
     "zarr>=2.18.2",
     "numcodecs>=0.12.1",
     "xarray>=2023.1.0",
     "fsspec>=2023.10.0",
-    "s3fs>=2023.1.0"
-    ]
+    "s3fs>=2023.1.0",
+    "pyproj>=3.3.0",
+    "dask[array]>=2023.1.0",
+]
 
 [dependency-groups]
 documentation = [
@@ -53,6 +56,7 @@ documentation = [
     "myst-parser>=4.0"
 ]
 test = [
+    "ruff>=0.15",
     "pytest>=8.0",
     "pytest-asyncio>=1.1.0",
     "psutil>=6.0.0",
@@ -65,9 +69,13 @@ dev = [
 ]
 
 [tool.maturin]
-python-source = "python"             # Python source code is in the `python` directory
 features = ["pyo3/extension-module"] # Define extension module in pyproject.toml instead of Cargo.toml to not mess with `cargo test`
+python-source = "python"             # Python source code is in the `python` directory
+module-name = "omfiles._rust"
 sdist-include = ["LICENSE", "README.md"]
+
+[tool.pyo3-stub-gen]
+module = "_rust"
 
 [tool.uv]
 # Rebuild package when any rust files change
