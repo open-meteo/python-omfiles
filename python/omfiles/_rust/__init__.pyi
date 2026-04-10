@@ -499,6 +499,10 @@ class OmFileWriter:
 
         Args:
             file_path: Path where the .om file will be created
+            metadata_placement: (optional) Where to emit metadata; either "inline" to write
+                                metadata entries immediately, or "tail" to defer emission
+                                until close() so metadata is consolidated near the end of
+                                the file (default: "tail").
         """
     @staticmethod
     def at_path(path: builtins.str, metadata_placement: typing.Optional[builtins.str] = None) -> OmFileWriter:
@@ -507,6 +511,8 @@ class OmFileWriter:
 
         Args:
             path: Path where the .om file will be created
+            metadata_placement: (optional) Where to emit metadata; either "inline" or
+                                "tail" (see description in `__new__`).
 
         Returns:
             OmFileWriter: A new writer instance
@@ -521,6 +527,8 @@ class OmFileWriter:
         Args:
             fs_obj: A fsspec filesystem object that supports write operations
             path: The path to the file within the file system
+            metadata_placement: (optional) Where to emit metadata; either "inline" or
+                                "tail" (see description in `__new__`).
 
         Returns:
             OmFileWriter: A new writer instance

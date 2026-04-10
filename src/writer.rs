@@ -626,6 +626,10 @@ impl OmFileWriter {
     ///
     /// Args:
     ///     file_path: Path where the .om file will be created
+    ///     metadata_placement: (optional) Where to emit metadata; either "inline" to write
+    ///                         metadata entries immediately, or "tail" to defer emission
+    ///                         until close() so metadata is consolidated near the end of
+    ///                         the file (default: "tail").
     #[new]
     #[pyo3(signature = (file_path, metadata_placement=None))]
     fn new(file_path: &str, metadata_placement: Option<&str>) -> PyResult<Self> {
@@ -636,6 +640,8 @@ impl OmFileWriter {
     ///
     /// Args:
     ///     path: Path where the .om file will be created
+    ///     metadata_placement: (optional) Where to emit metadata; either "inline" or
+    ///                         "tail" (see description in `__new__`).
     ///
     /// Returns:
     ///     OmFileWriter: A new writer instance
@@ -659,6 +665,8 @@ impl OmFileWriter {
     /// Args:
     ///     fs_obj: A fsspec filesystem object that supports write operations
     ///     path: The path to the file within the file system
+    ///     metadata_placement: (optional) Where to emit metadata; either "inline" or
+    ///                         "tail" (see description in `__new__`).
     ///
     /// Returns:
     ///     OmFileWriter: A new writer instance
