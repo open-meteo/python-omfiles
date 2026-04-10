@@ -681,8 +681,7 @@ impl OmFileWriter {
         })
     }
 
-    /// Finalize and close the .om file by writing the trailer with the resolved
-    /// root variable.
+    /// Finalize and close the .om file by writing the trailer with the resolved root variable.
     ///
     /// In ``metadata_placement="tail"`` mode, metadata for arrays, scalars, and
     /// groups is resolved and emitted during ``close()`` so that metadata is
