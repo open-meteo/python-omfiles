@@ -13,5 +13,6 @@ runs:
       with:
         version: "0.9.11"
         enable-cache: true
+        prune-cache: false
         cache-dependency-glob: "**/uv.lock"
         python-version: ${{ inputs.python-version }}
