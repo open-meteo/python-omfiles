@@ -1077,7 +1077,6 @@ mod tests {
 
             let root = result.unwrap();
             file_writer.close(root)?;
-            println!("Closed reader...");
 
             let reader = OmFileReader::from_path(file_path);
             assert!(reader.is_ok());
@@ -1100,10 +1099,12 @@ mod tests {
 
             let file_path = "test_fsspec_writer.om";
 
-            let _writer = OmFileWriter::from_fsspec(fs.into(), file_path.to_string(), None)?;
+            let mut writer = OmFileWriter::from_fsspec(fs.into(), file_path.to_string(), None)?;
+            let value = 0i32.into_pyobject(py)?;
+            let root = writer.write_scalar(&value, "zero_root", None)?;
+            writer.close(root)?;
 
             let reader = OmFileReader::from_path(file_path);
-            println!("reader is ok {:?}", reader.is_ok());
             assert!(reader.is_ok());
 
             Ok(())
@@ -1112,39 +1113,39 @@ mod tests {
         Ok(())
     }
 
-    // #[test]
-    // fn test_resolve_variable_detects_cycle() {
-    //     let file_path = "test_cycle_detection.om";
-    //     let file_handle = WriterBackendImpl::File(File::create(file_path).unwrap());
-    //     let writer = OmFileWriterRs::new(file_handle, 8 * 1024);
-    //     let mut state = WriterState::new(writer);
+    #[test]
+    fn test_resolve_variable_detects_cycle() {
+        let file_path = "test_cycle_detection.om";
+        let file_handle = WriterBackendImpl::File(File::create(file_path).unwrap());
+        let writer = OmFileWriterRs::new(file_handle, 8 * 1024);
+        let mut state = WriterState::new(writer);
 
-    //     let child_id = state.register_deferred(
-    //         "child",
-    //         DeferredVariableKind::Group {
-    //             children: Vec::new(),
-    //         },
-    //     );
-    //     let root_id = state.register_deferred(
-    //         "root",
-    //         DeferredVariableKind::Group {
-    //             children: vec![child_id],
-    //         },
-    //     );
+        let child_id = state.register_deferred(
+            "child",
+            DeferredVariableKind::Group {
+                children: Vec::new(),
+            },
+        );
+        let root_id = state.register_deferred(
+            "root",
+            DeferredVariableKind::Group {
+                children: vec![child_id],
+            },
+        );
 
-    //     if let Some(variable) = state.variables.get_mut(&child_id) {
-    //         variable.kind = DeferredVariableKind::Group {
-    //             children: vec![root_id],
-    //         };
-    //     }
+        if let Some(variable) = state.variables.get_mut(&child_id) {
+            variable.kind = DeferredVariableKind::Group {
+                children: vec![root_id],
+            };
+        }
 
-    //     let err = state
-    //         .resolve_variable(root_id, &mut Vec::new())
-    //         .unwrap_err();
-    //     assert!(
-    //         matches!(err, OmFilesError::GenericError(message) if message == "Cycle detected in deferred variable hierarchy")
-    //     );
+        let err = state
+            .resolve_variable(root_id, &mut Vec::new())
+            .unwrap_err();
+        assert!(
+            matches!(err, OmFilesError::GenericError(message) if message == "Cycle detected in deferred variable hierarchy")
+        );
 
-    //     let _ = fs::remove_file(file_path);
-    // }
+        let _ = fs::remove_file(file_path);
+    }
 }
