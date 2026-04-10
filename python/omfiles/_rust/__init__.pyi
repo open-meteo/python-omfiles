@@ -530,6 +530,12 @@ class OmFileWriter:
         Finalize and close the .om file by writing the trailer with the resolved
         root variable.
 
+        In ``metadata_placement="tail"`` mode, metadata for arrays, scalars, and
+        groups is resolved and emitted during ``close()`` so that metadata is
+        consolidated near the end of the file. In ``metadata_placement="inline"``
+        mode, metadata is written immediately and child handles must already refer
+        to resolved variables from the same writer.
+
         Args:
             root_variable (:py:data:`omfiles.OmWriterVariable`): The writer handle
                            that serves as the root/entry point of the file hierarchy.
@@ -572,6 +578,12 @@ class OmFileWriter:
                          Supported values: "pfor_delta_2d", "fpx_xor_2d", "pfor_delta_2d_int16", "pfor_delta_2d_int16_logarithmic"
             name: Name of the variable to be written (default: "data")
             children: List of child variables (default: [])
+
+        ``write_array`` returns an :py:data:`omfiles.OmWriterVariable`, which is a
+        write-time handle used to build hierarchy relationships and to select the
+        root variable passed to ``close()``. It is not the same as
+        :py:data:`omfiles.OmVariable`, which represents already-materialized
+        metadata when reading.
 
         Returns:
             :py:data:`omfiles.OmWriterVariable` representing the written group in the file structure
@@ -631,6 +643,11 @@ class OmFileWriter:
             name: Name of the scalar variable
             children: List of child variables (default: None)
 
+        Child handles must come from the same writer. In ``metadata_placement="inline"``
+        mode they must already be resolved because metadata is emitted immediately.
+        In ``metadata_placement="tail"`` mode they may be resolved later during
+        ``close()``.
+
         Returns:
             :py:data:`omfiles.OmWriterVariable` representing the written group in the file structure
 
@@ -638,7 +655,25 @@ class OmFileWriter:
             ValueError: If the value type is unsupported (e.g., booleans)
             RuntimeError: If there's an error writing to the file
         """
-    def write_group(self, name: builtins.str, children: typing.Sequence[OmWriterVariable]) -> OmWriterVariable: ...
+    def write_group(self, name: builtins.str, children: typing.Sequence[OmWriterVariable]) -> OmWriterVariable:
+        r"""
+        Create a new group in the .om file.
+
+        This is essentially a variable with no data, which serves as a container
+        for other variables.
+
+        Args:
+            name: Name of the group
+            children: List of child variables from the same writer
+
+        Returns:
+            :py:data:`omfiles.OmWriterVariable` representing the written group in the file structure
+
+        Raises:
+            ValueError: If a child handle belongs to a different writer
+            RuntimeError: If inline metadata placement is requested before child
+                          metadata has been resolved, or if there is an I/O error
+        """
 
 @typing.final
 class OmVariable:
@@ -672,7 +707,6 @@ class OmWriterVariable:
         r"""
         The name of the variable.
         """
-    def __repr__(self) -> builtins.str: ...
 
 @typing.final
 class RustPforCodec:

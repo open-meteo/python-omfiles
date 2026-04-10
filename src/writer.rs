@@ -22,7 +22,7 @@ use std::{
     collections::HashMap,
     fs::File,
     sync::{
-        atomic::{AtomicU64, Ordering},
+        atomic::{AtomicBool, AtomicU64, Ordering},
         Mutex, PoisonError,
     },
 };
@@ -287,6 +287,26 @@ impl WriterState {
         Ok(())
     }
 
+    fn resolved_children_inline(
+        &self,
+        children: &[u64],
+    ) -> Result<Vec<OmOffsetSize>, OmFilesError> {
+        let mut resolved = Vec::with_capacity(children.len());
+        for child in children {
+            let variable = self.variables.get(child).ok_or_else(|| {
+                OmFilesError::GenericError(format!("Unknown child variable id {}", child))
+            })?;
+            let offset_size = variable.resolved.clone().ok_or_else(|| {
+                OmFilesError::GenericError(format!(
+                    "Child variable '{}' is not yet resolved for inline metadata placement",
+                    variable.name
+                ))
+            })?;
+            resolved.push(offset_size);
+        }
+        Ok(resolved)
+    }
+
     fn resolve_variable(
         &mut self,
         variable_id: u64,
@@ -398,6 +418,7 @@ pub struct OmFileWriter {
     writer: Mutex<Option<WriterState>>,
     writer_id: u64,
     deferred_tail_metadata: bool,
+    explicitly_closed: AtomicBool,
 }
 
 impl OmFileWriter {
@@ -515,15 +536,18 @@ impl OmFileWriter {
                                 );
                                 Ok(to_writer_variable(params.name, self.writer_id, variable_id))
                             } else {
+                                let resolved_children = state
+                                    .resolved_children_inline(&child_ids)
+                                    .map_err(convert_omfilesrs_error)?;
                                 let offset_size = state
                                     .writer
-                                    .write_array(finalized, params.name, &[])
+                                    .write_array(finalized, params.name, &resolved_children)
                                     .map_err(convert_omfilesrs_error)?;
                                 let variable_id = state.register_resolved(
                                     params.name,
                                     DeferredVariableKind::Array {
                                         array: DeferredArrayValue::$wrap(None),
-                                        children: Vec::new(),
+                                        children: child_ids,
                                     },
                                     offset_size,
                                 );
@@ -574,15 +598,18 @@ impl OmFileWriter {
                 );
                 Ok(to_writer_variable(name, self.writer_id, variable_id))
             } else {
+                let resolved_children = state
+                    .resolved_children_inline(&child_ids)
+                    .map_err(convert_omfilesrs_error)?;
                 let offset_size = state
                     .writer
-                    .write_scalar(value, name, &[])
+                    .write_scalar(value, name, &resolved_children)
                     .map_err(convert_omfilesrs_error)?;
                 let variable_id = state.register_resolved(
                     name,
                     DeferredVariableKind::Scalar {
                         value: deferred_value,
-                        children: Vec::new(),
+                        children: child_ids,
                     },
                     offset_size,
                 );
@@ -623,6 +650,7 @@ impl OmFileWriter {
             writer: Mutex::new(Some(WriterState::new(writer))),
             writer_id: next_writer_id(),
             deferred_tail_metadata,
+            explicitly_closed: AtomicBool::new(false),
         })
     }
 
@@ -649,11 +677,18 @@ impl OmFileWriter {
             writer: Mutex::new(Some(WriterState::new(writer))),
             writer_id: next_writer_id(),
             deferred_tail_metadata,
+            explicitly_closed: AtomicBool::new(false),
         })
     }
 
     /// Finalize and close the .om file by writing the trailer with the resolved
     /// root variable.
+    ///
+    /// In ``metadata_placement="tail"`` mode, metadata for arrays, scalars, and
+    /// groups is resolved and emitted during ``close()`` so that metadata is
+    /// consolidated near the end of the file. In ``metadata_placement="inline"``
+    /// mode, metadata is written immediately and child handles must already refer
+    /// to resolved variables from the same writer.
     ///
     /// Args:
     ///     root_variable (:py:data:`omfiles.OmWriterVariable`): The writer handle
@@ -696,6 +731,7 @@ impl OmFileWriter {
             .write_trailer(root_offset_size)
             .map_err(convert_omfilesrs_error)?;
         guard.take();
+        self.explicitly_closed.store(true, Ordering::Relaxed);
         Ok(())
     }
 
@@ -724,6 +760,12 @@ impl OmFileWriter {
     ///                  Supported values: "pfor_delta_2d", "fpx_xor_2d", "pfor_delta_2d_int16", "pfor_delta_2d_int16_logarithmic"
     ///     name: Name of the variable to be written (default: "data")
     ///     children: List of child variables (default: [])
+    ///
+    /// ``write_array`` returns an :py:data:`omfiles.OmWriterVariable`, which is a
+    /// write-time handle used to build hierarchy relationships and to select the
+    /// root variable passed to ``close()``. It is not the same as
+    /// :py:data:`omfiles.OmVariable`, which represents already-materialized
+    /// metadata when reading.
     ///
     /// Returns:
     ///     :py:data:`omfiles.OmWriterVariable` representing the written group in the file structure
@@ -814,6 +856,11 @@ impl OmFileWriter {
     ///     name: Name of the scalar variable
     ///     children: List of child variables (default: None)
     ///
+    /// Child handles must come from the same writer. In ``metadata_placement="inline"``
+    /// mode they must already be resolved because metadata is emitted immediately.
+    /// In ``metadata_placement="tail"`` mode they may be resolved later during
+    /// ``close()``.
+    ///
     /// Returns:
     ///     :py:data:`omfiles.OmWriterVariable` representing the written group in the file structure
     ///
@@ -895,6 +942,22 @@ impl OmFileWriter {
         }
     }
 
+    /// Create a new group in the .om file.
+    ///
+    /// This is essentially a variable with no data, which serves as a container
+    /// for other variables.
+    ///
+    /// Args:
+    ///     name: Name of the group
+    ///     children: List of child variables from the same writer
+    ///
+    /// Returns:
+    ///     :py:data:`omfiles.OmWriterVariable` representing the written group in the file structure
+    ///
+    /// Raises:
+    ///     ValueError: If a child handle belongs to a different writer
+    ///     RuntimeError: If inline metadata placement is requested before child
+    ///                   metadata has been resolved, or if there is an I/O error
     fn write_group(
         &mut self,
         name: &str,
@@ -915,14 +978,17 @@ impl OmFileWriter {
                 );
                 Ok(to_writer_variable(name, self.writer_id, variable_id))
             } else {
+                let resolved_children = state
+                    .resolved_children_inline(&child_ids)
+                    .map_err(convert_omfilesrs_error)?;
                 let offset_size = state
                     .writer
-                    .write_none(name, &[])
+                    .write_none(name, &resolved_children)
                     .map_err(convert_omfilesrs_error)?;
                 let variable_id = state.register_resolved(
                     name,
                     DeferredVariableKind::Group {
-                        children: Vec::new(),
+                        children: child_ids,
                     },
                     offset_size,
                 );
@@ -935,6 +1001,11 @@ impl OmFileWriter {
 impl Drop for OmFileWriter {
     fn drop(&mut self) {
         if let Ok(mut guard) = self.writer.lock() {
+            if guard.is_some() && !self.explicitly_closed.load(Ordering::Relaxed) {
+                eprintln!(
+                    "Warning: OmFileWriter was dropped without calling close(); the OM file may be incomplete"
+                );
+            }
             guard.take();
         }
     }
@@ -960,6 +1031,8 @@ impl OmFileWriterBackend for WriterBackendImpl {
 
 #[cfg(test)]
 mod tests {
+    use crate::reader::OmFileReader;
+
     use super::*;
     use numpy::{ndarray::ArrayD, PyArrayDyn, PyArrayMethods};
     use std::fs;
@@ -976,18 +1049,21 @@ mod tests {
                     "Skipping test_write_array: could not import numpy ({:?})",
                     e
                 );
-                return Ok(());
+                return Ok(()); // Skip the test
             }
 
-            let file_path = "test_data.om";
+            // Test parameters
+            let file_path = "test_write_array.om";
             let dimensions = vec![10, 20];
             let chunks = vec![5u64, 5];
 
+            // Create test data
             let data = ArrayD::from_shape_fn(dimensions, |idx| (idx[0] + idx[1]) as f32);
             let py_array = PyArrayDyn::from_array(py, &data);
 
-            let mut file_writer = OmFileWriter::new(file_path, Some("tail")).unwrap();
+            let mut file_writer = OmFileWriter::new(file_path, None).unwrap();
 
+            // Write data
             let result = file_writer.write_array(
                 py_array.as_untyped(),
                 chunks,
@@ -1002,8 +1078,12 @@ mod tests {
 
             let root = result.unwrap();
             file_writer.close(root)?;
-            assert!(fs::metadata(file_path).is_ok());
+            println!("Closed reader...");
 
+            let reader = OmFileReader::from_path(file_path);
+            assert!(reader.is_ok());
+
+            // Clean up
             fs::remove_file(file_path).unwrap();
             Ok(())
         })?;
@@ -1019,12 +1099,53 @@ mod tests {
             let fsspec = py.import("fsspec")?;
             let fs = fsspec.call_method1("filesystem", ("memory",))?;
 
-            let _writer =
-                OmFileWriter::from_fsspec(fs.into(), "test_file.om".to_string(), Some("tail"))?;
+            let file_path = "test_fsspec_writer.om";
+
+            let _writer = OmFileWriter::from_fsspec(fs.into(), file_path.to_string(), None)?;
+
+            let reader = OmFileReader::from_path(file_path);
+            println!("reader is ok {:?}", reader.is_ok());
+            assert!(reader.is_ok());
 
             Ok(())
         })?;
 
         Ok(())
     }
+
+    // #[test]
+    // fn test_resolve_variable_detects_cycle() {
+    //     let file_path = "test_cycle_detection.om";
+    //     let file_handle = WriterBackendImpl::File(File::create(file_path).unwrap());
+    //     let writer = OmFileWriterRs::new(file_handle, 8 * 1024);
+    //     let mut state = WriterState::new(writer);
+
+    //     let child_id = state.register_deferred(
+    //         "child",
+    //         DeferredVariableKind::Group {
+    //             children: Vec::new(),
+    //         },
+    //     );
+    //     let root_id = state.register_deferred(
+    //         "root",
+    //         DeferredVariableKind::Group {
+    //             children: vec![child_id],
+    //         },
+    //     );
+
+    //     if let Some(variable) = state.variables.get_mut(&child_id) {
+    //         variable.kind = DeferredVariableKind::Group {
+    //             children: vec![root_id],
+    //         };
+    //     }
+
+    //     let err = state
+    //         .resolve_variable(root_id, &mut Vec::new())
+    //         .unwrap_err();
+    //     assert!(
+    //         matches!(err, OmFilesError::GenericError(message) if message == "Cycle detected in deferred variable hierarchy")
+    //     );
+
+    //     let _ = fs::remove_file(file_path);
+    // }
 }

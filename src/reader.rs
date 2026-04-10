@@ -185,7 +185,7 @@ impl OmFileReader {
     /// Returns:
     ///     OmFileReader: OmFileReader instance.
     #[staticmethod]
-    fn from_path(file_path: &str) -> PyResult<Self> {
+    pub(crate) fn from_path(file_path: &str) -> PyResult<Self> {
         let file_handle = File::open(file_path)
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyIOError, _>(e.to_string()))?;
         let backend =

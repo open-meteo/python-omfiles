@@ -228,6 +228,120 @@ def test_write_tail_metadata_at_end_of_file(empty_temp_om_file):
     assert trailer not in metadata_region
 
 
+def test_write_inline_metadata_preserves_hierarchy(empty_temp_om_file):
+    child_data = np.arange(4, dtype=np.float32).reshape(2, 2)
+    root_data = np.arange(16, dtype=np.float32).reshape(4, 4)
+
+    writer = omfiles.OmFileWriter(empty_temp_om_file, metadata_placement="inline")
+    child_var = writer.write_array(child_data, chunks=[1, 1], name="child", scale_factor=10000.0)
+    metadata_var = writer.write_scalar(np.int32(7), name="metadata")
+    root_var = writer.write_array(
+        root_data,
+        chunks=[2, 2],
+        name="root",
+        scale_factor=10000.0,
+        children=[child_var, metadata_var],
+    )
+    writer.close(root_var)
+
+    reader = omfiles.OmFileReader(empty_temp_om_file)
+    child_metadata = reader._get_flat_variable_metadata()
+
+    child_reader = reader._init_from_variable(child_metadata["/root/child"])
+    metadata_reader = reader._init_from_variable(child_metadata["/root/metadata"])
+
+    np.testing.assert_array_almost_equal(child_reader[:], child_data, decimal=4)
+    assert metadata_reader.read_scalar() == np.int32(7)
+
+    metadata_reader.close()
+    child_reader.close()
+    reader.close()
+
+
+def test_write_inline_group_preserves_children(empty_temp_om_file):
+    child1_data = np.arange(4, dtype=np.float32).reshape(2, 2)
+    child2_data = np.arange(6, dtype=np.float32).reshape(2, 3)
+
+    writer = omfiles.OmFileWriter(empty_temp_om_file, metadata_placement="inline")
+    child1_var = writer.write_array(child1_data, chunks=[1, 1], name="child1", scale_factor=10000.0)
+    child2_var = writer.write_array(child2_data, chunks=[1, 3], name="child2", scale_factor=10000.0)
+    group_var = writer.write_group("root_group", children=[child1_var, child2_var])
+    writer.close(group_var)
+
+    reader = omfiles.OmFileReader(empty_temp_om_file)
+    assert reader.num_children == 2
+
+    child1_reader = reader.get_child_by_name("child1")
+    child2_reader = reader.get_child_by_name("child2")
+
+    np.testing.assert_array_almost_equal(child1_reader[:], child1_data, decimal=4)
+    np.testing.assert_array_almost_equal(child2_reader[:], child2_data, decimal=4)
+
+    child1_reader.close()
+    child2_reader.close()
+    reader.close()
+
+
+def test_invalid_child_handle_from_different_writer_raises(empty_temp_om_file, empty_temp_om_file_2):
+    writer1 = omfiles.OmFileWriter(empty_temp_om_file, metadata_placement="tail")
+    writer2 = omfiles.OmFileWriter(empty_temp_om_file_2, metadata_placement="tail")
+
+    foreign_child = writer2.write_scalar(np.int32(5), name="foreign")
+
+    with pytest.raises(ValueError, match="different writer"):
+        writer1.write_group("root", children=[foreign_child])
+
+
+def test_invalid_root_handle_from_different_writer_raises(empty_temp_om_file, empty_temp_om_file_2):
+    writer1 = omfiles.OmFileWriter(empty_temp_om_file, metadata_placement="tail")
+    writer2 = omfiles.OmFileWriter(empty_temp_om_file_2, metadata_placement="tail")
+
+    root_var = writer2.write_scalar(np.int32(5), name="root")
+
+    with pytest.raises(ValueError, match="different writer"):
+        writer1.close(root_var)
+
+
+def test_inline_mode_allows_resolved_child_order(empty_temp_om_file):
+    data = np.arange(4, dtype=np.float32).reshape(2, 2)
+
+    writer = omfiles.OmFileWriter(empty_temp_om_file, metadata_placement="inline")
+    child_var = writer.write_array(data, chunks=[1, 1], name="child", scale_factor=10000.0)
+    root_var = writer.write_group("root", children=[child_var])
+    writer.close(root_var)
+
+    reader = omfiles.OmFileReader(empty_temp_om_file)
+    child_reader = reader.get_child_by_name("child")
+    np.testing.assert_array_almost_equal(child_reader[:], data, decimal=4)
+    child_reader.close()
+    reader.close()
+
+
+def test_close_after_failed_close_still_allows_retry(empty_temp_om_file, empty_temp_om_file_2):
+    writer = omfiles.OmFileWriter(empty_temp_om_file, metadata_placement="tail")
+    foreign_writer = omfiles.OmFileWriter(empty_temp_om_file_2, metadata_placement="tail")
+
+    valid_root = writer.write_scalar(np.int32(1), name="root")
+    foreign_root = foreign_writer.write_scalar(np.int32(2), name="foreign_root")
+
+    with pytest.raises(ValueError, match="different writer"):
+        writer.close(foreign_root)
+
+    writer.close(valid_root)
+    assert writer.closed
+
+
+def test_drop_without_close_warns(empty_temp_om_file, capfd):
+    writer = omfiles.OmFileWriter(empty_temp_om_file, metadata_placement="tail")
+    _ = writer.write_scalar(np.int32(1), name="root")
+    del writer
+    gc.collect()
+
+    captured = capfd.readouterr()
+    combined_output = f"{captured.out}\n{captured.err}".lower()
+    assert "warning: omfilewriter was dropped without calling close(); the om file may be incomplete" in combined_output
+
+
 @pytest.mark.asyncio
 async def test_read_async(temp_om_file):
     with await omfiles.OmFileReaderAsync.from_path(temp_om_file) as reader:

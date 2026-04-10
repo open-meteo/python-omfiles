@@ -58,14 +58,3 @@ pub(crate) struct OmWriterVariable {
     pub(crate) writer_id: u64,
     pub(crate) variable_id: u64,
 }
-
-#[gen_stub_pymethods]
-#[pymethods]
-impl OmWriterVariable {
-    fn __repr__(&self) -> String {
-        format!(
-            "OmWriterVariable(name='{}', writer_id={}, variable_id={})",
-            self.name, self.writer_id, self.variable_id
-        )
-    }
-}
