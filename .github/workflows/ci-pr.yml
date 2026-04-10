@@ -31,8 +31,7 @@ jobs:
         with:
           target: x86_64-unknown-linux-gnu
           args: --release --out dist
-          manylinux: "2_28"
-          before-script-linux: python3 -m ensurepip && cat /etc/os-release && yum install clang -y
+          maturin-container: off
       - uses: ./.github/actions/upload-wheels
         with:
           name: wheels-pr-linux-x86_64
