@@ -1104,15 +1104,17 @@ mod tests {
         Python::attach(|py| -> Result<(), Box<dyn std::error::Error>> {
             let fsspec = py.import("fsspec")?;
             let fs = fsspec.call_method1("filesystem", ("memory",))?;
+            let fs_py_any: Py<PyAny> = fs.into();
 
             let file_path = "test_fsspec_writer.om";
 
-            let mut writer = OmFileWriter::from_fsspec(fs.into(), file_path.to_string(), None)?;
+            let mut writer =
+                OmFileWriter::from_fsspec(fs_py_any.clone_ref(py), file_path.to_string(), None)?;
             let value = 0i32.into_pyobject(py)?;
             let root = writer.write_scalar(&value, "zero_root", None)?;
             writer.close(root)?;
 
-            let reader = OmFileReader::from_path(file_path);
+            let reader = OmFileReader::from_fsspec(fs_py_any, file_path.to_string());
             assert!(reader.is_ok());
 
             Ok(())
