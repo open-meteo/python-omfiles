@@ -14,6 +14,7 @@ __all__ = [
     "OmFileReaderAsync",
     "OmFileWriter",
     "OmVariable",
+    "OmWriterVariable",
     "RustPforCodec",
 ]
 
@@ -492,7 +493,7 @@ class OmFileWriter:
         r"""
         Check if the writer is closed.
         """
-    def __new__(cls, file_path: builtins.str) -> OmFileWriter:
+    def __new__(cls, file_path: builtins.str, metadata_placement: typing.Optional[builtins.str] = None) -> OmFileWriter:
         r"""
         Initialize an OmFileWriter.
 
@@ -500,7 +501,7 @@ class OmFileWriter:
             file_path: Path where the .om file will be created
         """
     @staticmethod
-    def at_path(path: builtins.str) -> OmFileWriter:
+    def at_path(path: builtins.str, metadata_placement: typing.Optional[builtins.str] = None) -> OmFileWriter:
         r"""
         Initialize an OmFileWriter to write to a file at the specified path.
 
@@ -511,7 +512,9 @@ class OmFileWriter:
             OmFileWriter: A new writer instance
         """
     @staticmethod
-    def from_fsspec(fs_obj: typing.Any, path: builtins.str) -> OmFileWriter:
+    def from_fsspec(
+        fs_obj: typing.Any, path: builtins.str, metadata_placement: typing.Optional[builtins.str] = None
+    ) -> OmFileWriter:
         r"""
         Create an OmFileWriter from a fsspec filesystem object.
 
@@ -522,20 +525,23 @@ class OmFileWriter:
         Returns:
             OmFileWriter: A new writer instance
         """
-    def close(self, root_variable: OmVariable) -> None:
+    def close(self, root_variable: OmWriterVariable) -> None:
         r"""
-        Finalize and close the .om file by writing the trailer with the root variable.
+        Finalize and close the .om file by writing the trailer with the resolved
+        root variable.
 
         Args:
-            root_variable (:py:data:`omfiles.OmVariable`): The OmVariable that serves as the root/entry point of the file hierarchy.
-                           All other variables should be accessible through this root variable.
+            root_variable (:py:data:`omfiles.OmWriterVariable`): The writer handle
+                           that serves as the root/entry point of the file hierarchy.
 
         Returns:
             None on success.
 
         Raises:
-            ValueError: If the writer has already been closed
-            RuntimeError: If a thread lock error occurs or if there's an error writing to the file
+            ValueError: If the writer has already been closed or the handle belongs
+                        to a different writer.
+            RuntimeError: If there is an error resolving deferred metadata or
+                          writing the trailer.
         """
     def write_array(
         self,
@@ -545,8 +551,8 @@ class OmFileWriter:
         add_offset: typing.Optional[builtins.float] = None,
         compression: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        children: typing.Optional[typing.Sequence[OmVariable]] = None,
-    ) -> OmVariable:
+        children: typing.Optional[typing.Sequence[OmWriterVariable]] = None,
+    ) -> OmWriterVariable:
         r"""
         Write a numpy array to the .om file with specified chunking and scaling parameters.
 
@@ -568,7 +574,7 @@ class OmFileWriter:
             children: List of child variables (default: [])
 
         Returns:
-            :py:data:`omfiles.OmVariable` representing the written group in the file structure
+            :py:data:`omfiles.OmWriterVariable` representing the written group in the file structure
 
         Raises:
             ValueError: If the data type is unsupported or if parameters are invalid
@@ -583,8 +589,8 @@ class OmFileWriter:
         add_offset: typing.Optional[builtins.float] = None,
         compression: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        children: typing.Optional[typing.Sequence[OmVariable]] = None,
-    ) -> OmVariable:
+        children: typing.Optional[typing.Sequence[OmWriterVariable]] = None,
+    ) -> OmWriterVariable:
         r"""
         Write an array to the .om file by streaming chunks from a Python iterator.
 
@@ -607,15 +613,15 @@ class OmFileWriter:
             children: List of child variables (default: [])
 
         Returns:
-            :py:data:`omfiles.OmVariable` representing the written array in the file structure
+            :py:data:`omfiles.OmWriterVariable` representing the written array in the file structure
 
         Raises:
             ValueError: If the dtype is unsupported or parameters are invalid
             RuntimeError: If there's an error during compression or I/O
         """
     def write_scalar(
-        self, value: typing.Any, name: builtins.str, children: typing.Optional[typing.Sequence[OmVariable]] = None
-    ) -> OmVariable:
+        self, value: typing.Any, name: builtins.str, children: typing.Optional[typing.Sequence[OmWriterVariable]] = None
+    ) -> OmWriterVariable:
         r"""
         Write a scalar value to the .om file.
 
@@ -626,28 +632,13 @@ class OmFileWriter:
             children: List of child variables (default: None)
 
         Returns:
-            :py:data:`omfiles.OmVariable` representing the written scalar in the file structure
+            :py:data:`omfiles.OmWriterVariable` representing the written group in the file structure
 
         Raises:
             ValueError: If the value type is unsupported (e.g., booleans)
             RuntimeError: If there's an error writing to the file
         """
-    def write_group(self, name: builtins.str, children: typing.Sequence[OmVariable]) -> OmVariable:
-        r"""
-        Create a new group in the .om file.
-
-        This is essentially a variable with no data, which serves as a container for other variables.
-
-        Args:
-            name: Name of the group
-            children: List of child variables
-
-        Returns:
-            :py:data:`omfiles.OmVariable` representing the written group in the file structure
-
-        Raises:
-            RuntimeError: If there's an error writing to the file
-        """
+    def write_group(self, name: builtins.str, children: typing.Sequence[OmWriterVariable]) -> OmWriterVariable: ...
 
 @typing.final
 class OmVariable:
@@ -668,6 +659,18 @@ class OmVariable:
     def size(self) -> builtins.int:
         r"""
         The size of the variable in bytes in the OM file.
+        """
+    def __repr__(self) -> builtins.str: ...
+
+@typing.final
+class OmWriterVariable:
+    r"""
+    Represents a variable handle during writing.
+    """
+    @property
+    def name(self) -> builtins.str:
+        r"""
+        The name of the variable.
         """
     def __repr__(self) -> builtins.str: ...
 

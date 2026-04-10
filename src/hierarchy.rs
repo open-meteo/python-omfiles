@@ -46,3 +46,26 @@ impl Into<OmOffsetSize> for OmVariable {
         }
     }
 }
+
+#[gen_stub_pyclass]
+#[pyclass(from_py_object)]
+#[derive(Clone)]
+/// Represents a variable handle during writing.
+pub(crate) struct OmWriterVariable {
+    #[pyo3(get)]
+    /// The name of the variable.
+    pub name: String,
+    pub(crate) writer_id: u64,
+    pub(crate) variable_id: u64,
+}
+
+#[gen_stub_pymethods]
+#[pymethods]
+impl OmWriterVariable {
+    fn __repr__(&self) -> String {
+        format!(
+            "OmWriterVariable(name='{}', writer_id={}, variable_id={})",
+            self.name, self.writer_id, self.variable_id
+        )
+    }
+}

@@ -180,6 +180,54 @@ def test_write_hierarchical_file(empty_temp_om_file):
     metadata_reader3.close()
 
 
+def test_write_tail_metadata_at_end_of_file(empty_temp_om_file):
+    child_data = np.arange(4, dtype=np.float32).reshape(2, 2)
+    root_data = np.arange(16, dtype=np.float32).reshape(4, 4)
+
+    writer = omfiles.OmFileWriter(empty_temp_om_file, metadata_placement="tail")
+    child_var = writer.write_array(child_data, chunks=[1, 1], name="child", scale_factor=10000.0)
+    metadata_var = writer.write_scalar(np.int32(7), name="metadata")
+    root_var = writer.write_array(
+        root_data,
+        chunks=[2, 2],
+        name="root",
+        scale_factor=10000.0,
+        children=[child_var, metadata_var],
+    )
+    writer.close(root_var)
+
+    with open(empty_temp_om_file, "rb") as f:
+        file_bytes = f.read()
+
+    trailer_size = 20
+    trailer = file_bytes[-trailer_size:]
+    metadata_region = file_bytes[:-trailer_size]
+
+    child_name = b"child"
+    scalar_name = b"metadata"
+    root_name = b"root"
+
+    child_pos = metadata_region.rfind(child_name)
+    scalar_pos = metadata_region.rfind(scalar_name)
+    root_pos = metadata_region.rfind(root_name)
+
+    assert child_pos != -1
+    assert scalar_pos != -1
+    assert root_pos != -1
+
+    assert child_pos < scalar_pos < root_pos
+
+    metadata_start = min(child_pos, scalar_pos, root_pos)
+    metadata_tail = metadata_region[metadata_start:]
+
+    assert child_name in metadata_tail
+    assert scalar_name in metadata_tail
+    assert root_name in metadata_tail
+
+    assert trailer != b"\x00" * trailer_size
+    assert trailer not in metadata_region
+
+
 @pytest.mark.asyncio
 async def test_read_async(temp_om_file):
     with await omfiles.OmFileReaderAsync.from_path(temp_om_file) as reader:

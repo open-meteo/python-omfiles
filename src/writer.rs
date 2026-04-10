@@ -1,6 +1,6 @@
 use crate::{
     compression::PyCompressionType, errors::convert_omfilesrs_error,
-    fsspec_backend::FsSpecWriterBackend, hierarchy::OmVariable,
+    fsspec_backend::FsSpecWriterBackend, hierarchy::OmWriterVariable,
 };
 use delegate::delegate;
 use numpy::{
@@ -9,7 +9,7 @@ use numpy::{
 };
 use omfiles_rs::{
     traits::{OmFileArrayDataType, OmFileScalarDataType, OmFileWriterBackend},
-    writer::{OmFileWriter as OmFileWriterRs, OmFileWriterArray},
+    writer::{OmFileWriter as OmFileWriterRs, OmFileWriterArray, OmFileWriterArrayFinalized},
     OmCompressionType, OmFilesError, OmOffsetSize,
 };
 use pyo3::{
@@ -19,16 +19,25 @@ use pyo3::{
 };
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
 use std::{
+    collections::HashMap,
     fs::File,
-    sync::{Mutex, PoisonError},
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        Mutex, PoisonError,
+    },
 };
 
-/// Helper to convert OmOffsetSize to OmVariable
-fn to_variable(name: &str, os: OmOffsetSize) -> OmVariable {
-    OmVariable {
+static NEXT_WRITER_ID: AtomicU64 = AtomicU64::new(1);
+
+fn next_writer_id() -> u64 {
+    NEXT_WRITER_ID.fetch_add(1, Ordering::Relaxed)
+}
+
+fn to_writer_variable(name: &str, writer_id: u64, variable_id: u64) -> OmWriterVariable {
+    OmWriterVariable {
         name: name.to_string(),
-        offset: os.offset,
-        size: os.size,
+        writer_id,
+        variable_id,
     }
 }
 
@@ -118,7 +127,7 @@ impl<'a, 'py> Feeder<'a, 'py> {
 /// Resolved parameters shared by both `write_array` and `write_array_streaming`.
 struct WriteArrayParams<'a> {
     name: &'a str,
-    children: Vec<OmOffsetSize>,
+    children: Vec<OmWriterVariable>,
     scale_factor: f32,
     add_offset: f32,
     compression: OmCompressionType,
@@ -127,22 +136,18 @@ struct WriteArrayParams<'a> {
 impl<'a> WriteArrayParams<'a> {
     fn from_options(
         name: Option<&'a str>,
-        children: Option<Vec<OmVariable>>,
+        children: Option<Vec<OmWriterVariable>>,
         scale_factor: Option<f32>,
         add_offset: Option<f32>,
         compression: Option<&str>,
     ) -> PyResult<Self> {
         Ok(Self {
             name: name.unwrap_or("data"),
-            children: children
-                .unwrap_or_default()
-                .iter()
-                .map(Into::into)
-                .collect(),
+            children: children.unwrap_or_default(),
             scale_factor: scale_factor.unwrap_or(1.0),
             add_offset: add_offset.unwrap_or(0.0),
             compression: compression
-                .map(|s| PyCompressionType::from_str(s))
+                .map(PyCompressionType::from_str)
                 .transpose()?
                 .unwrap_or(PyCompressionType::PforDelta2d)
                 .to_omfilesrs(),
@@ -150,11 +155,249 @@ impl<'a> WriteArrayParams<'a> {
     }
 }
 
+enum DeferredVariableKind {
+    Scalar {
+        value: DeferredScalarValue,
+        children: Vec<u64>,
+    },
+    Array {
+        array: DeferredArrayValue,
+        children: Vec<u64>,
+    },
+    Group {
+        children: Vec<u64>,
+    },
+}
+
+#[derive(Clone)]
+enum DeferredScalarValue {
+    String(String),
+    Float64(f64),
+    Float32(f32),
+    Int64(i64),
+    Int32(i32),
+    Int16(i16),
+    Int8(i8),
+    Uint64(u64),
+    Uint32(u32),
+    Uint16(u16),
+    Uint8(u8),
+}
+
+enum DeferredArrayValue {
+    Float32(Option<OmFileWriterArrayFinalized>),
+    Float64(Option<OmFileWriterArrayFinalized>),
+    Int8(Option<OmFileWriterArrayFinalized>),
+    Uint8(Option<OmFileWriterArrayFinalized>),
+    Int16(Option<OmFileWriterArrayFinalized>),
+    Uint16(Option<OmFileWriterArrayFinalized>),
+    Int32(Option<OmFileWriterArrayFinalized>),
+    Uint32(Option<OmFileWriterArrayFinalized>),
+    Int64(Option<OmFileWriterArrayFinalized>),
+    Uint64(Option<OmFileWriterArrayFinalized>),
+}
+
+impl DeferredArrayValue {
+    fn take_finalized(&mut self) -> Result<OmFileWriterArrayFinalized, OmFilesError> {
+        match self {
+            Self::Float32(v) => v.take(),
+            Self::Float64(v) => v.take(),
+            Self::Int8(v) => v.take(),
+            Self::Uint8(v) => v.take(),
+            Self::Int16(v) => v.take(),
+            Self::Uint16(v) => v.take(),
+            Self::Int32(v) => v.take(),
+            Self::Uint32(v) => v.take(),
+            Self::Int64(v) => v.take(),
+            Self::Uint64(v) => v.take(),
+        }
+        .ok_or_else(|| {
+            OmFilesError::GenericError("Deferred array metadata was already consumed".to_string())
+        })
+    }
+}
+
+struct DeferredVariable {
+    name: String,
+    kind: DeferredVariableKind,
+    resolved: Option<OmOffsetSize>,
+}
+
+struct WriterState {
+    writer: OmFileWriterRs<WriterBackendImpl>,
+    next_variable_id: u64,
+    variables: HashMap<u64, DeferredVariable>,
+}
+
+impl WriterState {
+    fn new(writer: OmFileWriterRs<WriterBackendImpl>) -> Self {
+        Self {
+            writer,
+            next_variable_id: 1,
+            variables: HashMap::new(),
+        }
+    }
+
+    fn allocate_variable_id(&mut self) -> u64 {
+        let variable_id = self.next_variable_id;
+        self.next_variable_id += 1;
+        variable_id
+    }
+
+    fn register_resolved(
+        &mut self,
+        name: &str,
+        kind: DeferredVariableKind,
+        offset_size: OmOffsetSize,
+    ) -> u64 {
+        let variable_id = self.allocate_variable_id();
+        self.variables.insert(
+            variable_id,
+            DeferredVariable {
+                name: name.to_string(),
+                kind,
+                resolved: Some(offset_size),
+            },
+        );
+        variable_id
+    }
+
+    fn register_deferred(&mut self, name: &str, kind: DeferredVariableKind) -> u64 {
+        let variable_id = self.allocate_variable_id();
+        self.variables.insert(
+            variable_id,
+            DeferredVariable {
+                name: name.to_string(),
+                kind,
+                resolved: None,
+            },
+        );
+        variable_id
+    }
+
+    fn ensure_children_exist(&self, children: &[u64]) -> Result<(), OmFilesError> {
+        for child in children {
+            if !self.variables.contains_key(child) {
+                return Err(OmFilesError::GenericError(format!(
+                    "Unknown child variable id {}",
+                    child
+                )));
+            }
+        }
+        Ok(())
+    }
+
+    fn resolve_variable(
+        &mut self,
+        variable_id: u64,
+        resolving: &mut Vec<u64>,
+    ) -> Result<OmOffsetSize, OmFilesError> {
+        let Some(variable) = self.variables.get(&variable_id) else {
+            return Err(OmFilesError::GenericError(format!(
+                "Unknown variable id {}",
+                variable_id
+            )));
+        };
+
+        if let Some(offset_size) = &variable.resolved {
+            return Ok(offset_size.clone());
+        }
+
+        if resolving.contains(&variable_id) {
+            return Err(OmFilesError::GenericError(
+                "Cycle detected in deferred variable hierarchy".to_string(),
+            ));
+        }
+
+        resolving.push(variable_id);
+
+        let child_ids = {
+            let variable = self.variables.get(&variable_id).ok_or_else(|| {
+                OmFilesError::GenericError(format!("Unknown variable id {}", variable_id))
+            })?;
+            match &variable.kind {
+                DeferredVariableKind::Scalar { children, .. } => children.clone(),
+                DeferredVariableKind::Array { children, .. } => children.clone(),
+                DeferredVariableKind::Group { children } => children.clone(),
+            }
+        };
+
+        let mut resolved_children = Vec::with_capacity(child_ids.len());
+        for child_id in child_ids {
+            resolved_children.push(self.resolve_variable(child_id, resolving)?);
+        }
+
+        let resolved = {
+            let variable = self.variables.get_mut(&variable_id).ok_or_else(|| {
+                OmFilesError::GenericError(format!("Unknown variable id {}", variable_id))
+            })?;
+            let name = variable.name.clone();
+
+            match &mut variable.kind {
+                DeferredVariableKind::Scalar { value, .. } => match value {
+                    DeferredScalarValue::String(v) => {
+                        self.writer
+                            .write_scalar(v.clone(), &name, &resolved_children)?
+                    }
+                    DeferredScalarValue::Float64(v) => {
+                        self.writer.write_scalar(*v, &name, &resolved_children)?
+                    }
+                    DeferredScalarValue::Float32(v) => {
+                        self.writer.write_scalar(*v, &name, &resolved_children)?
+                    }
+                    DeferredScalarValue::Int64(v) => {
+                        self.writer.write_scalar(*v, &name, &resolved_children)?
+                    }
+                    DeferredScalarValue::Int32(v) => {
+                        self.writer.write_scalar(*v, &name, &resolved_children)?
+                    }
+                    DeferredScalarValue::Int16(v) => {
+                        self.writer.write_scalar(*v, &name, &resolved_children)?
+                    }
+                    DeferredScalarValue::Int8(v) => {
+                        self.writer.write_scalar(*v, &name, &resolved_children)?
+                    }
+                    DeferredScalarValue::Uint64(v) => {
+                        self.writer.write_scalar(*v, &name, &resolved_children)?
+                    }
+                    DeferredScalarValue::Uint32(v) => {
+                        self.writer.write_scalar(*v, &name, &resolved_children)?
+                    }
+                    DeferredScalarValue::Uint16(v) => {
+                        self.writer.write_scalar(*v, &name, &resolved_children)?
+                    }
+                    DeferredScalarValue::Uint8(v) => {
+                        self.writer.write_scalar(*v, &name, &resolved_children)?
+                    }
+                },
+                DeferredVariableKind::Array { array, .. } => {
+                    let finalized = array.take_finalized()?;
+                    self.writer
+                        .write_array(finalized, &name, &resolved_children)?
+                }
+                DeferredVariableKind::Group { .. } => {
+                    self.writer.write_none(&name, &resolved_children)?
+                }
+            }
+        };
+
+        let variable = self.variables.get_mut(&variable_id).ok_or_else(|| {
+            OmFilesError::GenericError(format!("Unknown variable id {}", variable_id))
+        })?;
+        variable.resolved = Some(resolved.clone());
+
+        resolving.pop();
+        Ok(resolved)
+    }
+}
+
 /// A Python wrapper for the Rust OmFileWriter implementation.
 #[gen_stub_pyclass]
 #[pyclass]
 pub struct OmFileWriter {
-    writer: Mutex<Option<OmFileWriterRs<WriterBackendImpl>>>,
+    writer: Mutex<Option<WriterState>>,
+    writer_id: u64,
+    deferred_tail_metadata: bool,
 }
 
 impl OmFileWriter {
@@ -183,14 +426,46 @@ impl OmFileWriter {
         PyErr::new::<PyValueError, _>(format!("Unsupported scalar data type: {}", type_name))
     }
 
-    /// Helper method for safe writer access.
-    fn with_writer<F, R>(&self, f: F) -> PyResult<R>
+    fn invalid_metadata_placement_error(value: &str) -> PyErr {
+        PyErr::new::<PyValueError, _>(format!("Unsupported metadata placement: {}", value))
+    }
+
+    fn validate_metadata_placement(metadata_placement: Option<&str>) -> PyResult<String> {
+        let placement = metadata_placement.unwrap_or("tail");
+        match placement {
+            "inline" | "tail" => Ok(placement.to_string()),
+            other => Err(Self::invalid_metadata_placement_error(other)),
+        }
+    }
+
+    fn validate_writer_variable(&self, variable: &OmWriterVariable) -> PyResult<()> {
+        if variable.writer_id != self.writer_id {
+            return Err(PyErr::new::<PyValueError, _>(
+                "Variable handle belongs to a different writer",
+            ));
+        }
+        Ok(())
+    }
+
+    fn validate_writer_variables(&self, variables: &[OmWriterVariable]) -> PyResult<()> {
+        for variable in variables {
+            self.validate_writer_variable(variable)?;
+        }
+        Ok(())
+    }
+
+    fn child_ids(&self, children: &[OmWriterVariable]) -> PyResult<Vec<u64>> {
+        self.validate_writer_variables(children)?;
+        Ok(children.iter().map(|child| child.variable_id).collect())
+    }
+
+    fn with_state<F, R>(&self, f: F) -> PyResult<R>
     where
-        F: FnOnce(&mut OmFileWriterRs<WriterBackendImpl>) -> PyResult<R>,
+        F: FnOnce(&mut WriterState) -> PyResult<R>,
     {
-        let mut guard = self.writer.lock().map_err(|e| Self::lock_error(e))?;
+        let mut guard = self.writer.lock().map_err(Self::lock_error)?;
         match guard.as_mut() {
-            Some(writer) => f(writer),
+            Some(state) => f(state),
             None => Err(Self::closed_error()),
         }
     }
@@ -207,56 +482,112 @@ impl OmFileWriter {
         chunks: Vec<u64>,
         params: &WriteArrayParams<'_>,
         feeder: Feeder<'_, '_>,
-    ) -> PyResult<OmVariable> {
-        self.with_writer(|writer| {
+    ) -> PyResult<OmWriterVariable> {
+        let child_ids = self.child_ids(&params.children)?;
+        self.with_state(|state| {
+            state
+                .ensure_children_exist(&child_ids)
+                .map_err(convert_omfilesrs_error)?;
+
             macro_rules! dispatch {
-                ($($variant:ident => $T:ty),+ $(,)?) => {
+                ($($variant:ident => $T:ty => $wrap:ident),+ $(,)?) => {
                     match element_type {
                         $(OmElementType::$variant => {
-                            let mut w = writer
+                            let mut w = state
+                                .writer
                                 .prepare_array::<$T>(
-                                    dimensions, chunks, params.compression,
-                                    params.scale_factor, params.add_offset,
+                                    dimensions,
+                                    chunks,
+                                    params.compression,
+                                    params.scale_factor,
+                                    params.add_offset,
                                 )
                                 .map_err(convert_omfilesrs_error)?;
                             feeder.feed::<$T>(&mut w)?;
-                            w.finalize()
+                            let finalized = w.finalize();
+                            if self.deferred_tail_metadata {
+                                let variable_id = state.register_deferred(
+                                    params.name,
+                                    DeferredVariableKind::Array {
+                                        array: DeferredArrayValue::$wrap(Some(finalized)),
+                                        children: child_ids,
+                                    },
+                                );
+                                Ok(to_writer_variable(params.name, self.writer_id, variable_id))
+                            } else {
+                                let offset_size = state
+                                    .writer
+                                    .write_array(finalized, params.name, &[])
+                                    .map_err(convert_omfilesrs_error)?;
+                                let variable_id = state.register_resolved(
+                                    params.name,
+                                    DeferredVariableKind::Array {
+                                        array: DeferredArrayValue::$wrap(None),
+                                        children: Vec::new(),
+                                    },
+                                    offset_size,
+                                );
+                                Ok(to_writer_variable(params.name, self.writer_id, variable_id))
+                            }
                         }),+
                     }
                 };
             }
 
-            let array_meta = dispatch! {
-                Float32 => f32,
-                Float64 => f64,
-                Int8    => i8,
-                Uint8   => u8,
-                Int16   => i16,
-                Uint16  => u16,
-                Int32   => i32,
-                Uint32  => u32,
-                Int64   => i64,
-                Uint64  => u64,
-            };
-
-            writer
-                .write_array(array_meta, params.name, &params.children)
-                .map_err(convert_omfilesrs_error)
-                .map(|os| to_variable(params.name, os))
+            dispatch! {
+                Float32 => f32 => Float32,
+                Float64 => f64 => Float64,
+                Int8    => i8  => Int8,
+                Uint8   => u8  => Uint8,
+                Int16   => i16 => Int16,
+                Uint16  => u16 => Uint16,
+                Int32   => i32 => Int32,
+                Uint32  => u32 => Uint32,
+                Int64   => i64 => Int64,
+                Uint64  => u64 => Uint64
+            }
         })
     }
 
+    /// Store a scalar immediately for inline metadata placement, or defer its
+    /// metadata emission until close-time for tail metadata placement.
     fn store_scalar<T: OmFileScalarDataType + 'static>(
         &self,
         value: T,
         name: &str,
-        children: &[OmOffsetSize],
-    ) -> PyResult<OmVariable> {
-        self.with_writer(|writer| {
-            writer
-                .write_scalar(value, name, children)
-                .map_err(convert_omfilesrs_error)
-                .map(|os| to_variable(name, os))
+        children: &[OmWriterVariable],
+        deferred_value: DeferredScalarValue,
+    ) -> PyResult<OmWriterVariable> {
+        let child_ids = self.child_ids(children)?;
+        self.with_state(|state| {
+            state
+                .ensure_children_exist(&child_ids)
+                .map_err(convert_omfilesrs_error)?;
+
+            if self.deferred_tail_metadata {
+                let variable_id = state.register_deferred(
+                    name,
+                    DeferredVariableKind::Scalar {
+                        value: deferred_value,
+                        children: child_ids,
+                    },
+                );
+                Ok(to_writer_variable(name, self.writer_id, variable_id))
+            } else {
+                let offset_size = state
+                    .writer
+                    .write_scalar(value, name, &[])
+                    .map_err(convert_omfilesrs_error)?;
+                let variable_id = state.register_resolved(
+                    name,
+                    DeferredVariableKind::Scalar {
+                        value: deferred_value,
+                        children: Vec::new(),
+                    },
+                    offset_size,
+                );
+                Ok(to_writer_variable(name, self.writer_id, variable_id))
+            }
         })
     }
 }
@@ -269,8 +600,9 @@ impl OmFileWriter {
     /// Args:
     ///     file_path: Path where the .om file will be created
     #[new]
-    fn new(file_path: &str) -> PyResult<Self> {
-        Self::at_path(file_path)
+    #[pyo3(signature = (file_path, metadata_placement=None))]
+    fn new(file_path: &str, metadata_placement: Option<&str>) -> PyResult<Self> {
+        Self::at_path(file_path, metadata_placement)
     }
 
     /// Initialize an OmFileWriter to write to a file at the specified path.
@@ -281,11 +613,16 @@ impl OmFileWriter {
     /// Returns:
     ///     OmFileWriter: A new writer instance
     #[staticmethod]
-    fn at_path(path: &str) -> PyResult<Self> {
+    #[pyo3(signature = (path, metadata_placement=None))]
+    fn at_path(path: &str, metadata_placement: Option<&str>) -> PyResult<Self> {
+        let metadata_placement = Self::validate_metadata_placement(metadata_placement)?;
+        let deferred_tail_metadata = metadata_placement == "tail";
         let file_handle = WriterBackendImpl::File(File::create(path)?);
         let writer = OmFileWriterRs::new(file_handle, 8 * 1024);
         Ok(Self {
-            writer: Mutex::new(Some(writer)),
+            writer: Mutex::new(Some(WriterState::new(writer))),
+            writer_id: next_writer_id(),
+            deferred_tail_metadata,
         })
     }
 
@@ -298,46 +635,74 @@ impl OmFileWriter {
     /// Returns:
     ///     OmFileWriter: A new writer instance
     #[staticmethod]
-    fn from_fsspec(fs_obj: Py<PyAny>, path: String) -> PyResult<Self> {
+    #[pyo3(signature = (fs_obj, path, metadata_placement=None))]
+    fn from_fsspec(
+        fs_obj: Py<PyAny>,
+        path: String,
+        metadata_placement: Option<&str>,
+    ) -> PyResult<Self> {
+        let metadata_placement = Self::validate_metadata_placement(metadata_placement)?;
+        let deferred_tail_metadata = metadata_placement == "tail";
         let fsspec_backend = WriterBackendImpl::FsSpec(FsSpecWriterBackend::new(fs_obj, path)?);
         let writer = OmFileWriterRs::new(fsspec_backend, 8 * 1024);
         Ok(Self {
-            writer: Mutex::new(Some(writer)),
+            writer: Mutex::new(Some(WriterState::new(writer))),
+            writer_id: next_writer_id(),
+            deferred_tail_metadata,
         })
     }
 
-    /// Finalize and close the .om file by writing the trailer with the root variable.
+    /// Finalize and close the .om file by writing the trailer with the resolved
+    /// root variable.
     ///
     /// Args:
-    ///     root_variable (:py:data:`omfiles.OmVariable`): The OmVariable that serves as the root/entry point of the file hierarchy.
-    ///                    All other variables should be accessible through this root variable.
+    ///     root_variable (:py:data:`omfiles.OmWriterVariable`): The writer handle
+    ///                    that serves as the root/entry point of the file hierarchy.
     ///
     /// Returns:
     ///     None on success.
     ///
     /// Raises:
-    ///     ValueError: If the writer has already been closed
-    ///     RuntimeError: If a thread lock error occurs or if there's an error writing to the file
-    fn close(&mut self, root_variable: OmVariable) -> PyResult<()> {
-        let mut guard = self.writer.lock().map_err(|e| Self::lock_error(e))?;
+    ///     ValueError: If the writer has already been closed or the handle belongs
+    ///                 to a different writer.
+    ///     RuntimeError: If there is an error resolving deferred metadata or
+    ///                   writing the trailer.
+    fn close(&mut self, root_variable: OmWriterVariable) -> PyResult<()> {
+        self.validate_writer_variable(&root_variable)?;
+        let mut guard = self.writer.lock().map_err(Self::lock_error)?;
 
-        if let Some(writer) = guard.as_mut() {
-            writer
-                .write_trailer(root_variable.into())
-                .map_err(convert_omfilesrs_error)?;
-            // Take ownership and drop to ensure proper file closure
-            guard.take();
-        } else {
+        let Some(state) = guard.as_mut() else {
             return Err(Self::closed_error());
-        }
+        };
 
+        let root_offset_size = if self.deferred_tail_metadata {
+            let mut resolving = Vec::new();
+            state
+                .resolve_variable(root_variable.variable_id, &mut resolving)
+                .map_err(convert_omfilesrs_error)?
+        } else {
+            let variable = state
+                .variables
+                .get(&root_variable.variable_id)
+                .ok_or_else(|| PyErr::new::<PyValueError, _>("Unknown root variable handle"))?;
+            variable
+                .resolved
+                .clone()
+                .ok_or_else(|| PyErr::new::<PyRuntimeError, _>("Root variable was not resolved"))?
+        };
+
+        state
+            .writer
+            .write_trailer(root_offset_size)
+            .map_err(convert_omfilesrs_error)?;
+        guard.take();
         Ok(())
     }
 
     /// Check if the writer is closed.
     #[getter]
     fn closed(&self) -> PyResult<bool> {
-        let guard = self.writer.lock().map_err(|e| Self::lock_error(e))?;
+        let guard = self.writer.lock().map_err(Self::lock_error)?;
         Ok(guard.is_none())
     }
 
@@ -361,7 +726,7 @@ impl OmFileWriter {
     ///     children: List of child variables (default: [])
     ///
     /// Returns:
-    ///     :py:data:`omfiles.OmVariable` representing the written group in the file structure
+    ///     :py:data:`omfiles.OmWriterVariable` representing the written group in the file structure
     ///
     /// Raises:
     ///     ValueError: If the data type is unsupported or if parameters are invalid
@@ -377,8 +742,8 @@ impl OmFileWriter {
         add_offset: Option<f32>,
         compression: Option<&str>,
         name: Option<&str>,
-        children: Option<Vec<OmVariable>>,
-    ) -> PyResult<OmVariable> {
+        children: Option<Vec<OmWriterVariable>>,
+    ) -> PyResult<OmWriterVariable> {
         let params =
             WriteArrayParams::from_options(name, children, scale_factor, add_offset, compression)?;
         let element_type = OmElementType::from_numpy_dtype(&data.dtype())?;
@@ -409,7 +774,7 @@ impl OmFileWriter {
     ///     children: List of child variables (default: [])
     ///
     /// Returns:
-    ///     :py:data:`omfiles.OmVariable` representing the written array in the file structure
+    ///     :py:data:`omfiles.OmWriterVariable` representing the written array in the file structure
     ///
     /// Raises:
     ///     ValueError: If the dtype is unsupported or parameters are invalid
@@ -430,8 +795,8 @@ impl OmFileWriter {
         add_offset: Option<f32>,
         compression: Option<&str>,
         name: Option<&str>,
-        children: Option<Vec<OmVariable>>,
-    ) -> PyResult<OmVariable> {
+        children: Option<Vec<OmWriterVariable>>,
+    ) -> PyResult<OmWriterVariable> {
         let params =
             WriteArrayParams::from_options(name, children, scale_factor, add_offset, compression)?;
         let element_type = OmElementType::from_numpy_dtype(dtype)?;
@@ -450,7 +815,7 @@ impl OmFileWriter {
     ///     children: List of child variables (default: None)
     ///
     /// Returns:
-    ///     :py:data:`omfiles.OmVariable` representing the written scalar in the file structure
+    ///     :py:data:`omfiles.OmWriterVariable` representing the written group in the file structure
     ///
     /// Raises:
     ///     ValueError: If the value type is unsupported (e.g., booleans)
@@ -463,23 +828,22 @@ impl OmFileWriter {
         &mut self,
         value: &Bound<PyAny>,
         name: &str,
-        children: Option<Vec<OmVariable>>,
-    ) -> PyResult<OmVariable> {
-        let children: Vec<OmOffsetSize> = children
-            .unwrap_or_default()
-            .iter()
-            .map(Into::into)
-            .collect();
-
+        children: Option<Vec<OmWriterVariable>>,
+    ) -> PyResult<OmWriterVariable> {
+        let children = children.unwrap_or_default();
         let py = value.py();
 
-        // make an instance check against numpy scalar types
         macro_rules! check_numpy_type {
-            ($numpy:expr, $type_name:literal, $rust_type:ty) => {
+            ($numpy:expr, $type_name:literal, $rust_type:ty, $variant:ident) => {
                 if let Ok(numpy_type) = $numpy.getattr($type_name) {
                     if value.is_instance(&numpy_type)? {
                         let scalar_value: $rust_type = value.call_method0("item")?.extract()?;
-                        return self.store_scalar(scalar_value, name, &children);
+                        return self.store_scalar(
+                            scalar_value,
+                            name,
+                            &children,
+                            DeferredScalarValue::$variant(scalar_value),
+                        );
                     }
                 }
             };
@@ -487,68 +851,83 @@ impl OmFileWriter {
 
         // Try to import numpy and check for numpy scalar types
         if let Ok(numpy) = py.import("numpy") {
-            check_numpy_type!(numpy, "int8", i8);
-            check_numpy_type!(numpy, "uint8", u8);
-            check_numpy_type!(numpy, "int16", i16);
-            check_numpy_type!(numpy, "uint16", u16);
-            check_numpy_type!(numpy, "int32", i32);
-            check_numpy_type!(numpy, "uint32", u32);
-            check_numpy_type!(numpy, "int64", i64);
-            check_numpy_type!(numpy, "uint64", u64);
-            check_numpy_type!(numpy, "float32", f32);
-            check_numpy_type!(numpy, "float64", f64);
+            check_numpy_type!(numpy, "int8", i8, Int8);
+            check_numpy_type!(numpy, "uint8", u8, Uint8);
+            check_numpy_type!(numpy, "int16", i16, Int16);
+            check_numpy_type!(numpy, "uint16", u16, Uint16);
+            check_numpy_type!(numpy, "int32", i32, Int32);
+            check_numpy_type!(numpy, "uint32", u32, Uint32);
+            check_numpy_type!(numpy, "int64", i64, Int64);
+            check_numpy_type!(numpy, "uint64", u64, Uint64);
+            check_numpy_type!(numpy, "float32", f32, Float32);
+            check_numpy_type!(numpy, "float64", f64, Float64);
         }
 
-        // Fall back to Python built-in types
-        let result = if let Ok(_value) = value.extract::<String>() {
-            self.store_scalar(value.to_string(), name, &children)?
+        if let Ok(value) = value.extract::<String>() {
+            self.store_scalar(
+                value.clone(),
+                name,
+                &children,
+                DeferredScalarValue::String(value),
+            )
         } else if let Ok(value) = value.extract::<f64>() {
-            self.store_scalar(value, name, &children)?
+            self.store_scalar(value, name, &children, DeferredScalarValue::Float64(value))
         } else if let Ok(value) = value.extract::<f32>() {
-            self.store_scalar(value, name, &children)?
+            self.store_scalar(value, name, &children, DeferredScalarValue::Float32(value))
         } else if let Ok(value) = value.extract::<i64>() {
-            self.store_scalar(value, name, &children)?
+            self.store_scalar(value, name, &children, DeferredScalarValue::Int64(value))
         } else if let Ok(value) = value.extract::<i32>() {
-            self.store_scalar(value, name, &children)?
+            self.store_scalar(value, name, &children, DeferredScalarValue::Int32(value))
         } else if let Ok(value) = value.extract::<i16>() {
-            self.store_scalar(value, name, &children)?
+            self.store_scalar(value, name, &children, DeferredScalarValue::Int16(value))
         } else if let Ok(value) = value.extract::<i8>() {
-            self.store_scalar(value, name, &children)?
+            self.store_scalar(value, name, &children, DeferredScalarValue::Int8(value))
         } else if let Ok(value) = value.extract::<u64>() {
-            self.store_scalar(value, name, &children)?
+            self.store_scalar(value, name, &children, DeferredScalarValue::Uint64(value))
         } else if let Ok(value) = value.extract::<u32>() {
-            self.store_scalar(value, name, &children)?
+            self.store_scalar(value, name, &children, DeferredScalarValue::Uint32(value))
         } else if let Ok(value) = value.extract::<u16>() {
-            self.store_scalar(value, name, &children)?
+            self.store_scalar(value, name, &children, DeferredScalarValue::Uint16(value))
         } else if let Ok(value) = value.extract::<u8>() {
-            self.store_scalar(value, name, &children)?
+            self.store_scalar(value, name, &children, DeferredScalarValue::Uint8(value))
         } else {
-            return Err(Self::unsupported_scalar_type_error(value.get_type()));
-        };
-        Ok(result)
+            Err(Self::unsupported_scalar_type_error(value.get_type()))
+        }
     }
 
-    /// Create a new group in the .om file.
-    ///
-    /// This is essentially a variable with no data, which serves as a container for other variables.
-    ///
-    /// Args:
-    ///     name: Name of the group
-    ///     children: List of child variables
-    ///
-    /// Returns:
-    ///     :py:data:`omfiles.OmVariable` representing the written group in the file structure
-    ///
-    /// Raises:
-    ///     RuntimeError: If there's an error writing to the file
-    fn write_group(&mut self, name: &str, children: Vec<OmVariable>) -> PyResult<OmVariable> {
-        let children: Vec<OmOffsetSize> = children.iter().map(Into::into).collect();
+    fn write_group(
+        &mut self,
+        name: &str,
+        children: Vec<OmWriterVariable>,
+    ) -> PyResult<OmWriterVariable> {
+        let child_ids = self.child_ids(&children)?;
+        self.with_state(|state| {
+            state
+                .ensure_children_exist(&child_ids)
+                .map_err(convert_omfilesrs_error)?;
 
-        self.with_writer(|writer| {
-            writer
-                .write_none(name, &children)
-                .map_err(convert_omfilesrs_error)
-                .map(|os| to_variable(name, os))
+            if self.deferred_tail_metadata {
+                let variable_id = state.register_deferred(
+                    name,
+                    DeferredVariableKind::Group {
+                        children: child_ids,
+                    },
+                );
+                Ok(to_writer_variable(name, self.writer_id, variable_id))
+            } else {
+                let offset_size = state
+                    .writer
+                    .write_none(name, &[])
+                    .map_err(convert_omfilesrs_error)?;
+                let variable_id = state.register_resolved(
+                    name,
+                    DeferredVariableKind::Group {
+                        children: Vec::new(),
+                    },
+                    offset_size,
+                );
+                Ok(to_writer_variable(name, self.writer_id, variable_id))
+            }
         })
     }
 }
@@ -597,21 +976,18 @@ mod tests {
                     "Skipping test_write_array: could not import numpy ({:?})",
                     e
                 );
-                return Ok(()); // Skip the test
+                return Ok(());
             }
 
-            // Test parameters
             let file_path = "test_data.om";
             let dimensions = vec![10, 20];
             let chunks = vec![5u64, 5];
 
-            // Create test data
             let data = ArrayD::from_shape_fn(dimensions, |idx| (idx[0] + idx[1]) as f32);
             let py_array = PyArrayDyn::from_array(py, &data);
 
-            let mut file_writer = OmFileWriter::new(file_path).unwrap();
+            let mut file_writer = OmFileWriter::new(file_path, Some("tail")).unwrap();
 
-            // Write data
             let result = file_writer.write_array(
                 py_array.as_untyped(),
                 chunks,
@@ -623,9 +999,11 @@ mod tests {
             );
 
             assert!(result.is_ok());
+
+            let root = result.unwrap();
+            file_writer.close(root)?;
             assert!(fs::metadata(file_path).is_ok());
 
-            // Clean up
             fs::remove_file(file_path).unwrap();
             Ok(())
         })?;
@@ -641,7 +1019,8 @@ mod tests {
             let fsspec = py.import("fsspec")?;
             let fs = fsspec.call_method1("filesystem", ("memory",))?;
 
-            let _writer = OmFileWriter::from_fsspec(fs.into(), "test_file.om".to_string())?;
+            let _writer =
+                OmFileWriter::from_fsspec(fs.into(), "test_file.om".to_string(), Some("tail"))?;
 
             Ok(())
         })?;
