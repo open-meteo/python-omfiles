@@ -6,7 +6,7 @@
 #     "omfiles[fsspec]>=1.1.2",  # x-release-please-version
 #     "matplotlib",
 #     "cartopy",
-#     "earthkit-geo==1.0.0-rc",
+#     "earthkit-geo==1.0.0rc2",
 # ]
 # ///
 
