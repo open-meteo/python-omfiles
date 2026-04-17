@@ -19,7 +19,7 @@ doc = true
 [dependencies]
 pyo3 = { version = "0.28", features = ["abi3-py310", "experimental-async"] }
 pyo3-async-runtimes = { version = "0.28", features = ["async-std-runtime"] }
-pyo3-stub-gen = "0.19"
+pyo3-stub-gen = "0.22"
 async-lock = "3.4"
 numpy = "0.28"
 num-traits = "0.2"
