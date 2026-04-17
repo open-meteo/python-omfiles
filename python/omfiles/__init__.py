@@ -1,7 +1,14 @@
 """Provides classes and utilities for reading, writing, and manipulating OM files."""
 
-from . import types
-from ._rust import OmFileReader, OmFileReaderAsync, OmFileWriter, OmVariable, OmWriterVariable, _check_cpu_features
+from omfiles import types
+from omfiles._rust import (
+    OmFileReader,
+    OmFileReaderAsync,
+    OmFileWriter,
+    OmVariable,
+    OmWriterVariable,
+    _check_cpu_features,
+)
 
 _check_cpu_features()
 

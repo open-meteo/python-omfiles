@@ -1,7 +1,12 @@
 name: Cache Rust build
 description: Caches Rust build artifacts and dependencies
 inputs:
+  cache-name:
+    description: Logical cache namespace, e.g. rust-tests or wheel-build
+    required: false
+    default: rust
   key-postfix:
+    description: Additional cache discriminator, e.g. target triple
     required: false
     default: ""
 runs:
@@ -14,6 +19,7 @@ runs:
           target
           ~/.cargo/registry
           ~/.cargo/git
-        key: ${{ runner.os }}-test-${{ runner.arch }}-${{inputs.key-postfix}}-${{ hashFiles('**/Cargo.lock', '**/Cargo.toml') }}
+        key: ${{ runner.os }}-${{ inputs.cache-name }}-${{ runner.arch }}-${{ inputs.key-postfix }}-${{ hashFiles('**/Cargo.lock', '**/Cargo.toml') }}
         restore-keys: |
-          ${{ runner.os }}-test-${{ runner.arch }}-
+          ${{ runner.os }}-${{ inputs.cache-name }}-${{ runner.arch }}-${{ inputs.key-postfix }}-
+          ${{ runner.os }}-${{ inputs.cache-name }}-${{ runner.arch }}-

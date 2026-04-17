@@ -27,15 +27,4 @@ fn _rust(m: &Bound<PyModule>) -> PyResult<()> {
     Ok(())
 }
 
-// Specific items re-export from omfiles._rust to omfiles
-// This will add the explicitly mentioned classes to pyi exports for omfiles
-pyo3_stub_gen::reexport_module_members!(
-    "omfiles",
-    "omfiles._rust",
-    "OmFileReader",
-    "OmFileReaderAsync",
-    "OmFileWriter",
-    "OmVariable",
-    "OmWriterVariable"
-);
 define_stub_info_gatherer!(stub_info);

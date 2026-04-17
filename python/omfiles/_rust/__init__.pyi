@@ -104,6 +104,22 @@ class OmFileReader:
             str: Compression type of the variable.
         """
     @property
+    def scale_factor(self) -> builtins.float:
+        r"""
+        Get the scale factor of the variable.
+
+        Returns:
+            float: Scale factor stored in the array metadata.
+        """
+    @property
+    def add_offset(self) -> builtins.float:
+        r"""
+        Get the add offset of the variable.
+
+        Returns:
+            float: Add offset stored in the array metadata.
+        """
+    @property
     def num_children(self) -> builtins.int:
         r"""
         Number of children of the variable.
@@ -354,6 +370,22 @@ class OmFileReaderAsync:
 
         Returns:
             str: Compression type of the variable.
+        """
+    @property
+    def scale_factor(self) -> builtins.float:
+        r"""
+        Get the scale factor of the variable.
+
+        Returns:
+            float: Scale factor stored in the array metadata.
+        """
+    @property
+    def add_offset(self) -> builtins.float:
+        r"""
+        Get the add offset of the variable.
+
+        Returns:
+            float: Add offset stored in the array metadata.
         """
     @property
     def num_children(self) -> builtins.int:

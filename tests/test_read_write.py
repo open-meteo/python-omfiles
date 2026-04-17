@@ -49,6 +49,8 @@ def test_round_trip_array_datatypes():
 
             # Read data back
             reader = omfiles.OmFileReader(temp_file.name)
+            assert reader.scale_factor == 10000.0
+            assert reader.add_offset == 0.0
             read_data = reader[:]
             reader.close()
 
@@ -68,6 +70,8 @@ def test_write_contiguous_array_succeeds(empty_temp_om_file):
     writer.close(variable)
 
     reader = omfiles.OmFileReader(empty_temp_om_file)
+    assert reader.scale_factor == 10000.0
+    assert reader.add_offset == 0.0
     read_data = reader[:]
     reader.close()
 
@@ -116,7 +120,7 @@ def test_write_hierarchical_file(empty_temp_om_file):
 
     # Write child1 array with attribute children
     child1_var = writer.write_array(
-        child1_data, chunks=[2, 2], name="child1", scale_factor=100000.0, children=[meta1_var, meta2_var, meta3_var]
+        child1_data, chunks=[2, 2], name="child1", scale_factor=10000.0, children=[meta1_var, meta2_var, meta3_var]
     )
 
     # Write root array with children
@@ -141,6 +145,8 @@ def test_write_hierarchical_file(empty_temp_om_file):
 
     # Verify child1 data
     child1_reader = reader._init_from_variable(child_metadata["/root/child1"])
+    assert child1_reader.scale_factor == 10000.0
+    assert child1_reader.add_offset == 0.0
     read_child1 = child1_reader[:]
     np.testing.assert_array_almost_equal(read_child1, child1_data, decimal=4)
     assert read_child1.shape == (5, 5)
@@ -148,6 +154,8 @@ def test_write_hierarchical_file(empty_temp_om_file):
 
     # Verify child2 data
     child2_reader = reader._init_from_variable(child_metadata["/root/child2"])
+    assert child2_reader.scale_factor == 100000.0
+    assert child2_reader.add_offset == 0.0
     read_child2 = child2_reader[:]
     np.testing.assert_array_almost_equal(read_child2, child2_data, decimal=4)
     assert read_child2.shape == (3, 3)
@@ -171,6 +179,12 @@ def test_write_hierarchical_file(empty_temp_om_file):
     assert metadata3 == "blub"
     assert type(metadata3) == str
     assert metadata_reader3.dtype == str
+
+    for metadata_reader in [metadata_reader1, metadata_reader2, metadata_reader3]:
+        with pytest.raises(ValueError):
+            metadata_reader.scale_factor
+        with pytest.raises(ValueError):
+            metadata_reader.add_offset
 
     reader.close()
     child1_reader.close()
@@ -346,6 +360,8 @@ def test_drop_without_close_warns(empty_temp_om_file, capfd):
 async def test_read_async(temp_om_file):
     with await omfiles.OmFileReaderAsync.from_path(temp_om_file) as reader:
         # Test basic async read
+        assert reader.scale_factor == 1.0
+        assert reader.add_offset == 0.0
         data = await reader.read_array((slice(0, 5), ...))
         assert data.shape == (5, 5)
         assert data.dtype == np.float32
@@ -435,6 +451,10 @@ def test_child_traversal(temp_hierarchical_om_file):
     assert reader.dtype == type(None)
     with pytest.raises(ValueError):
         _ = reader.compression_name
+    with pytest.raises(ValueError):
+        _ = reader.scale_factor
+    with pytest.raises(ValueError):
+        _ = reader.add_offset
     with pytest.raises(ValueError):
         _ = reader.read_scalar()
     with pytest.raises(ValueError):
