@@ -37,6 +37,9 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: ./.github/actions/cache-rust-build
+        with:
+          cache-name: rust-tests
+          key-postfix: ${{ matrix.platform.name }}
       - uses: ./.github/actions/install-uv
       - uses: ./.github/actions/install-python-deps
       - uses: ./.github/actions/run-cargo-tests
@@ -96,6 +99,10 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: ./.github/actions/cache-rust-build
+        with:
+          cache-name: wheel-build
+          key-postfix: ${{ matrix.platform.target }}-release
+
       - uses: ./.github/actions/build-wheel
         with:
           target: ${{ matrix.platform.target }}
