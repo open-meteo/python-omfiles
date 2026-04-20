@@ -504,14 +504,14 @@ impl OmFileWriter {
             dispatch! {
                 Float32 => f32,
                 Float64 => f64,
-                Int8    => i8 ,
-                Uint8   => u8 ,
+                Int8    => i8,
+                Uint8   => u8,
                 Int16   => i16,
                 Uint16  => u16,
                 Int32   => i32,
                 Uint32  => u32,
                 Int64   => i64,
-                Uint64  => u64
+                Uint64  => u64,
             }
         })
     }
