@@ -134,23 +134,19 @@ struct WriteArrayParams<'a> {
 }
 
 impl<'a> WriteArrayParams<'a> {
-    fn from_options(
-        name: Option<&'a str>,
+    fn new(
+        name: &'a str,
         children: Option<Vec<OmWriterVariable>>,
-        scale_factor: Option<f32>,
-        add_offset: Option<f32>,
-        compression: Option<&str>,
+        scale_factor: f32,
+        add_offset: f32,
+        compression: &'a str,
     ) -> PyResult<Self> {
         Ok(Self {
-            name: name.unwrap_or("data"),
+            name,
             children: children.unwrap_or_default(),
-            scale_factor: scale_factor.unwrap_or(1.0),
-            add_offset: add_offset.unwrap_or(0.0),
-            compression: compression
-                .map(PyCompressionType::from_str)
-                .transpose()?
-                .unwrap_or(PyCompressionType::PforDelta2d)
-                .to_omfilesrs(),
+            scale_factor,
+            add_offset,
+            compression: PyCompressionType::from_str(compression)?.to_omfilesrs(),
         })
     }
 }
@@ -573,8 +569,8 @@ impl OmFileWriter {
     ///                         until close() so metadata is consolidated near the end of
     ///                         the file (default: "tail").
     #[new]
-    #[pyo3(signature = (file_path, metadata_placement=None))]
-    fn new(file_path: &str, metadata_placement: Option<&str>) -> PyResult<Self> {
+    #[pyo3(signature = (file_path, metadata_placement="tail"))]
+    fn new(file_path: &str, metadata_placement: &str) -> PyResult<Self> {
         Self::at_path(file_path, metadata_placement)
     }
 
@@ -588,9 +584,9 @@ impl OmFileWriter {
     /// Returns:
     ///     OmFileWriter: A new writer instance
     #[staticmethod]
-    #[pyo3(signature = (path, metadata_placement=None))]
-    fn at_path(path: &str, metadata_placement: Option<&str>) -> PyResult<Self> {
-        let metadata_placement = Self::validate_metadata_placement(metadata_placement)?;
+    #[pyo3(signature = (path, metadata_placement="tail"))]
+    fn at_path(path: &str, metadata_placement: &str) -> PyResult<Self> {
+        let metadata_placement = Self::validate_metadata_placement(Some(metadata_placement))?;
         let deferred_tail_metadata = metadata_placement == "tail";
         let file_handle = WriterBackendImpl::File(File::create(path)?);
         let writer = OmFileWriterRs::new(file_handle, 8 * 1024);
@@ -613,13 +609,9 @@ impl OmFileWriter {
     /// Returns:
     ///     OmFileWriter: A new writer instance
     #[staticmethod]
-    #[pyo3(signature = (fs_obj, path, metadata_placement=None))]
-    fn from_fsspec(
-        fs_obj: Py<PyAny>,
-        path: String,
-        metadata_placement: Option<&str>,
-    ) -> PyResult<Self> {
-        let metadata_placement = Self::validate_metadata_placement(metadata_placement)?;
+    #[pyo3(signature = (fs_obj, path, metadata_placement="tail"))]
+    fn from_fsspec(fs_obj: Py<PyAny>, path: String, metadata_placement: &str) -> PyResult<Self> {
+        let metadata_placement = Self::validate_metadata_placement(Some(metadata_placement))?;
         let deferred_tail_metadata = metadata_placement == "tail";
         let fsspec_backend = WriterBackendImpl::FsSpec(FsSpecWriterBackend::new(fs_obj, path)?);
         let writer = OmFileWriterRs::new(fsspec_backend, 8 * 1024);
@@ -696,22 +688,26 @@ impl OmFileWriter {
 
     /// Write a numpy array to the .om file with specified chunking and scaling parameters.
     ///
-    /// ``scale_factor`` and ``add_offset`` are only respected and required for float32
-    /// and float64 data types. Recommended compression is "pfor_delta_2d" as it achieves
-    /// best compression ratios (on spatio-temporally correlated data), but it will be lossy
-    /// when applied to floating-point data types because of the scale-offset encoding applied
-    /// to convert float values to integer values.
+    /// ``data`` must be a NumPy ndarray with one of the supported dtypes:
+    /// ``float32``, ``float64``, ``int8``, ``uint8``, ``int16``, ``uint16``,
+    /// ``int32``, ``uint32``, ``int64``, or ``uint64``.
+    ///
+    /// ``scale_factor`` and ``add_offset`` are only respected for ``float32`` and
+    /// ``float64`` data. Recommended compression is ``"pfor_delta_2d"`` as it often
+    /// achieves the best compression ratios on spatio-temporally correlated data,
+    /// but it will be lossy for floating-point arrays because scale/offset encoding
+    /// is applied before integer compression.
     ///
     /// Args:
-    ///     data: Input array to be written. Supported dtypes are:
-    ///           float32, float64, int8, uint8, int16, uint16, int32, uint32, int64, uint64,
-    ///     chunks: Chunk sizes for each dimension of the array
-    ///     scale_factor: Scale factor for data compression (default: 1.0)
-    ///     add_offset: Offset value for data compression (default: 0.0)
-    ///     compression: Compression algorithm to use (default: "pfor_delta_2d")
-    ///                  Supported values: "pfor_delta_2d", "fpx_xor_2d", "pfor_delta_2d_int16", "pfor_delta_2d_int16_logarithmic"
-    ///     name: Name of the variable to be written (default: "data")
-    ///     children: List of child variables (default: [])
+    ///     data: NumPy ndarray to be written.
+    ///     chunks: Chunk sizes for each dimension of the array.
+    ///     scale_factor: Scale factor for data compression (default: 1.0).
+    ///     add_offset: Offset value for data compression (default: 0.0).
+    ///     compression: Compression algorithm to use (default: ``"pfor_delta_2d"``).
+    ///                  Supported values: ``"pfor_delta_2d"``, ``"fpx_xor_2d"``,
+    ///                  ``"pfor_delta_2d_int16"``, ``"pfor_delta_2d_int16_logarithmic"``.
+    ///     name: Name of the variable to be written (default: ``"data"``).
+    ///     children: Child variables from the same writer (default: ``None``).
     ///
     /// ``write_array`` returns an :py:data:`omfiles.OmWriterVariable`, which is a
     /// write-time handle used to build hierarchy relationships and to select the
@@ -720,26 +716,25 @@ impl OmFileWriter {
     /// metadata when reading.
     ///
     /// Returns:
-    ///     :py:data:`omfiles.OmWriterVariable` representing the written group in the file structure
+    ///     :py:data:`omfiles.OmWriterVariable` representing the written array in the file structure.
     ///
     /// Raises:
-    ///     ValueError: If the data type is unsupported or if parameters are invalid
+    ///     ValueError: If the data type is unsupported or if parameters are invalid.
     #[pyo3(
-        text_signature = "(data, chunks, scale_factor=1.0, add_offset=0.0, compression='pfor_delta_2d', name='data', children=[])",
-        signature = (data, chunks, scale_factor=None, add_offset=None, compression=None, name=None, children=None)
+        text_signature = "(data, chunks, scale_factor=1.0, add_offset=0.0, compression='pfor_delta_2d', name='data', children=None)",
+        signature = (data, chunks, scale_factor=1.0, add_offset=0.0, compression="pfor_delta_2d", name="data", children=None)
     )]
     fn write_array(
         &mut self,
         data: &Bound<'_, PyUntypedArray>,
         chunks: Vec<u64>,
-        scale_factor: Option<f32>,
-        add_offset: Option<f32>,
-        compression: Option<&str>,
-        name: Option<&str>,
+        scale_factor: f32,
+        add_offset: f32,
+        compression: &str,
+        name: &str,
         children: Option<Vec<OmWriterVariable>>,
     ) -> PyResult<OmWriterVariable> {
-        let params =
-            WriteArrayParams::from_options(name, children, scale_factor, add_offset, compression)?;
+        let params = WriteArrayParams::new(name, children, scale_factor, add_offset, compression)?;
         let element_type = OmElementType::from_numpy_dtype(&data.dtype())?;
         let dimensions = data.shape().iter().map(|x| *x as u64).collect();
         let feeder = Feeder::Full { data };
@@ -751,48 +746,49 @@ impl OmFileWriter {
     ///
     /// This method is designed for writing large arrays that do not fit in memory.
     /// Instead of providing the full array, you provide the full array dimensions
-    /// and an iterator that yields numpy array chunks.
+    /// and an iterator that yields NumPy array chunks.
     ///
     /// Chunks MUST be yielded in row-major order (C-order) of the chunk grid.
+    /// Each yielded chunk must be a NumPy ndarray with the declared ``dtype``.
     /// Each chunk's shape determines how many internal file chunks it covers.
     ///
     /// Args:
-    ///     dimensions: Shape of the full array (e.g., [1000, 2000])
-    ///     chunks: Chunk sizes for each dimension (e.g., [100, 200])
-    ///     chunk_iterator: Python iterable yielding numpy arrays, one per chunk region
-    ///     dtype: Numpy dtype of the array (e.g., np.dtype(np.float32))
-    ///     scale_factor: Scale factor for data compression (default: 1.0)
-    ///     add_offset: Offset value for data compression (default: 0.0)
-    ///     compression: Compression algorithm to use (default: "pfor_delta_2d")
-    ///     name: Name of the variable (default: "data")
-    ///     children: List of child variables (default: [])
+    ///     dimensions: Shape of the full array (for example ``[1000, 2000]``).
+    ///     chunks: Chunk sizes for each dimension (for example ``[100, 200]``).
+    ///     chunk_iterator: Iterator yielding NumPy ndarrays, one per chunk region.
+    ///     dtype: NumPy dtype of the streamed array (for example ``np.dtype(np.float32)``).
+    ///     scale_factor: Scale factor for data compression (default: 1.0).
+    ///     add_offset: Offset value for data compression (default: 0.0).
+    ///     compression: Compression algorithm to use (default: ``"pfor_delta_2d"``).
+    ///     name: Name of the variable (default: ``"data"``).
+    ///     children: Child variables from the same writer (default: ``None``).
     ///
     /// Returns:
-    ///     :py:data:`omfiles.OmWriterVariable` representing the written array in the file structure
+    ///     :py:data:`omfiles.OmWriterVariable` representing the written array in the file structure.
     ///
     /// Raises:
-    ///     ValueError: If the dtype is unsupported or parameters are invalid
-    ///     RuntimeError: If there's an error during compression or I/O
+    ///     ValueError: If the dtype is unsupported or parameters are invalid.
+    ///     RuntimeError: If there is an error during compression or I/O.
     #[pyo3(
-        text_signature = "(dimensions, chunks, chunk_iterator, dtype, scale_factor=1.0, add_offset=0.0, compression='pfor_delta_2d', name='data', children=[])",
-        signature = (dimensions, chunks, chunk_iterator, dtype, scale_factor=None, add_offset=None, compression=None, name=None, children=None)
+        text_signature = "(dimensions, chunks, chunk_iterator, dtype, scale_factor=1.0, add_offset=0.0, compression='pfor_delta_2d', name='data', children=None)",
+        signature = (dimensions, chunks, chunk_iterator, dtype, scale_factor=1.0, add_offset=0.0, compression="pfor_delta_2d", name="data", children=None)
     )]
     fn write_array_streaming<'py>(
         &mut self,
         py: Python<'_>,
         dimensions: Vec<u64>,
         chunks: Vec<u64>,
-        #[gen_stub(override_type(type_repr="typing.Iterator", imports=("typing")))]
+        #[gen_stub(override_type(type_repr="typing.Iterator[numpy.typing.NDArray[typing.Any]]", imports=("typing", "numpy.typing")))]
         chunk_iterator: &Bound<'_, PyIterator>,
+        #[gen_stub(override_type(type_repr="numpy.dtype[typing.Any]", imports=("typing", "numpy")))]
         dtype: &Bound<'py, PyArrayDescr>,
-        scale_factor: Option<f32>,
-        add_offset: Option<f32>,
-        compression: Option<&str>,
-        name: Option<&str>,
+        scale_factor: f32,
+        add_offset: f32,
+        compression: &str,
+        name: &str,
         children: Option<Vec<OmWriterVariable>>,
     ) -> PyResult<OmWriterVariable> {
-        let params =
-            WriteArrayParams::from_options(name, children, scale_factor, add_offset, compression)?;
+        let params = WriteArrayParams::new(name, children, scale_factor, add_offset, compression)?;
         let element_type = OmElementType::from_numpy_dtype(dtype)?;
         let iter = chunk_iterator.call_method0("__iter__")?;
         let feeder = Feeder::Streaming { py, iter };
@@ -802,11 +798,14 @@ impl OmFileWriter {
 
     /// Write a scalar value to the .om file.
     ///
+    /// Supported values are Python ``str`` plus Python or NumPy scalar values of
+    /// type ``int8``, ``int16``, ``int32``, ``int64``, ``uint8``, ``uint16``,
+    /// ``uint32``, ``uint64``, ``float32``, and ``float64``.
+    ///
     /// Args:
-    ///     value: Scalar value to write. Supported types are:
-    ///            int8, int16, int32, int64, uint8, uint16, uint32, uint64, float32, float64, String
-    ///     name: Name of the scalar variable
-    ///     children: List of child variables (default: None)
+    ///     value: Scalar value to write.
+    ///     name: Name of the scalar variable.
+    ///     children: Child variables from the same writer (default: ``None``).
     ///
     /// Child handles must come from the same writer. In ``metadata_placement="inline"``
     /// mode they must already be resolved because metadata is emitted immediately.
@@ -814,15 +813,16 @@ impl OmFileWriter {
     /// ``close()``.
     ///
     /// Returns:
-    ///     :py:data:`omfiles.OmWriterVariable` representing the written group in the file structure
+    ///     :py:data:`omfiles.OmWriterVariable` representing the written scalar in the file structure.
     ///
     /// Raises:
-    ///     ValueError: If the value type is unsupported (e.g., booleans)
-    ///     RuntimeError: If there's an error writing to the file
+    ///     ValueError: If the value type is unsupported (for example booleans).
+    ///     RuntimeError: If there is an error writing to the file.
     #[pyo3(
         text_signature = "(value, name, children=None)",
         signature = (value, name, children=None)
     )]
+
     fn write_scalar(
         &mut self,
         value: &Bound<PyAny>,
@@ -858,7 +858,7 @@ impl OmFileWriter {
         }
 
         if let Ok(value) = value.extract::<String>() {
-            self.store_scalar(value.clone(), name, &children)
+            self.store_scalar(value, name, &children)
         } else if let Ok(value) = value.extract::<f64>() {
             self.store_scalar(value, name, &children)
         } else if let Ok(value) = value.extract::<f32>() {
@@ -890,16 +890,16 @@ impl OmFileWriter {
     /// for other variables.
     ///
     /// Args:
-    ///     name: Name of the group
-    ///     children: List of child variables from the same writer
+    ///     name: Name of the group.
+    ///     children: Child variables from the same writer.
     ///
     /// Returns:
-    ///     :py:data:`omfiles.OmWriterVariable` representing the written group in the file structure
+    ///     :py:data:`omfiles.OmWriterVariable` representing the written group in the file structure.
     ///
     /// Raises:
-    ///     ValueError: If a child handle belongs to a different writer
+    ///     ValueError: If a child handle belongs to a different writer.
     ///     RuntimeError: If inline metadata placement is requested before child
-    ///                   metadata has been resolved, or if there is an I/O error
+    ///                   metadata has been resolved, or if there is an I/O error.
     fn write_group(
         &mut self,
         name: &str,
@@ -997,16 +997,16 @@ mod tests {
             let data = ArrayD::from_shape_fn(dimensions, |idx| (idx[0] + idx[1]) as f32);
             let py_array = PyArrayDyn::from_array(py, &data);
 
-            let mut file_writer = OmFileWriter::new(file_path, None).unwrap();
+            let mut file_writer = OmFileWriter::new(file_path, "tail").unwrap();
 
             // Write data
             let result = file_writer.write_array(
                 py_array.as_untyped(),
                 chunks,
-                None,
-                None,
-                None,
-                None,
+                1.0,
+                0.0,
+                "pfor_delta_2d",
+                "data",
                 None,
             );
 
@@ -1038,7 +1038,7 @@ mod tests {
             let file_path = "test_fsspec_writer.om";
 
             let mut writer =
-                OmFileWriter::from_fsspec(fs_py_any.clone_ref(py), file_path.to_string(), None)?;
+                OmFileWriter::from_fsspec(fs_py_any.clone_ref(py), file_path.to_string(), "tail")?;
             let value = 0i32.into_pyobject(py)?;
             let root = writer.write_scalar(&value, "zero_root", None)?;
             writer.close(root)?;
