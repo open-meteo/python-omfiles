@@ -161,7 +161,7 @@ enum DeferredVariableKind {
         children: Vec<u64>,
     },
     Array {
-        array: DeferredArrayValue,
+        array: Option<OmFileWriterArrayFinalized>,
         children: Vec<u64>,
     },
     Group {
@@ -182,39 +182,6 @@ enum DeferredScalarValue {
     Uint32(u32),
     Uint16(u16),
     Uint8(u8),
-}
-
-enum DeferredArrayValue {
-    Float32(Option<OmFileWriterArrayFinalized>),
-    Float64(Option<OmFileWriterArrayFinalized>),
-    Int8(Option<OmFileWriterArrayFinalized>),
-    Uint8(Option<OmFileWriterArrayFinalized>),
-    Int16(Option<OmFileWriterArrayFinalized>),
-    Uint16(Option<OmFileWriterArrayFinalized>),
-    Int32(Option<OmFileWriterArrayFinalized>),
-    Uint32(Option<OmFileWriterArrayFinalized>),
-    Int64(Option<OmFileWriterArrayFinalized>),
-    Uint64(Option<OmFileWriterArrayFinalized>),
-}
-
-impl DeferredArrayValue {
-    fn take_finalized(&mut self) -> Result<OmFileWriterArrayFinalized, OmFilesError> {
-        match self {
-            Self::Float32(v) => v.take(),
-            Self::Float64(v) => v.take(),
-            Self::Int8(v) => v.take(),
-            Self::Uint8(v) => v.take(),
-            Self::Int16(v) => v.take(),
-            Self::Uint16(v) => v.take(),
-            Self::Int32(v) => v.take(),
-            Self::Uint32(v) => v.take(),
-            Self::Int64(v) => v.take(),
-            Self::Uint64(v) => v.take(),
-        }
-        .ok_or_else(|| {
-            OmFilesError::GenericError("Deferred array metadata was already consumed".to_string())
-        })
-    }
 }
 
 struct DeferredVariable {
@@ -312,99 +279,102 @@ impl WriterState {
         variable_id: u64,
         resolving: &mut Vec<u64>,
     ) -> Result<OmOffsetSize, OmFilesError> {
-        let Some(variable) = self.variables.get(&variable_id) else {
-            return Err(OmFilesError::GenericError(format!(
-                "Unknown variable id {}",
-                variable_id
-            )));
-        };
-
-        if let Some(offset_size) = &variable.resolved {
-            return Ok(offset_size.clone());
-        }
-
         if resolving.contains(&variable_id) {
             return Err(OmFilesError::GenericError(
                 "Cycle detected in deferred variable hierarchy".to_string(),
             ));
         }
 
+        if let Some(variable) = self.variables.get(&variable_id) {
+            if let Some(offset_size) = &variable.resolved {
+                return Ok(offset_size.clone());
+            }
+        } else {
+            return Err(OmFilesError::GenericError(format!(
+                "Unknown variable id {}",
+                variable_id
+            )));
+        };
+
+        // Temporarily take ownership of the variable by removing it
+        let mut variable = self.variables.remove(&variable_id).unwrap();
         resolving.push(variable_id);
 
-        let child_ids = {
-            let variable = self.variables.get(&variable_id).ok_or_else(|| {
-                OmFilesError::GenericError(format!("Unknown variable id {}", variable_id))
-            })?;
-            match &variable.kind {
-                DeferredVariableKind::Scalar { children, .. } => children.clone(),
-                DeferredVariableKind::Array { children, .. } => children.clone(),
-                DeferredVariableKind::Group { children } => children.clone(),
-            }
+        let child_ids = match &variable.kind {
+            DeferredVariableKind::Scalar { children, .. } => children,
+            DeferredVariableKind::Array { children, .. } => children,
+            DeferredVariableKind::Group { children } => children,
         };
 
         let mut resolved_children = Vec::with_capacity(child_ids.len());
-        for child_id in child_ids {
+        for &child_id in child_ids {
             resolved_children.push(self.resolve_variable(child_id, resolving)?);
         }
 
-        let resolved = {
-            let variable = self.variables.get_mut(&variable_id).ok_or_else(|| {
-                OmFilesError::GenericError(format!("Unknown variable id {}", variable_id))
-            })?;
-            let name = variable.name.clone();
-
-            match &mut variable.kind {
-                DeferredVariableKind::Scalar { value, .. } => match value {
-                    DeferredScalarValue::String(v) => {
-                        self.writer
-                            .write_scalar(v.clone(), &name, &resolved_children)?
-                    }
-                    DeferredScalarValue::Float64(v) => {
-                        self.writer.write_scalar(*v, &name, &resolved_children)?
-                    }
-                    DeferredScalarValue::Float32(v) => {
-                        self.writer.write_scalar(*v, &name, &resolved_children)?
-                    }
-                    DeferredScalarValue::Int64(v) => {
-                        self.writer.write_scalar(*v, &name, &resolved_children)?
-                    }
-                    DeferredScalarValue::Int32(v) => {
-                        self.writer.write_scalar(*v, &name, &resolved_children)?
-                    }
-                    DeferredScalarValue::Int16(v) => {
-                        self.writer.write_scalar(*v, &name, &resolved_children)?
-                    }
-                    DeferredScalarValue::Int8(v) => {
-                        self.writer.write_scalar(*v, &name, &resolved_children)?
-                    }
-                    DeferredScalarValue::Uint64(v) => {
-                        self.writer.write_scalar(*v, &name, &resolved_children)?
-                    }
-                    DeferredScalarValue::Uint32(v) => {
-                        self.writer.write_scalar(*v, &name, &resolved_children)?
-                    }
-                    DeferredScalarValue::Uint16(v) => {
-                        self.writer.write_scalar(*v, &name, &resolved_children)?
-                    }
-                    DeferredScalarValue::Uint8(v) => {
-                        self.writer.write_scalar(*v, &name, &resolved_children)?
-                    }
-                },
-                DeferredVariableKind::Array { array, .. } => {
-                    let finalized = array.take_finalized()?;
+        let resolved = match &mut variable.kind {
+            DeferredVariableKind::Scalar { value, .. } => match value {
+                DeferredScalarValue::String(v) => {
                     self.writer
-                        .write_array(finalized, &name, &resolved_children)?
+                        .write_scalar(v.clone(), &variable.name, &resolved_children)?
                 }
-                DeferredVariableKind::Group { .. } => {
-                    self.writer.write_none(&name, &resolved_children)?
+                DeferredScalarValue::Float64(v) => {
+                    self.writer
+                        .write_scalar(*v, &variable.name, &resolved_children)?
                 }
+                DeferredScalarValue::Float32(v) => {
+                    self.writer
+                        .write_scalar(*v, &variable.name, &resolved_children)?
+                }
+                DeferredScalarValue::Int64(v) => {
+                    self.writer
+                        .write_scalar(*v, &variable.name, &resolved_children)?
+                }
+                DeferredScalarValue::Int32(v) => {
+                    self.writer
+                        .write_scalar(*v, &variable.name, &resolved_children)?
+                }
+                DeferredScalarValue::Int16(v) => {
+                    self.writer
+                        .write_scalar(*v, &variable.name, &resolved_children)?
+                }
+                DeferredScalarValue::Int8(v) => {
+                    self.writer
+                        .write_scalar(*v, &variable.name, &resolved_children)?
+                }
+                DeferredScalarValue::Uint64(v) => {
+                    self.writer
+                        .write_scalar(*v, &variable.name, &resolved_children)?
+                }
+                DeferredScalarValue::Uint32(v) => {
+                    self.writer
+                        .write_scalar(*v, &variable.name, &resolved_children)?
+                }
+                DeferredScalarValue::Uint16(v) => {
+                    self.writer
+                        .write_scalar(*v, &variable.name, &resolved_children)?
+                }
+                DeferredScalarValue::Uint8(v) => {
+                    self.writer
+                        .write_scalar(*v, &variable.name, &resolved_children)?
+                }
+            },
+            DeferredVariableKind::Array { array, .. } => {
+                let finalized = array.take().ok_or_else(|| {
+                    OmFilesError::GenericError(
+                        "Deferred array metadata was already consumed".to_string(),
+                    )
+                })?;
+                self.writer
+                    .write_array(finalized, &variable.name, &resolved_children)?
+            }
+            DeferredVariableKind::Group { .. } => {
+                self.writer.write_none(&variable.name, &resolved_children)?
             }
         };
 
-        let variable = self.variables.get_mut(&variable_id).ok_or_else(|| {
-            OmFilesError::GenericError(format!("Unknown variable id {}", variable_id))
-        })?;
+        // Update the resolved state and put the variable back into the map
         variable.resolved = Some(resolved.clone());
+        self.variables.insert(variable_id, variable);
 
         resolving.pop();
         Ok(resolved)
@@ -511,7 +481,7 @@ impl OmFileWriter {
                 .map_err(convert_omfilesrs_error)?;
 
             macro_rules! dispatch {
-                ($($variant:ident => $T:ty => $wrap:ident),+ $(,)?) => {
+                ($($variant:ident => $T:ty),+ $(,)?) => {
                     match element_type {
                         $(OmElementType::$variant => {
                             let mut w = state
@@ -530,7 +500,7 @@ impl OmFileWriter {
                                 let variable_id = state.register_deferred(
                                     params.name,
                                     DeferredVariableKind::Array {
-                                        array: DeferredArrayValue::$wrap(Some(finalized)),
+                                        array: Some(finalized),
                                         children: child_ids,
                                     },
                                 );
@@ -546,7 +516,7 @@ impl OmFileWriter {
                                 let variable_id = state.register_resolved(
                                     params.name,
                                     DeferredVariableKind::Array {
-                                        array: DeferredArrayValue::$wrap(None),
+                                        array: None,
                                         children: child_ids,
                                     },
                                     offset_size,
@@ -559,16 +529,16 @@ impl OmFileWriter {
             }
 
             dispatch! {
-                Float32 => f32 => Float32,
-                Float64 => f64 => Float64,
-                Int8    => i8  => Int8,
-                Uint8   => u8  => Uint8,
-                Int16   => i16 => Int16,
-                Uint16  => u16 => Uint16,
-                Int32   => i32 => Int32,
-                Uint32  => u32 => Uint32,
-                Int64   => i64 => Int64,
-                Uint64  => u64 => Uint64
+                Float32 => f32,
+                Float64 => f64,
+                Int8    => i8 ,
+                Uint8   => u8 ,
+                Int16   => i16,
+                Uint16  => u16,
+                Int32   => i32,
+                Uint32  => u32,
+                Int64   => i64,
+                Uint64  => u64
             }
         })
     }
