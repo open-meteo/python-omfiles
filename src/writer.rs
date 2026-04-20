@@ -155,14 +155,22 @@ impl<'a> WriteArrayParams<'a> {
     }
 }
 
+type WriteScalarFn = Box<
+    dyn FnOnce(
+            &mut OmFileWriterRs<WriterBackendImpl>,
+            &str,
+            &[OmOffsetSize],
+        ) -> Result<OmOffsetSize, OmFilesError>
+        + Send,
+>;
+
 enum DeferredVariableKind {
-    Resolved,
     Scalar {
-        value: DeferredScalarValue,
+        write_fn: WriteScalarFn,
         children: Vec<u64>,
     },
     Array {
-        array: Option<OmFileWriterArrayFinalized>,
+        array: OmFileWriterArrayFinalized,
         children: Vec<u64>,
     },
     Group {
@@ -170,25 +178,14 @@ enum DeferredVariableKind {
     },
 }
 
-#[derive(Clone)]
-enum DeferredScalarValue {
-    String(String),
-    Float64(f64),
-    Float32(f32),
-    Int64(i64),
-    Int32(i32),
-    Int16(i16),
-    Int8(i8),
-    Uint64(u64),
-    Uint32(u32),
-    Uint16(u16),
-    Uint8(u8),
-}
-
-struct DeferredVariable {
-    name: String,
-    kind: DeferredVariableKind,
-    resolved: Option<OmOffsetSize>,
+enum DeferredVariable {
+    Pending {
+        name: String,
+        kind: DeferredVariableKind,
+    },
+    Resolved {
+        offset_size: OmOffsetSize,
+    },
 }
 
 struct WriterState {
@@ -212,21 +209,10 @@ impl WriterState {
         variable_id
     }
 
-    fn register_resolved(
-        &mut self,
-        name: &str,
-        kind: DeferredVariableKind,
-        offset_size: OmOffsetSize,
-    ) -> u64 {
+    fn register_resolved(&mut self, offset_size: OmOffsetSize) -> u64 {
         let variable_id = self.allocate_variable_id();
-        self.variables.insert(
-            variable_id,
-            DeferredVariable {
-                name: name.to_string(),
-                kind,
-                resolved: Some(offset_size),
-            },
-        );
+        self.variables
+            .insert(variable_id, DeferredVariable::Resolved { offset_size });
         variable_id
     }
 
@@ -234,10 +220,9 @@ impl WriterState {
         let variable_id = self.allocate_variable_id();
         self.variables.insert(
             variable_id,
-            DeferredVariable {
+            DeferredVariable::Pending {
                 name: name.to_string(),
                 kind,
-                resolved: None,
             },
         );
         variable_id
@@ -264,13 +249,17 @@ impl WriterState {
             let variable = self.variables.get(child).ok_or_else(|| {
                 OmFilesError::GenericError(format!("Unknown child variable id {}", child))
             })?;
-            let offset_size = variable.resolved.clone().ok_or_else(|| {
-                OmFilesError::GenericError(format!(
-                    "Child variable '{}' is not yet resolved for inline metadata placement",
-                    variable.name
-                ))
-            })?;
-            resolved.push(offset_size);
+            match variable {
+                DeferredVariable::Resolved { offset_size, .. } => {
+                    resolved.push(offset_size.clone());
+                }
+                DeferredVariable::Pending { name, .. } => {
+                    return Err(OmFilesError::GenericError(format!(
+                        "Child variable '{}' is not yet resolved for inline metadata placement",
+                        name
+                    )));
+                }
+            }
         }
         Ok(resolved)
     }
@@ -286,98 +275,56 @@ impl WriterState {
             ));
         }
 
-        if let Some(variable) = self.variables.get(&variable_id) {
-            if let Some(offset_size) = &variable.resolved {
-                return Ok(offset_size.clone());
-            }
-        } else {
-            return Err(OmFilesError::GenericError(format!(
-                "Unknown variable id {}",
-                variable_id
-            )));
-        };
+        if let Some(DeferredVariable::Resolved { offset_size, .. }) =
+            self.variables.get(&variable_id)
+        {
+            return Ok(offset_size.clone());
+        }
 
         // Temporarily take ownership of the variable by removing it
-        let mut variable = self.variables.remove(&variable_id).unwrap();
+        let variable = self.variables.remove(&variable_id).ok_or_else(|| {
+            OmFilesError::GenericError(format!("Unknown variable id {}", variable_id))
+        })?;
+
+        let (name, kind) = match variable {
+            DeferredVariable::Pending { name, kind } => (name, kind),
+            DeferredVariable::Resolved { .. } => unreachable!("Handled above"),
+        };
+
         resolving.push(variable_id);
 
-        let child_ids = match &variable.kind {
+        let child_ids = match &kind {
             DeferredVariableKind::Scalar { children, .. } => children,
             DeferredVariableKind::Array { children, .. } => children,
             DeferredVariableKind::Group { children } => children,
-            DeferredVariableKind::Resolved => unreachable!("Resolved variables return early"),
         };
 
+        // Resolve children recursively
         let mut resolved_children = Vec::with_capacity(child_ids.len());
         for &child_id in child_ids {
             resolved_children.push(self.resolve_variable(child_id, resolving)?);
         }
 
-        let resolved = match &mut variable.kind {
-            DeferredVariableKind::Scalar { value, .. } => match value {
-                DeferredScalarValue::String(v) => {
-                    self.writer
-                        .write_scalar(v.clone(), &variable.name, &resolved_children)?
-                }
-                DeferredScalarValue::Float64(v) => {
-                    self.writer
-                        .write_scalar(*v, &variable.name, &resolved_children)?
-                }
-                DeferredScalarValue::Float32(v) => {
-                    self.writer
-                        .write_scalar(*v, &variable.name, &resolved_children)?
-                }
-                DeferredScalarValue::Int64(v) => {
-                    self.writer
-                        .write_scalar(*v, &variable.name, &resolved_children)?
-                }
-                DeferredScalarValue::Int32(v) => {
-                    self.writer
-                        .write_scalar(*v, &variable.name, &resolved_children)?
-                }
-                DeferredScalarValue::Int16(v) => {
-                    self.writer
-                        .write_scalar(*v, &variable.name, &resolved_children)?
-                }
-                DeferredScalarValue::Int8(v) => {
-                    self.writer
-                        .write_scalar(*v, &variable.name, &resolved_children)?
-                }
-                DeferredScalarValue::Uint64(v) => {
-                    self.writer
-                        .write_scalar(*v, &variable.name, &resolved_children)?
-                }
-                DeferredScalarValue::Uint32(v) => {
-                    self.writer
-                        .write_scalar(*v, &variable.name, &resolved_children)?
-                }
-                DeferredScalarValue::Uint16(v) => {
-                    self.writer
-                        .write_scalar(*v, &variable.name, &resolved_children)?
-                }
-                DeferredScalarValue::Uint8(v) => {
-                    self.writer
-                        .write_scalar(*v, &variable.name, &resolved_children)?
-                }
-            },
+        // Perform the delayed write operation
+        let resolved = match kind {
+            DeferredVariableKind::Scalar { write_fn, .. } => {
+                write_fn(&mut self.writer, &name, &resolved_children)?
+            }
             DeferredVariableKind::Array { array, .. } => {
-                let finalized = array.take().ok_or_else(|| {
-                    OmFilesError::GenericError(
-                        "Deferred array metadata was already consumed".to_string(),
-                    )
-                })?;
-                self.writer
-                    .write_array(finalized, &variable.name, &resolved_children)?
+                self.writer.write_array(array, &name, &resolved_children)?
             }
             DeferredVariableKind::Group { .. } => {
-                self.writer.write_none(&variable.name, &resolved_children)?
+                self.writer.write_none(&name, &resolved_children)?
             }
-            DeferredVariableKind::Resolved => unreachable!("Resolved variables return early"),
         };
 
         // Update the resolved state and put the variable back into the map
-        variable.resolved = Some(resolved.clone());
-        self.variables.insert(variable_id, variable);
+        self.variables.insert(
+            variable_id,
+            DeferredVariable::Resolved {
+                offset_size: resolved.clone(),
+            },
+        );
 
         resolving.pop();
         Ok(resolved)
@@ -503,7 +450,7 @@ impl OmFileWriter {
                                 let variable_id = state.register_deferred(
                                     params.name,
                                     DeferredVariableKind::Array {
-                                        array: Some(finalized),
+                                        array: finalized,
                                         children: child_ids,
                                     },
                                 );
@@ -517,8 +464,6 @@ impl OmFileWriter {
                                     .write_array(finalized, params.name, &resolved_children)
                                     .map_err(convert_omfilesrs_error)?;
                                 let variable_id = state.register_resolved(
-                                    params.name,
-                                    DeferredVariableKind::Resolved,
                                     offset_size,
                                 );
                                 Ok(to_writer_variable(params.name, self.writer_id, variable_id))
@@ -545,12 +490,11 @@ impl OmFileWriter {
 
     /// Store a scalar immediately for inline metadata placement, or defer its
     /// metadata emission until close-time for tail metadata placement.
-    fn store_scalar<T: OmFileScalarDataType + 'static>(
+    fn store_scalar<T: OmFileScalarDataType + Send + 'static>(
         &self,
         value: T,
         name: &str,
         children: &[OmWriterVariable],
-        deferred_value: DeferredScalarValue,
     ) -> PyResult<OmWriterVariable> {
         let child_ids = self.child_ids(children)?;
         self.with_state(|state| {
@@ -559,10 +503,17 @@ impl OmFileWriter {
                 .map_err(convert_omfilesrs_error)?;
 
             if self.deferred_tail_metadata {
+                let write_fn = Box::new(
+                    move |writer: &mut OmFileWriterRs<WriterBackendImpl>,
+                          name: &str,
+                          resolved_children: &[OmOffsetSize]| {
+                        writer.write_scalar(value, name, resolved_children)
+                    },
+                );
                 let variable_id = state.register_deferred(
                     name,
                     DeferredVariableKind::Scalar {
-                        value: deferred_value,
+                        write_fn,
                         children: child_ids,
                     },
                 );
@@ -575,8 +526,7 @@ impl OmFileWriter {
                     .writer
                     .write_scalar(value, name, &resolved_children)
                     .map_err(convert_omfilesrs_error)?;
-                let variable_id =
-                    state.register_resolved(name, DeferredVariableKind::Resolved, offset_size);
+                let variable_id = state.register_resolved(offset_size);
                 Ok(to_writer_variable(name, self.writer_id, variable_id))
             }
         })
@@ -691,10 +641,14 @@ impl OmFileWriter {
                 .variables
                 .get(&root_variable.variable_id)
                 .ok_or_else(|| PyErr::new::<PyValueError, _>("Unknown root variable handle"))?;
-            variable
-                .resolved
-                .clone()
-                .ok_or_else(|| PyErr::new::<PyRuntimeError, _>("Root variable was not resolved"))?
+            match variable {
+                DeferredVariable::Resolved { offset_size, .. } => offset_size.clone(),
+                DeferredVariable::Pending { .. } => {
+                    return Err(PyErr::new::<PyRuntimeError, _>(
+                        "Root variable was not resolved",
+                    ))
+                }
+            }
         };
 
         state
@@ -852,16 +806,11 @@ impl OmFileWriter {
         let py = value.py();
 
         macro_rules! check_numpy_type {
-            ($numpy:expr, $type_name:literal, $rust_type:ty, $variant:ident) => {
+            ($numpy:expr, $type_name:literal, $rust_type:ty) => {
                 if let Ok(numpy_type) = $numpy.getattr($type_name) {
                     if value.is_instance(&numpy_type)? {
                         let scalar_value: $rust_type = value.call_method0("item")?.extract()?;
-                        return self.store_scalar(
-                            scalar_value,
-                            name,
-                            &children,
-                            DeferredScalarValue::$variant(scalar_value),
-                        );
+                        return self.store_scalar(scalar_value, name, &children);
                     }
                 }
             };
@@ -869,45 +818,40 @@ impl OmFileWriter {
 
         // Try to import numpy and check for numpy scalar types
         if let Ok(numpy) = py.import("numpy") {
-            check_numpy_type!(numpy, "int8", i8, Int8);
-            check_numpy_type!(numpy, "uint8", u8, Uint8);
-            check_numpy_type!(numpy, "int16", i16, Int16);
-            check_numpy_type!(numpy, "uint16", u16, Uint16);
-            check_numpy_type!(numpy, "int32", i32, Int32);
-            check_numpy_type!(numpy, "uint32", u32, Uint32);
-            check_numpy_type!(numpy, "int64", i64, Int64);
-            check_numpy_type!(numpy, "uint64", u64, Uint64);
-            check_numpy_type!(numpy, "float32", f32, Float32);
-            check_numpy_type!(numpy, "float64", f64, Float64);
+            check_numpy_type!(numpy, "int8", i8);
+            check_numpy_type!(numpy, "uint8", u8);
+            check_numpy_type!(numpy, "int16", i16);
+            check_numpy_type!(numpy, "uint16", u16);
+            check_numpy_type!(numpy, "int32", i32);
+            check_numpy_type!(numpy, "uint32", u32);
+            check_numpy_type!(numpy, "int64", i64);
+            check_numpy_type!(numpy, "uint64", u64);
+            check_numpy_type!(numpy, "float32", f32);
+            check_numpy_type!(numpy, "float64", f64);
         }
 
         if let Ok(value) = value.extract::<String>() {
-            self.store_scalar(
-                value.clone(),
-                name,
-                &children,
-                DeferredScalarValue::String(value),
-            )
+            self.store_scalar(value.clone(), name, &children)
         } else if let Ok(value) = value.extract::<f64>() {
-            self.store_scalar(value, name, &children, DeferredScalarValue::Float64(value))
+            self.store_scalar(value, name, &children)
         } else if let Ok(value) = value.extract::<f32>() {
-            self.store_scalar(value, name, &children, DeferredScalarValue::Float32(value))
+            self.store_scalar(value, name, &children)
         } else if let Ok(value) = value.extract::<i64>() {
-            self.store_scalar(value, name, &children, DeferredScalarValue::Int64(value))
+            self.store_scalar(value, name, &children)
         } else if let Ok(value) = value.extract::<i32>() {
-            self.store_scalar(value, name, &children, DeferredScalarValue::Int32(value))
+            self.store_scalar(value, name, &children)
         } else if let Ok(value) = value.extract::<i16>() {
-            self.store_scalar(value, name, &children, DeferredScalarValue::Int16(value))
+            self.store_scalar(value, name, &children)
         } else if let Ok(value) = value.extract::<i8>() {
-            self.store_scalar(value, name, &children, DeferredScalarValue::Int8(value))
+            self.store_scalar(value, name, &children)
         } else if let Ok(value) = value.extract::<u64>() {
-            self.store_scalar(value, name, &children, DeferredScalarValue::Uint64(value))
+            self.store_scalar(value, name, &children)
         } else if let Ok(value) = value.extract::<u32>() {
-            self.store_scalar(value, name, &children, DeferredScalarValue::Uint32(value))
+            self.store_scalar(value, name, &children)
         } else if let Ok(value) = value.extract::<u16>() {
-            self.store_scalar(value, name, &children, DeferredScalarValue::Uint16(value))
+            self.store_scalar(value, name, &children)
         } else if let Ok(value) = value.extract::<u8>() {
-            self.store_scalar(value, name, &children, DeferredScalarValue::Uint8(value))
+            self.store_scalar(value, name, &children)
         } else {
             Err(Self::unsupported_scalar_type_error(value.get_type()))
         }
@@ -956,8 +900,7 @@ impl OmFileWriter {
                     .writer
                     .write_none(name, &resolved_children)
                     .map_err(convert_omfilesrs_error)?;
-                let variable_id =
-                    state.register_resolved(name, DeferredVariableKind::Resolved, offset_size);
+                let variable_id = state.register_resolved(offset_size);
                 Ok(to_writer_variable(name, self.writer_id, variable_id))
             }
         })
@@ -1102,8 +1045,8 @@ mod tests {
             },
         );
 
-        if let Some(variable) = state.variables.get_mut(&child_id) {
-            variable.kind = DeferredVariableKind::Group {
+        if let Some(DeferredVariable::Pending { kind, .. }) = state.variables.get_mut(&child_id) {
+            *kind = DeferredVariableKind::Group {
                 children: vec![root_id],
             };
         }
