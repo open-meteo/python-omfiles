@@ -178,14 +178,15 @@ enum DeferredVariableKind {
     },
 }
 
-enum DeferredVariable {
-    Pending {
-        name: String,
-        kind: DeferredVariableKind,
-    },
-    Resolved {
-        offset_size: OmOffsetSize,
-    },
+struct DeferredVariable {
+    name: String,
+    state: DeferredVariableState,
+}
+
+enum DeferredVariableState {
+    Pending(DeferredVariableKind),
+    Resolving,
+    Resolved { offset_size: OmOffsetSize },
 }
 
 struct WriterState {
@@ -209,10 +210,15 @@ impl WriterState {
         variable_id
     }
 
-    fn register_resolved(&mut self, offset_size: OmOffsetSize) -> u64 {
+    fn register_resolved(&mut self, name: &str, offset_size: OmOffsetSize) -> u64 {
         let variable_id = self.allocate_variable_id();
-        self.variables
-            .insert(variable_id, DeferredVariable::Resolved { offset_size });
+        self.variables.insert(
+            variable_id,
+            DeferredVariable {
+                name: name.to_string(),
+                state: DeferredVariableState::Resolved { offset_size },
+            },
+        );
         variable_id
     }
 
@@ -220,9 +226,9 @@ impl WriterState {
         let variable_id = self.allocate_variable_id();
         self.variables.insert(
             variable_id,
-            DeferredVariable::Pending {
+            DeferredVariable {
                 name: name.to_string(),
-                kind,
+                state: DeferredVariableState::Pending(kind),
             },
         );
         variable_id
@@ -249,14 +255,14 @@ impl WriterState {
             let variable = self.variables.get(child).ok_or_else(|| {
                 OmFilesError::GenericError(format!("Unknown child variable id {}", child))
             })?;
-            match variable {
-                DeferredVariable::Resolved { offset_size, .. } => {
+            match &variable.state {
+                DeferredVariableState::Resolved { offset_size } => {
                     resolved.push(offset_size.clone());
                 }
-                DeferredVariable::Pending { name, .. } => {
+                DeferredVariableState::Pending(_) | DeferredVariableState::Resolving => {
                     return Err(OmFilesError::GenericError(format!(
                         "Child variable '{}' is not yet resolved for inline metadata placement",
-                        name
+                        variable.name
                     )));
                 }
             }
@@ -264,21 +270,22 @@ impl WriterState {
         Ok(resolved)
     }
 
-    fn resolve_variable(
-        &mut self,
-        variable_id: u64,
-        resolving: &mut Vec<u64>,
-    ) -> Result<OmOffsetSize, OmFilesError> {
-        if resolving.contains(&variable_id) {
-            return Err(OmFilesError::GenericError(
-                "Cycle detected in deferred variable hierarchy".to_string(),
-            ));
-        }
+    fn resolve_variable(&mut self, variable_id: u64) -> Result<OmOffsetSize, OmFilesError> {
+        let variable = self.variables.get(&variable_id).ok_or_else(|| {
+            OmFilesError::GenericError(format!("Unknown variable id {}", variable_id))
+        })?;
 
-        if let Some(DeferredVariable::Resolved { offset_size, .. }) =
-            self.variables.get(&variable_id)
-        {
-            return Ok(offset_size.clone());
+        match &variable.state {
+            DeferredVariableState::Resolved { offset_size } => {
+                return Ok(offset_size.clone());
+            }
+            DeferredVariableState::Resolving => {
+                return Err(OmFilesError::GenericError(format!(
+                    "Cycle detected while resolving variable '{}'",
+                    variable.name
+                )));
+            }
+            DeferredVariableState::Pending(_) => {}
         }
 
         // Temporarily take ownership of the variable by removing it
@@ -286,12 +293,20 @@ impl WriterState {
             OmFilesError::GenericError(format!("Unknown variable id {}", variable_id))
         })?;
 
-        let (name, kind) = match variable {
-            DeferredVariable::Pending { name, kind } => (name, kind),
-            DeferredVariable::Resolved { .. } => unreachable!("Handled above"),
+        let kind = match variable.state {
+            DeferredVariableState::Pending(kind) => kind,
+            DeferredVariableState::Resolving | DeferredVariableState::Resolved { .. } => {
+                unreachable!("Handled above")
+            }
         };
 
-        resolving.push(variable_id);
+        self.variables.insert(
+            variable_id,
+            DeferredVariable {
+                name: variable.name.clone(),
+                state: DeferredVariableState::Resolving,
+            },
+        );
 
         let child_ids = match &kind {
             DeferredVariableKind::Scalar { children, .. } => children,
@@ -302,31 +317,43 @@ impl WriterState {
         // Resolve children recursively
         let mut resolved_children = Vec::with_capacity(child_ids.len());
         for &child_id in child_ids {
-            resolved_children.push(self.resolve_variable(child_id, resolving)?);
+            if let Err(err) = self.resolve_variable(child_id).map(|offset_size| {
+                resolved_children.push(offset_size);
+            }) {
+                self.variables.insert(
+                    variable_id,
+                    DeferredVariable {
+                        name: variable.name,
+                        state: DeferredVariableState::Pending(kind),
+                    },
+                );
+                return Err(err);
+            }
         }
 
-        // Perform the delayed write operation
         let resolved = match kind {
             DeferredVariableKind::Scalar { write_fn, .. } => {
-                write_fn(&mut self.writer, &name, &resolved_children)?
+                write_fn(&mut self.writer, &variable.name, &resolved_children)?
             }
             DeferredVariableKind::Array { array, .. } => {
-                self.writer.write_array(array, &name, &resolved_children)?
+                self.writer
+                    .write_array(array, &variable.name, &resolved_children)?
             }
             DeferredVariableKind::Group { .. } => {
-                self.writer.write_none(&name, &resolved_children)?
+                self.writer.write_none(&variable.name, &resolved_children)?
             }
         };
 
         // Update the resolved state and put the variable back into the map
         self.variables.insert(
             variable_id,
-            DeferredVariable::Resolved {
-                offset_size: resolved.clone(),
+            DeferredVariable {
+                name: variable.name,
+                state: DeferredVariableState::Resolved {
+                    offset_size: resolved.clone(),
+                },
             },
         );
-
-        resolving.pop();
         Ok(resolved)
     }
 }
@@ -464,6 +491,7 @@ impl OmFileWriter {
                                     .write_array(finalized, params.name, &resolved_children)
                                     .map_err(convert_omfilesrs_error)?;
                                 let variable_id = state.register_resolved(
+                                    params.name,
                                     offset_size,
                                 );
                                 Ok(to_writer_variable(params.name, self.writer_id, variable_id))
@@ -526,7 +554,7 @@ impl OmFileWriter {
                     .writer
                     .write_scalar(value, name, &resolved_children)
                     .map_err(convert_omfilesrs_error)?;
-                let variable_id = state.register_resolved(offset_size);
+                let variable_id = state.register_resolved(name, offset_size);
                 Ok(to_writer_variable(name, self.writer_id, variable_id))
             }
         })
@@ -632,18 +660,17 @@ impl OmFileWriter {
         };
 
         let root_offset_size = if self.deferred_tail_metadata {
-            let mut resolving = Vec::new();
             state
-                .resolve_variable(root_variable.variable_id, &mut resolving)
+                .resolve_variable(root_variable.variable_id)
                 .map_err(convert_omfilesrs_error)?
         } else {
             let variable = state
                 .variables
                 .get(&root_variable.variable_id)
                 .ok_or_else(|| PyErr::new::<PyValueError, _>("Unknown root variable handle"))?;
-            match variable {
-                DeferredVariable::Resolved { offset_size, .. } => offset_size.clone(),
-                DeferredVariable::Pending { .. } => {
+            match &variable.state {
+                DeferredVariableState::Resolved { offset_size } => offset_size.clone(),
+                DeferredVariableState::Pending(_) | DeferredVariableState::Resolving => {
                     return Err(PyErr::new::<PyRuntimeError, _>(
                         "Root variable was not resolved",
                     ))
@@ -900,7 +927,7 @@ impl OmFileWriter {
                     .writer
                     .write_none(name, &resolved_children)
                     .map_err(convert_omfilesrs_error)?;
-                let variable_id = state.register_resolved(offset_size);
+                let variable_id = state.register_resolved(name, offset_size);
                 Ok(to_writer_variable(name, self.writer_id, variable_id))
             }
         })
@@ -1045,17 +1072,15 @@ mod tests {
             },
         );
 
-        if let Some(DeferredVariable::Pending { kind, .. }) = state.variables.get_mut(&child_id) {
-            *kind = DeferredVariableKind::Group {
+        if let Some(variable) = state.variables.get_mut(&child_id) {
+            variable.state = DeferredVariableState::Pending(DeferredVariableKind::Group {
                 children: vec![root_id],
-            };
+            });
         }
 
-        let err = state
-            .resolve_variable(root_id, &mut Vec::new())
-            .unwrap_err();
+        let err = state.resolve_variable(root_id).unwrap_err();
         assert!(
-            matches!(err, OmFilesError::GenericError(message) if message == "Cycle detected in deferred variable hierarchy")
+            matches!(err, OmFilesError::GenericError(message) if message == "Cycle detected while resolving variable 'root'")
         );
 
         let _ = fs::remove_file(file_path);
