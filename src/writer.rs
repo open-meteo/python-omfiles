@@ -156,6 +156,7 @@ impl<'a> WriteArrayParams<'a> {
 }
 
 enum DeferredVariableKind {
+    Resolved,
     Scalar {
         value: DeferredScalarValue,
         children: Vec<u64>,
@@ -304,6 +305,7 @@ impl WriterState {
             DeferredVariableKind::Scalar { children, .. } => children,
             DeferredVariableKind::Array { children, .. } => children,
             DeferredVariableKind::Group { children } => children,
+            DeferredVariableKind::Resolved => unreachable!("Resolved variables return early"),
         };
 
         let mut resolved_children = Vec::with_capacity(child_ids.len());
@@ -370,6 +372,7 @@ impl WriterState {
             DeferredVariableKind::Group { .. } => {
                 self.writer.write_none(&variable.name, &resolved_children)?
             }
+            DeferredVariableKind::Resolved => unreachable!("Resolved variables return early"),
         };
 
         // Update the resolved state and put the variable back into the map
@@ -515,10 +518,7 @@ impl OmFileWriter {
                                     .map_err(convert_omfilesrs_error)?;
                                 let variable_id = state.register_resolved(
                                     params.name,
-                                    DeferredVariableKind::Array {
-                                        array: None,
-                                        children: child_ids,
-                                    },
+                                    DeferredVariableKind::Resolved,
                                     offset_size,
                                 );
                                 Ok(to_writer_variable(params.name, self.writer_id, variable_id))
@@ -575,14 +575,8 @@ impl OmFileWriter {
                     .writer
                     .write_scalar(value, name, &resolved_children)
                     .map_err(convert_omfilesrs_error)?;
-                let variable_id = state.register_resolved(
-                    name,
-                    DeferredVariableKind::Scalar {
-                        value: deferred_value,
-                        children: child_ids,
-                    },
-                    offset_size,
-                );
+                let variable_id =
+                    state.register_resolved(name, DeferredVariableKind::Resolved, offset_size);
                 Ok(to_writer_variable(name, self.writer_id, variable_id))
             }
         })
@@ -962,13 +956,8 @@ impl OmFileWriter {
                     .writer
                     .write_none(name, &resolved_children)
                     .map_err(convert_omfilesrs_error)?;
-                let variable_id = state.register_resolved(
-                    name,
-                    DeferredVariableKind::Group {
-                        children: child_ids,
-                    },
-                    offset_size,
-                );
+                let variable_id =
+                    state.register_resolved(name, DeferredVariableKind::Resolved, offset_size);
                 Ok(to_writer_variable(name, self.writer_id, variable_id))
             }
         })
