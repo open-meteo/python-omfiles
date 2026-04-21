@@ -1,6 +1,6 @@
 [package]
 name = "python-omfiles"
-version = "1.1.0"
+version = "1.1.2"
 edition = "2021"
 description = "Python bindings for the rust omfiles library"
 license = "GPL-2.0-only"
@@ -17,15 +17,15 @@ path = "src/bin/stub_gen.rs"
 doc = true
 
 [dependencies]
-pyo3 = { version = "0.27", features = ["abi3-py310", "experimental-async"] }
-pyo3-async-runtimes = { version = "0.27", features = ["async-std-runtime"] }
-pyo3-stub-gen = "0.18"
-async-lock = "3.4.2"
-numpy = "0.27"
+pyo3 = { version = "0.28", features = ["abi3-py310", "experimental-async"] }
+pyo3-async-runtimes = { version = "0.28", features = ["async-std-runtime"] }
+pyo3-stub-gen = "0.22"
+async-lock = "3.4"
+numpy = "0.28"
 num-traits = "0.2"
 delegate = "0.13"
-omfiles-rs = { git = "https://github.com/open-meteo/rust-omfiles", rev = "a96adaf2c0808821452eaa5e54ea5032d5834184", package = "omfiles", features = ["metadata-tree"] }
-om-file-format-sys = { git = "https://github.com/open-meteo/om-file-format", rev = "9feec4b8f01fee2843ddb940ddc4dd92b2981437" }
-thiserror = "2.0.18"
+omfiles-rs = { git = "https://github.com/open-meteo/rust-omfiles", rev = "cd6f08c097931100943b3677b6eaeac0b37327ee", package = "omfiles", features = ["metadata-tree"] }
+om-file-format-sys = { git = "https://github.com/open-meteo/om-file-format", rev = "18bee8578d953bd95ad7de1ae688faa7cf421f7c" }
+thiserror = "2.0"
 
 [features]

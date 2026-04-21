@@ -92,7 +92,7 @@ def test_load_data_success(chunk_reader: OmChunkFileReader, icond2_om_chunks_met
     for chunk_idx in chunk_reader.chunk_indices:
         chunk_times = icond2_om_chunks_meta.get_chunk_time_range(chunk_idx)
         time_mask = (chunk_times >= chunk_reader.start_date) & (chunk_times <= chunk_reader.end_date)
-        num_points = np.sum(time_mask)
+        num_points = int(np.sum(time_mask))
         # Create mock data with the correct length
         expected_data.append(np.arange(num_points, dtype=np.float32))
 

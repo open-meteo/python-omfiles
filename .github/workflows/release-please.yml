@@ -21,7 +21,6 @@ jobs:
       - uses: googleapis/release-please-action@v4
         id: release
         with:
-          release-type: rust # The version is specified in the Cargo.toml file
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout repository
@@ -29,7 +28,7 @@ jobs:
         if: ${{ steps.release.outputs.release_created }}
 
       - name: Download artifacts from CI
-        uses: dawidd6/action-download-artifact@v9
+        uses: dawidd6/action-download-artifact@v20
         if: ${{ steps.release.outputs.release_created }}
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -55,7 +54,7 @@ jobs:
 
       - name: Generate artifact attestation
         if: ${{ steps.release.outputs.release_created }}
-        uses: actions/attest-build-provenance@v1
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: "dist/*"
 

@@ -1,4 +1,5 @@
-"""PySpark custom data source for reading Open-Meteo .om files.
+"""
+PySpark custom data source for reading Open-Meteo .om files.
 
 This module provides a PySpark DataSource implementation that allows reading .om files
 directly into Spark DataFrames, enabling efficient distributed processing in Databricks
@@ -70,7 +71,8 @@ class OmVariablePartition(InputPartition):
 
 
 class OmFileDataSource(DataSource):
-    """PySpark DataSource for reading Open-Meteo ``.om`` files.
+    """
+    PySpark DataSource for reading Open-Meteo ``.om`` files.
 
     Options:
         path (str): Path to the ``.om`` file.  Can be a local path or an S3 URI
@@ -90,7 +92,8 @@ class OmFileDataSource(DataSource):
         return "om"
 
     def schema(self) -> StructType:
-        """Infer the Spark schema by inspecting the .om file metadata.
+        """
+        Infer the Spark schema by inspecting the .om file metadata.
 
         For spatial files (root is a group) the schema is:
             - ``latitude``  DOUBLE
@@ -191,7 +194,8 @@ class OmFileDataSource(DataSource):
 
 
 class OmFileDataSourceReader(DataSourceReader):
-    """Reads .om file data and yields rows to Spark.
+    """
+    Reads .om file data and yields rows to Spark.
 
     Each variable is read as a separate partition to enable parallelism across
     the Spark cluster.  Within each partition the full (lat × lon) grid is read

@@ -3,7 +3,7 @@ use pyo3::prelude::*;
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
 
 #[gen_stub_pyclass]
-#[pyclass]
+#[pyclass(from_py_object)]
 #[derive(Clone)]
 /// Represents a variable in an OM file.
 pub(crate) struct OmVariable {
@@ -45,4 +45,16 @@ impl Into<OmOffsetSize> for OmVariable {
             size: self.size,
         }
     }
+}
+
+#[gen_stub_pyclass]
+#[pyclass(from_py_object)]
+#[derive(Clone)]
+/// Represents a variable handle during writing.
+pub(crate) struct OmWriterVariable {
+    #[pyo3(get)]
+    /// The name of the variable.
+    pub name: String,
+    pub(crate) writer_id: u64,
+    pub(crate) variable_id: u64,
 }

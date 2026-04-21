@@ -1,0 +1,24 @@
+name: Cache Rust build
+description: Caches Rust build artifacts and dependencies
+inputs:
+  cache-name:
+    description: Logical cache namespace, e.g. rust-tests or wheel-build
+    required: false
+    default: rust
+  key-postfix:
+    description: Additional cache discriminator, e.g. target triple
+    required: false
+    default: ""
+runs:
+  using: "composite"
+  steps:
+    - name: Cache Rust build
+      uses: actions/cache@v4
+      with:
+        path: |
+          target
+          ~/.cargo/registry
+          ~/.cargo/git
+        key: ${{ runner.os }}-${{ inputs.cache-name }}-${{ runner.arch }}-${{ inputs.key-postfix }}-${{ hashFiles('**/Cargo.lock', '**/Cargo.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-${{ inputs.cache-name }}-${{ runner.arch }}-${{ inputs.key-postfix }}-

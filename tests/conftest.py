@@ -97,6 +97,9 @@ def empty_temp_om_file():
             warnings.warn(f"Failed to remove temporary file {filename}: {e}")
 
 
+empty_temp_om_file_2 = empty_temp_om_file
+
+
 @pytest.fixture
 def icon_d2_meta_json() -> str:
     # return meta_str

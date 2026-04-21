@@ -1,0 +1,32 @@
+name: Test wheel
+description: Download and test a built wheel
+inputs:
+  artifact-name:
+    description: Name of the artifact to download
+    required: true
+  python-version:
+    description: Python version to use
+    required: false
+    default: "3.12"
+runs:
+  using: "composite"
+  steps:
+    - name: Install uv
+      uses: ./.github/actions/install-uv
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Download wheel
+      uses: actions/download-artifact@v4
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: dist
+
+    - name: Run tests
+      shell: bash
+      run: |
+        WHEEL_PATH=$(ls dist/*.whl)
+        uv venv
+        uv sync --no-install-project --no-default-groups --group=test
+        uv pip install --force-reinstall "$WHEEL_PATH"
+        uv run --no-sync pytest tests/
