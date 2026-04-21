@@ -22,4 +22,3 @@ runs:
         key: ${{ runner.os }}-${{ inputs.cache-name }}-${{ runner.arch }}-${{ inputs.key-postfix }}-${{ hashFiles('**/Cargo.lock', '**/Cargo.toml') }}
         restore-keys: |
           ${{ runner.os }}-${{ inputs.cache-name }}-${{ runner.arch }}-${{ inputs.key-postfix }}-
-          ${{ runner.os }}-${{ inputs.cache-name }}-${{ runner.arch }}-
