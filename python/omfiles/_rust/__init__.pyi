@@ -525,7 +525,7 @@ class OmFileWriter:
         r"""
         Check if the writer is closed.
         """
-    def __new__(cls, file_path: builtins.str, metadata_placement: typing.Optional[builtins.str] = None) -> OmFileWriter:
+    def __new__(cls, file_path: builtins.str, metadata_placement: builtins.str = "tail") -> OmFileWriter:
         r"""
         Initialize an OmFileWriter.
 
@@ -537,7 +537,7 @@ class OmFileWriter:
                                 the file (default: "tail").
         """
     @staticmethod
-    def at_path(path: builtins.str, metadata_placement: typing.Optional[builtins.str] = None) -> OmFileWriter:
+    def at_path(path: builtins.str, metadata_placement: builtins.str = "tail") -> OmFileWriter:
         r"""
         Initialize an OmFileWriter to write to a file at the specified path.
 
@@ -550,9 +550,7 @@ class OmFileWriter:
             OmFileWriter: A new writer instance
         """
     @staticmethod
-    def from_fsspec(
-        fs_obj: typing.Any, path: builtins.str, metadata_placement: typing.Optional[builtins.str] = None
-    ) -> OmFileWriter:
+    def from_fsspec(fs_obj: typing.Any, path: builtins.str, metadata_placement: builtins.str = "tail") -> OmFileWriter:
         r"""
         Create an OmFileWriter from a fsspec filesystem object.
 
@@ -607,31 +605,35 @@ class OmFileWriter:
         self,
         data: numpy.typing.NDArray[typing.Any],
         chunks: typing.Sequence[builtins.int],
-        scale_factor: typing.Optional[builtins.float] = None,
-        add_offset: typing.Optional[builtins.float] = None,
-        compression: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
+        scale_factor: builtins.float = 1.0,
+        add_offset: builtins.float = 0.0,
+        compression: builtins.str = "pfor_delta_2d",
+        name: builtins.str = "data",
         children: typing.Optional[typing.Sequence[OmWriterVariable]] = None,
     ) -> OmWriterVariable:
         r"""
         Write a numpy array to the .om file with specified chunking and scaling parameters.
 
-        ``scale_factor`` and ``add_offset`` are only respected and required for float32
-        and float64 data types. Recommended compression is "pfor_delta_2d" as it achieves
-        best compression ratios (on spatio-temporally correlated data), but it will be lossy
-        when applied to floating-point data types because of the scale-offset encoding applied
-        to convert float values to integer values.
+        ``data`` must be a NumPy ndarray with one of the supported dtypes:
+        ``float32``, ``float64``, ``int8``, ``uint8``, ``int16``, ``uint16``,
+        ``int32``, ``uint32``, ``int64``, or ``uint64``.
+
+        ``scale_factor`` and ``add_offset`` are only respected for ``float32`` and
+        ``float64`` data. Recommended compression is ``"pfor_delta_2d"`` as it often
+        achieves the best compression ratios on spatio-temporally correlated data,
+        but it will be lossy for floating-point arrays because scale/offset encoding
+        is applied before integer compression.
 
         Args:
-            data: Input array to be written. Supported dtypes are:
-                  float32, float64, int8, uint8, int16, uint16, int32, uint32, int64, uint64,
-            chunks: Chunk sizes for each dimension of the array
-            scale_factor: Scale factor for data compression (default: 1.0)
-            add_offset: Offset value for data compression (default: 0.0)
-            compression: Compression algorithm to use (default: "pfor_delta_2d")
-                         Supported values: "pfor_delta_2d", "fpx_xor_2d", "pfor_delta_2d_int16", "pfor_delta_2d_int16_logarithmic"
-            name: Name of the variable to be written (default: "data")
-            children: List of child variables (default: [])
+            data: NumPy ndarray to be written.
+            chunks: Chunk sizes for each dimension of the array.
+            scale_factor: Scale factor for data compression (default: 1.0).
+            add_offset: Offset value for data compression (default: 0.0).
+            compression: Compression algorithm to use (default: ``"pfor_delta_2d"``).
+                         Supported values: ``"pfor_delta_2d"``, ``"fpx_xor_2d"``,
+                         ``"pfor_delta_2d_int16"``, ``"pfor_delta_2d_int16_logarithmic"``.
+            name: Name of the variable to be written (default: ``"data"``).
+            children: Child variables from the same writer (default: ``None``).
 
         ``write_array`` returns an :py:data:`omfiles.OmWriterVariable`, which is a
         write-time handle used to build hierarchy relationships and to select the
@@ -640,21 +642,21 @@ class OmFileWriter:
         metadata when reading.
 
         Returns:
-            :py:data:`omfiles.OmWriterVariable` representing the written array in the file structure
+            :py:data:`omfiles.OmWriterVariable` representing the written array in the file structure.
 
         Raises:
-            ValueError: If the data type is unsupported or if parameters are invalid
+            ValueError: If the data type is unsupported or if parameters are invalid.
         """
     def write_array_streaming(
         self,
         dimensions: typing.Sequence[builtins.int],
         chunks: typing.Sequence[builtins.int],
-        chunk_iterator: typing.Iterator,
-        dtype: numpy.dtype,
-        scale_factor: typing.Optional[builtins.float] = None,
-        add_offset: typing.Optional[builtins.float] = None,
-        compression: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
+        chunk_iterator: typing.Iterator[numpy.typing.NDArray[typing.Any]],
+        dtype: numpy.dtype[typing.Any],
+        scale_factor: builtins.float = 1.0,
+        add_offset: builtins.float = 0.0,
+        compression: builtins.str = "pfor_delta_2d",
+        name: builtins.str = "data",
         children: typing.Optional[typing.Sequence[OmWriterVariable]] = None,
     ) -> OmWriterVariable:
         r"""
@@ -662,28 +664,29 @@ class OmFileWriter:
 
         This method is designed for writing large arrays that do not fit in memory.
         Instead of providing the full array, you provide the full array dimensions
-        and an iterator that yields numpy array chunks.
+        and an iterator that yields NumPy array chunks.
 
         Chunks MUST be yielded in row-major order (C-order) of the chunk grid.
+        Each yielded chunk must be a NumPy ndarray with the declared ``dtype``.
         Each chunk's shape determines how many internal file chunks it covers.
 
         Args:
-            dimensions: Shape of the full array (e.g., [1000, 2000])
-            chunks: Chunk sizes for each dimension (e.g., [100, 200])
-            chunk_iterator: Python iterable yielding numpy arrays, one per chunk region
-            dtype: Numpy dtype of the array (e.g., np.dtype(np.float32))
-            scale_factor: Scale factor for data compression (default: 1.0)
-            add_offset: Offset value for data compression (default: 0.0)
-            compression: Compression algorithm to use (default: "pfor_delta_2d")
-            name: Name of the variable (default: "data")
-            children: List of child variables (default: [])
+            dimensions: Shape of the full array (for example ``[1000, 2000]``).
+            chunks: Chunk sizes for each dimension (for example ``[100, 200]``).
+            chunk_iterator: Iterator yielding NumPy ndarrays, one per chunk region.
+            dtype: NumPy dtype of the streamed array (for example ``np.dtype(np.float32)``).
+            scale_factor: Scale factor for data compression (default: 1.0).
+            add_offset: Offset value for data compression (default: 0.0).
+            compression: Compression algorithm to use (default: ``"pfor_delta_2d"``).
+            name: Name of the variable (default: ``"data"``).
+            children: Child variables from the same writer (default: ``None``).
 
         Returns:
-            :py:data:`omfiles.OmWriterVariable` representing the written array in the file structure
+            :py:data:`omfiles.OmWriterVariable` representing the written array in the file structure.
 
         Raises:
-            ValueError: If the dtype is unsupported or parameters are invalid
-            RuntimeError: If there's an error during compression or I/O
+            ValueError: If the dtype is unsupported or parameters are invalid.
+            RuntimeError: If there is an error during compression or I/O.
         """
     def write_scalar(
         self, value: typing.Any, name: builtins.str, children: typing.Optional[typing.Sequence[OmWriterVariable]] = None
@@ -691,11 +694,14 @@ class OmFileWriter:
         r"""
         Write a scalar value to the .om file.
 
+        Supported values are Python ``str`` plus Python or NumPy scalar values of
+        type ``int8``, ``int16``, ``int32``, ``int64``, ``uint8``, ``uint16``,
+        ``uint32``, ``uint64``, ``float32``, and ``float64``.
+
         Args:
-            value: Scalar value to write. Supported types are:
-                   int8, int16, int32, int64, uint8, uint16, uint32, uint64, float32, float64, String
-            name: Name of the scalar variable
-            children: List of child variables (default: None)
+            value: Scalar value to write.
+            name: Name of the scalar variable.
+            children: Child variables from the same writer (default: ``None``).
 
         Child handles must come from the same writer. In ``metadata_placement="inline"``
         mode they must already be resolved because metadata is emitted immediately.
@@ -703,11 +709,11 @@ class OmFileWriter:
         ``close()``.
 
         Returns:
-            :py:data:`omfiles.OmWriterVariable` representing the written scalar variable in the file structure
+            :py:data:`omfiles.OmWriterVariable` representing the written scalar in the file structure.
 
         Raises:
-            ValueError: If the value type is unsupported (e.g., booleans)
-            RuntimeError: If there's an error writing to the file
+            ValueError: If the value type is unsupported (for example booleans).
+            RuntimeError: If there is an error writing to the file.
         """
     def write_group(self, name: builtins.str, children: typing.Sequence[OmWriterVariable]) -> OmWriterVariable:
         r"""
@@ -717,16 +723,16 @@ class OmFileWriter:
         for other variables.
 
         Args:
-            name: Name of the group
-            children: List of child variables from the same writer
+            name: Name of the group.
+            children: Child variables from the same writer.
 
         Returns:
-            :py:data:`omfiles.OmWriterVariable` representing the written group in the file structure
+            :py:data:`omfiles.OmWriterVariable` representing the written group in the file structure.
 
         Raises:
-            ValueError: If a child handle belongs to a different writer
+            ValueError: If a child handle belongs to a different writer.
             RuntimeError: If inline metadata placement is requested before child
-                          metadata has been resolved, or if there is an I/O error
+                          metadata has been resolved, or if there is an I/O error.
         """
 
 @typing.final
