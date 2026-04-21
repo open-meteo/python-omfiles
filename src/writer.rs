@@ -677,12 +677,30 @@ impl OmFileWriter {
                 }
             }
         };
-
         state
             .writer
             .write_trailer(root_offset_size)
             .map_err(convert_omfilesrs_error)?;
         guard.take();
+        self.explicitly_closed.store(true, Ordering::Relaxed);
+        Ok(())
+    }
+
+    /// Discard the writer without writing a trailer.
+    ///
+    /// This intentionally abandons the current output and suppresses the warning
+    /// that would otherwise be emitted when dropping an unclosed writer. It is
+    /// primarily useful for cleanup in error paths where no valid root variable
+    /// exists and ``close()`` cannot be called.
+    ///
+    /// Returns:
+    ///     None on success.
+    ///
+    /// Raises:
+    ///     ValueError: If the writer has already been closed or discarded.
+    fn discard(&mut self) -> PyResult<()> {
+        let mut guard = self.writer.lock().map_err(Self::lock_error)?;
+        guard.take().ok_or_else(Self::closed_error)?;
         self.explicitly_closed.store(true, Ordering::Relaxed);
         Ok(())
     }
@@ -720,7 +738,7 @@ impl OmFileWriter {
     /// metadata when reading.
     ///
     /// Returns:
-    ///     :py:data:`omfiles.OmWriterVariable` representing the written group in the file structure
+    ///     :py:data:`omfiles.OmWriterVariable` representing the written array in the file structure
     ///
     /// Raises:
     ///     ValueError: If the data type is unsupported or if parameters are invalid
@@ -814,7 +832,7 @@ impl OmFileWriter {
     /// ``close()``.
     ///
     /// Returns:
-    ///     :py:data:`omfiles.OmWriterVariable` representing the written group in the file structure
+    ///     :py:data:`omfiles.OmWriterVariable` representing the written scalar variable in the file structure
     ///
     /// Raises:
     ///     ValueError: If the value type is unsupported (e.g., booleans)
@@ -938,9 +956,17 @@ impl Drop for OmFileWriter {
     fn drop(&mut self) {
         if let Ok(mut guard) = self.writer.lock() {
             if guard.is_some() && !self.explicitly_closed.load(Ordering::Relaxed) {
-                eprintln!(
-                    "Warning: OmFileWriter was dropped without calling close(); the OM file may be incomplete"
-                );
+                Python::attach(|py| {
+                    let _ = py.import("warnings").and_then(|w| {
+                        w.call_method1(
+                            "warn",
+                            (
+                                "OmFileWriter was dropped without calling close(); the OM file may be incomplete",
+                                py.get_type::<pyo3::exceptions::PyRuntimeWarning>(),
+                            ),
+                        )
+                    });
+                });
             }
             guard.take();
         }

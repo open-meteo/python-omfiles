@@ -588,6 +588,21 @@ class OmFileWriter:
             RuntimeError: If there is an error resolving deferred metadata or
                           writing the trailer.
         """
+    def discard(self) -> None:
+        r"""
+        Discard the writer without writing a trailer.
+
+        This intentionally abandons the current output and suppresses the warning
+        that would otherwise be emitted when dropping an unclosed writer. It is
+        primarily useful for cleanup in error paths where no valid root variable
+        exists and ``close()`` cannot be called.
+
+        Returns:
+            None on success.
+
+        Raises:
+            ValueError: If the writer has already been closed or discarded.
+        """
     def write_array(
         self,
         data: numpy.typing.NDArray[typing.Any],
@@ -625,7 +640,7 @@ class OmFileWriter:
         metadata when reading.
 
         Returns:
-            :py:data:`omfiles.OmWriterVariable` representing the written group in the file structure
+            :py:data:`omfiles.OmWriterVariable` representing the written array in the file structure
 
         Raises:
             ValueError: If the data type is unsupported or if parameters are invalid
@@ -688,7 +703,7 @@ class OmFileWriter:
         ``close()``.
 
         Returns:
-            :py:data:`omfiles.OmWriterVariable` representing the written group in the file structure
+            :py:data:`omfiles.OmWriterVariable` representing the written scalar variable in the file structure
 
         Raises:
             ValueError: If the value type is unsupported (e.g., booleans)

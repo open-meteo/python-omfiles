@@ -95,8 +95,7 @@ def test_write_non_contiguous_array_raises(data, empty_temp_om_file):
         with pytest.raises(RuntimeError) as exc_info:
             writer.write_array(data, chunks=[1] * data.ndim, scale_factor=10000.0)
     finally:
-        del writer
-        gc.collect()
+        writer.discard()
 
     assert "Array not contiguous" == exc_info.value.args[0]
 
@@ -320,6 +319,9 @@ def test_invalid_child_handle_from_different_writer_raises(empty_temp_om_file, e
     with pytest.raises(ValueError, match="different writer"):
         writer1.write_group("root", children=[foreign_child])
 
+    writer1.discard()
+    writer2.discard()
+
 
 def test_invalid_root_handle_from_different_writer_raises(empty_temp_om_file, empty_temp_om_file_2):
     writer1 = omfiles.OmFileWriter(empty_temp_om_file, metadata_placement="tail")
@@ -329,6 +331,9 @@ def test_invalid_root_handle_from_different_writer_raises(empty_temp_om_file, em
 
     with pytest.raises(ValueError, match="different writer"):
         writer1.close(root_var)
+
+    writer1.discard()
+    writer2.discard()
 
 
 def test_inline_mode_allows_resolved_child_order(empty_temp_om_file):
@@ -357,18 +362,17 @@ def test_close_after_failed_close_still_allows_retry(empty_temp_om_file, empty_t
         writer.close(foreign_root)
 
     writer.close(valid_root)
+    foreign_writer.discard()
     assert writer.closed
 
 
-def test_drop_without_close_warns(empty_temp_om_file, capfd):
+def test_drop_without_close_warns(empty_temp_om_file):
     writer = omfiles.OmFileWriter(empty_temp_om_file, metadata_placement="tail")
     _ = writer.write_scalar(np.int32(1), name="root")
-    del writer
-    gc.collect()
 
-    captured = capfd.readouterr()
-    combined_output = f"{captured.out}\n{captured.err}".lower()
-    assert "warning: omfilewriter was dropped without calling close(); the om file may be incomplete" in combined_output
+    with pytest.warns(RuntimeWarning, match="OmFileWriter was dropped without calling close()"):
+        del writer
+        gc.collect()
 
 
 @pytest.mark.asyncio
