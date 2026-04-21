@@ -641,12 +641,6 @@ class OmFileWriter:
         :py:data:`omfiles.OmVariable`, which represents already-materialized
         metadata when reading.
 
-        ``write_array`` returns an :py:data:`omfiles.OmWriterVariable`, which is a
-        write-time handle used to build hierarchy relationships and to select the
-        root variable passed to ``close()``. It is not the same as
-        :py:data:`omfiles.OmVariable`, which represents already-materialized
-        metadata when reading.
-
         Returns:
             :py:data:`omfiles.OmWriterVariable` representing the written array in the file structure.
 
@@ -708,11 +702,6 @@ class OmFileWriter:
             value: Scalar value to write.
             name: Name of the scalar variable.
             children: Child variables from the same writer (default: ``None``).
-
-        Child handles must come from the same writer. In ``metadata_placement="inline"``
-        mode they must already be resolved because metadata is emitted immediately.
-        In ``metadata_placement="tail"`` mode they may be resolved later during
-        ``close()``.
 
         Child handles must come from the same writer. In ``metadata_placement="inline"``
         mode they must already be resolved because metadata is emitted immediately.
