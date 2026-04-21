@@ -57,7 +57,8 @@ lon2d, lat2d = grid.get_meshgrid()
 
 min_val = int(data.min().values)
 max_val = int(data.max().values)
-stepsize = int((max_val - min_val) / min(max_val - min_val, 30))
+delta = max_val - min_val
+stepsize = max(int(delta / 30), 1)
 
 im = ax.contourf(
     lon2d,
