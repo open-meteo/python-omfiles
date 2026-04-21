@@ -3,7 +3,7 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
-#     "omfiles[fsspec,grids,xarray] @ /home/fred/dev/terraputix/python-omfiles",  # x-release-please-version
+#     "omfiles[fsspec,grids,xarray]>=1.1.2",  # x-release-please-version
 #     "matplotlib",
 #     "cartopy",
 # ]
@@ -20,14 +20,16 @@ import xarray as xr
 from omfiles.grids import OmGrid
 
 MODEL_DOMAIN = "dwd_icon"
-VARIABLE = ""
+VARIABLE = "temperature_2m"
 
 # Example: URI for a spatial data file in the `data_spatial` S3 bucket
 # See data organization details: https://github.com/open-meteo/open-data?tab=readme-ov-file#data-organization
 # Note: Spatial data is only retained for 7 days. The script uses one file within this period.
 date_time = dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=2)
 S3_URI = (
-    f"s3://openmeteo/data_run/{MODEL_DOMAIN}/{date_time.year}/{date_time.month:02}/{date_time.day:02}/0000Z/rain.om"
+    f"s3://openmeteo/data_spatial/{MODEL_DOMAIN}/{date_time.year}/"
+    f"{date_time.month:02}/{date_time.day:02}/0000Z/"
+    f"{date_time.strftime('%Y-%m-%d')}T0000.om"
 )
 print(f"Using om file: {S3_URI}")
 
@@ -50,9 +52,9 @@ ax.add_feature(cfeature.BORDERS, linewidth=0.5)
 ax.add_feature(cfeature.OCEAN, alpha=0.3)
 ax.add_feature(cfeature.LAND, alpha=0.3)
 
-data = ds[VARIABLE][:, :, 2]  # shape: (lat, lon)
+data = ds[VARIABLE]  # shape: (lat, lon)
 # Use OmGrid with the crs_wkt attribute to get the lat/lon grid
-grid = OmGrid(ds.attrs["crs_wkt"], data.shape)
+grid = OmGrid(ds.attrs["crs_wkt"], ds[VARIABLE].shape)
 lon2d, lat2d = grid.get_meshgrid()
 
 min_val = int(data.min().values)
