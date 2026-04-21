@@ -118,7 +118,7 @@ class OmDataStore(AbstractDataStore):
             if DIMENSION_KEY in attrs:
                 dim_names = attrs[DIMENSION_KEY]
                 if isinstance(dim_names, str):
-                    dimensions.update(dim_names.split(" "))
+                    dimensions.update(dim_names.split())
                 elif isinstance(dim_names, list):
                     dimensions.update(dim_names)
 
@@ -140,8 +140,14 @@ class OmDataStore(AbstractDataStore):
             if DIMENSION_KEY in attrs:
                 dim_names = attrs[DIMENSION_KEY]
                 if isinstance(dim_names, str):
-                    # Dimensions are stored as a comma-separated string, split them
-                    dim_names = dim_names.split(" ")
+                    # Dimensions are stored as white space separated string, split them
+                    #
+                    # If sep is not specified or is None, a different splitting algorithm is applied:
+                    # runs of consecutive whitespace are regarded as a single separator, and the result will
+                    # contain no empty strings at the start or end if the string has leading or trailing
+                    # whitespace. Consequently, splitting an empty string or a string consisting of just
+                    # whitespace with a None separator returns [].
+                    dim_names = dim_names.split()
             else:
                 # Default to generic dimension names if not specified
                 dim_names = [f"dim{i}" for i in range(len(shape))]
