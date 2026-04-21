@@ -95,8 +95,7 @@ def test_write_non_contiguous_array_raises(data, empty_temp_om_file):
         with pytest.raises(RuntimeError) as exc_info:
             writer.write_array(data, chunks=[1] * data.ndim, scale_factor=10000.0)
     finally:
-        del writer
-        gc.collect()
+        writer.discard()
 
     assert "Array not contiguous" == exc_info.value.args[0]
 
@@ -213,33 +212,48 @@ def test_write_tail_metadata_at_end_of_file(empty_temp_om_file):
     with open(empty_temp_om_file, "rb") as f:
         file_bytes = f.read()
 
-    trailer_size = 20
+    trailer_size = 24
     trailer = file_bytes[-trailer_size:]
-    metadata_region = file_bytes[:-trailer_size]
+    expected_trailer = bytes([79, 77, 3, 0, 0, 0, 0, 0, 168, 0, 0, 0, 0, 0, 0, 0, 108, 0, 0, 0, 0, 0, 0, 0])
+    assert trailer == expected_trailer
 
-    child_name = b"child"
-    scalar_name = b"metadata"
-    root_name = b"root"
-
-    child_pos = metadata_region.rfind(child_name)
-    scalar_pos = metadata_region.rfind(scalar_name)
-    root_pos = metadata_region.rfind(root_name)
-
-    assert child_pos != -1
-    assert scalar_pos != -1
-    assert root_pos != -1
-
-    assert child_pos < scalar_pos < root_pos
-
-    metadata_start = min(child_pos, scalar_pos, root_pos)
-    metadata_tail = metadata_region[metadata_start:]
-
-    assert child_name in metadata_tail
-    assert scalar_name in metadata_tail
-    assert root_name in metadata_tail
-
-    assert trailer != b"\x00" * trailer_size
-    assert trailer not in metadata_region
+    metadata_tail = file_bytes[64:-trailer_size]
+    # fmt: off
+    expected_meta = bytes([
+            # child_var meta
+            20, 2, 5, 0, 0, 0, 0, 0,
+            3, 0, 0, 0, 0, 0, 0, 0, # size of LUT
+            12, 0, 0, 0, 0, 0, 0, 0, # offset of LUT
+            2, 0, 0, 0, 0, 0, 0, 0, # number of dimensions
+            0, 64, 28, 70, 0, 0, 0, 0, # scale factor + add offset
+            2, 0, 0, 0, 0, 0, 0, 0, # dimensions
+            2, 0, 0, 0, 0, 0, 0, 0, # dimensions
+            1, 0, 0, 0, 0, 0, 0, 0, # chunks
+            1, 0, 0, 0, 0, 0, 0, 0, # chunks
+            99, 104, 105, 108, 100, 0, 0, 0, # name
+            # metadata_var meta
+            5, 4, 8, 0, 0, 0, 0, 0,
+            7, 0, 0, 0,
+            109, 101, 116, 97, 100, 97, 116, 97, # name
+            0, 0, 0, 0,
+            # root_var metadata
+            20, 2, 4, 0, 2, 0, 0, 0,
+            4, 0, 0, 0, 0, 0, 0, 0, # size of LUT
+            55, 0, 0, 0, 0, 0, 0, 0, # offset of LUT
+            2, 0, 0, 0, 0, 0, 0, 0, # number of dimensions
+            0, 64, 28, 70, 0, 0, 0, 0, # scale factor + add offset
+            77, 0, 0, 0, 0, 0, 0, 0, # size of child var
+            20, 0, 0, 0, 0, 0, 0, 0, # size of metadata var
+            64, 0, 0, 0, 0, 0, 0, 0, # offset of child var
+            144, 0, 0, 0, 0, 0, 0, 0, # offset of metadata var
+            4, 0, 0, 0, 0, 0, 0, 0, # dimensions
+            4, 0, 0, 0, 0, 0, 0, 0, # dimensions
+            2, 0, 0, 0, 0, 0, 0, 0, # chunks
+            2, 0, 0, 0, 0, 0, 0, 0, # chunks
+            114, 111, 111, 116, 0, 0, 0, 0, # name
+        ])
+    # fmt: on
+    assert metadata_tail == expected_meta
 
 
 def test_write_inline_metadata_preserves_hierarchy(empty_temp_om_file):
@@ -305,6 +319,9 @@ def test_invalid_child_handle_from_different_writer_raises(empty_temp_om_file, e
     with pytest.raises(ValueError, match="different writer"):
         writer1.write_group("root", children=[foreign_child])
 
+    writer1.discard()
+    writer2.discard()
+
 
 def test_invalid_root_handle_from_different_writer_raises(empty_temp_om_file, empty_temp_om_file_2):
     writer1 = omfiles.OmFileWriter(empty_temp_om_file, metadata_placement="tail")
@@ -314,6 +331,9 @@ def test_invalid_root_handle_from_different_writer_raises(empty_temp_om_file, em
 
     with pytest.raises(ValueError, match="different writer"):
         writer1.close(root_var)
+
+    writer1.discard()
+    writer2.discard()
 
 
 def test_inline_mode_allows_resolved_child_order(empty_temp_om_file):
@@ -342,18 +362,17 @@ def test_close_after_failed_close_still_allows_retry(empty_temp_om_file, empty_t
         writer.close(foreign_root)
 
     writer.close(valid_root)
+    foreign_writer.discard()
     assert writer.closed
 
 
-def test_drop_without_close_warns(empty_temp_om_file, capfd):
+def test_drop_without_close_warns(empty_temp_om_file):
     writer = omfiles.OmFileWriter(empty_temp_om_file, metadata_placement="tail")
     _ = writer.write_scalar(np.int32(1), name="root")
-    del writer
-    gc.collect()
 
-    captured = capfd.readouterr()
-    combined_output = f"{captured.out}\n{captured.err}".lower()
-    assert "warning: omfilewriter was dropped without calling close(); the om file may be incomplete" in combined_output
+    with pytest.warns(RuntimeWarning, match="OmFileWriter was dropped without calling close()"):
+        del writer
+        gc.collect()
 
 
 @pytest.mark.asyncio

@@ -500,14 +500,14 @@ impl OmFileWriter {
             dispatch! {
                 Float32 => f32,
                 Float64 => f64,
-                Int8    => i8 ,
-                Uint8   => u8 ,
+                Int8    => i8,
+                Uint8   => u8,
                 Int16   => i16,
                 Uint16  => u16,
                 Int32   => i32,
                 Uint32  => u32,
                 Int64   => i64,
-                Uint64  => u64
+                Uint64  => u64,
             }
         })
     }
@@ -669,12 +669,30 @@ impl OmFileWriter {
                 }
             }
         };
-
         state
             .writer
             .write_trailer(root_offset_size)
             .map_err(convert_omfilesrs_error)?;
         guard.take();
+        self.explicitly_closed.store(true, Ordering::Relaxed);
+        Ok(())
+    }
+
+    /// Discard the writer without writing a trailer.
+    ///
+    /// This intentionally abandons the current output and suppresses the warning
+    /// that would otherwise be emitted when dropping an unclosed writer. It is
+    /// primarily useful for cleanup in error paths where no valid root variable
+    /// exists and ``close()`` cannot be called.
+    ///
+    /// Returns:
+    ///     None on success.
+    ///
+    /// Raises:
+    ///     ValueError: If the writer has already been closed or discarded.
+    fn discard(&mut self) -> PyResult<()> {
+        let mut guard = self.writer.lock().map_err(Self::lock_error)?;
+        guard.take().ok_or_else(Self::closed_error)?;
         self.explicitly_closed.store(true, Ordering::Relaxed);
         Ok(())
     }
@@ -708,6 +726,12 @@ impl OmFileWriter {
     ///                  ``"pfor_delta_2d_int16"``, ``"pfor_delta_2d_int16_logarithmic"``.
     ///     name: Name of the variable to be written (default: ``"data"``).
     ///     children: Child variables from the same writer (default: ``None``).
+    ///
+    /// ``write_array`` returns an :py:data:`omfiles.OmWriterVariable`, which is a
+    /// write-time handle used to build hierarchy relationships and to select the
+    /// root variable passed to ``close()``. It is not the same as
+    /// :py:data:`omfiles.OmVariable`, which represents already-materialized
+    /// metadata when reading.
     ///
     /// ``write_array`` returns an :py:data:`omfiles.OmWriterVariable`, which is a
     /// write-time handle used to build hierarchy relationships and to select the
@@ -806,6 +830,11 @@ impl OmFileWriter {
     ///     value: Scalar value to write.
     ///     name: Name of the scalar variable.
     ///     children: Child variables from the same writer (default: ``None``).
+    ///
+    /// Child handles must come from the same writer. In ``metadata_placement="inline"``
+    /// mode they must already be resolved because metadata is emitted immediately.
+    /// In ``metadata_placement="tail"`` mode they may be resolved later during
+    /// ``close()``.
     ///
     /// Child handles must come from the same writer. In ``metadata_placement="inline"``
     /// mode they must already be resolved because metadata is emitted immediately.
@@ -938,9 +967,17 @@ impl Drop for OmFileWriter {
     fn drop(&mut self) {
         if let Ok(mut guard) = self.writer.lock() {
             if guard.is_some() && !self.explicitly_closed.load(Ordering::Relaxed) {
-                eprintln!(
-                    "Warning: OmFileWriter was dropped without calling close(); the OM file may be incomplete"
-                );
+                Python::attach(|py| {
+                    let _ = py.import("warnings").and_then(|w| {
+                        w.call_method1(
+                            "warn",
+                            (
+                                "OmFileWriter was dropped without calling close(); the OM file may be incomplete",
+                                py.get_type::<pyo3::exceptions::PyRuntimeWarning>(),
+                            ),
+                        )
+                    });
+                });
             }
             guard.take();
         }

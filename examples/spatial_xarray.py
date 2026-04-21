@@ -57,18 +57,19 @@ data = ds[VARIABLE]  # shape: (lat, lon)
 grid = OmGrid(ds.attrs["crs_wkt"], ds[VARIABLE].shape)
 lon2d, lat2d = grid.get_meshgrid()
 
-min = int(data.min().values)
-max = int(data.max().values)
-stepsize = int((max - min) / 30)
+min_val = int(data.min().values)
+max_val = int(data.max().values)
+delta = max_val - min_val
+stepsize = max(int(delta / 30), 1)
 
 im = ax.contourf(
     lon2d,
     lat2d,
     data,
-    levels=np.arange(min, max, stepsize),
+    levels=np.arange(min_val, max_val, stepsize),
     cmap="Spectral_r",
-    vmin=min,
-    vmax=max,
+    vmin=min_val,
+    vmax=max_val,
     extend="both",
 )
 ax.gridlines(draw_labels=True, alpha=0.3)

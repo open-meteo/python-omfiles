@@ -586,6 +586,21 @@ class OmFileWriter:
             RuntimeError: If there is an error resolving deferred metadata or
                           writing the trailer.
         """
+    def discard(self) -> None:
+        r"""
+        Discard the writer without writing a trailer.
+
+        This intentionally abandons the current output and suppresses the warning
+        that would otherwise be emitted when dropping an unclosed writer. It is
+        primarily useful for cleanup in error paths where no valid root variable
+        exists and ``close()`` cannot be called.
+
+        Returns:
+            None on success.
+
+        Raises:
+            ValueError: If the writer has already been closed or discarded.
+        """
     def write_array(
         self,
         data: numpy.typing.NDArray[typing.Any],
@@ -619,6 +634,12 @@ class OmFileWriter:
                          ``"pfor_delta_2d_int16"``, ``"pfor_delta_2d_int16_logarithmic"``.
             name: Name of the variable to be written (default: ``"data"``).
             children: Child variables from the same writer (default: ``None``).
+
+        ``write_array`` returns an :py:data:`omfiles.OmWriterVariable`, which is a
+        write-time handle used to build hierarchy relationships and to select the
+        root variable passed to ``close()``. It is not the same as
+        :py:data:`omfiles.OmVariable`, which represents already-materialized
+        metadata when reading.
 
         ``write_array`` returns an :py:data:`omfiles.OmWriterVariable`, which is a
         write-time handle used to build hierarchy relationships and to select the
@@ -687,6 +708,11 @@ class OmFileWriter:
             value: Scalar value to write.
             name: Name of the scalar variable.
             children: Child variables from the same writer (default: ``None``).
+
+        Child handles must come from the same writer. In ``metadata_placement="inline"``
+        mode they must already be resolved because metadata is emitted immediately.
+        In ``metadata_placement="tail"`` mode they may be resolved later during
+        ``close()``.
 
         Child handles must come from the same writer. In ``metadata_placement="inline"``
         mode they must already be resolved because metadata is emitted immediately.
