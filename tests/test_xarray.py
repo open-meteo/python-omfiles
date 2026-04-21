@@ -61,7 +61,7 @@ def test_xarray_hierarchical_file(empty_temp_om_file):
     writer = OmFileWriter(empty_temp_om_file)
 
     # dimensionality metadata
-    temperature_dimension_var = writer.write_scalar("LATITUDE,LONGITUDE,ALTITUDE,TIME", name="_ARRAY_DIMENSIONS")
+    temperature_dimension_var = writer.write_scalar("LATITUDE LONGITUDE ALTITUDE TIME", name="coordinates")
     temp_units = writer.write_scalar("celsius", name="units")
     temp_metadata = writer.write_scalar("Surface temperature", name="description")
 
@@ -75,7 +75,7 @@ def test_xarray_hierarchical_file(empty_temp_om_file):
     )
 
     # dimensionality metadata
-    precipitation_dimension_var = writer.write_scalar("LATITUDE,LONGITUDE,TIME", name="_ARRAY_DIMENSIONS")
+    precipitation_dimension_var = writer.write_scalar("LATITUDE LONGITUDE TIME", name="coordinates")
     precip_units = writer.write_scalar("mm", name="units")
     precip_metadata = writer.write_scalar("Precipitation", name="description")
 

@@ -20,6 +20,7 @@ fn _rust(m: &Bound<PyModule>) -> PyResult<()> {
     m.add_class::<writer::OmFileWriter>()?;
     m.add_class::<reader_async::OmFileReaderAsync>()?;
     m.add_class::<hierarchy::OmVariable>()?;
+    m.add_class::<hierarchy::OmWriterVariable>()?;
     m.add_class::<codecs::RustPforCodec>()?;
     m.add_function(wrap_pyfunction!(cpu_info::_check_cpu_features, m)?)?;
 
