@@ -342,7 +342,7 @@ def write_dataset(
         var_children: list[OmVariable] = []
 
         if not is_dim_coord:
-            dim_str = ",".join(var.dims)
+            dim_str = " ".join(var.dims)
             dim_var = writer.write_scalar(dim_str, name=DIMENSION_KEY)
             var_children.append(dim_var)
 
@@ -416,7 +416,7 @@ def write_dataset(
 
     # Write list of non-dimension coordinates so the reader can restore them
     if non_dim_coords:
-        coord_list_var = writer.write_scalar(",".join(non_dim_coords), name="_COORDINATE_VARIABLES")
+        coord_list_var = writer.write_scalar(" ".join(non_dim_coords), name="_COORDINATE_VARIABLES")
         all_children.append(coord_list_var)
 
     for attr_name, attr_value in ds.attrs.items():
