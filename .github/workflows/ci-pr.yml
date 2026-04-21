@@ -37,7 +37,7 @@ jobs:
         with:
           target: x86_64-unknown-linux-gnu
           args: --release --out dist
-          before-script: python3 -m ensurepip && cat /etc/os-release && yum install clang -y
+          before-script-linux: python3 -m ensurepip && cat /etc/os-release && yum install clang -y
           manylinux: "2_28"
       - uses: ./.github/actions/upload-wheels
         with:
