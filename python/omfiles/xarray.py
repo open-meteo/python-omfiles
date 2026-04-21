@@ -24,7 +24,7 @@ from xarray.core.variable import Variable
 from ._rust import OmFileReader, OmVariable
 
 # need some special secret attributes to tell us the dimensions
-DIMENSION_KEY = "_ARRAY_DIMENSIONS"
+DIMENSION_KEY = "coordinates"
 
 
 class OmXarrayEntrypoint(BackendEntrypoint):
@@ -118,7 +118,7 @@ class OmDataStore(AbstractDataStore):
             if DIMENSION_KEY in attrs:
                 dim_names = attrs[DIMENSION_KEY]
                 if isinstance(dim_names, str):
-                    dimensions.update(dim_names.split(","))
+                    dimensions.update(dim_names.split(" "))
                 elif isinstance(dim_names, list):
                     dimensions.update(dim_names)
 
@@ -141,7 +141,7 @@ class OmDataStore(AbstractDataStore):
                 dim_names = attrs[DIMENSION_KEY]
                 if isinstance(dim_names, str):
                     # Dimensions are stored as a comma-separated string, split them
-                    dim_names = dim_names.split(",")
+                    dim_names = dim_names.split(" ")
             else:
                 # Default to generic dimension names if not specified
                 dim_names = [f"dim{i}" for i in range(len(shape))]

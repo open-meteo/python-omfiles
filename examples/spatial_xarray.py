@@ -3,7 +3,7 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
-#     "omfiles[fsspec,grids,xarray]>=1.1.2",  # x-release-please-version
+#     "omfiles[fsspec,grids,xarray] @ /home/fred/dev/terraputix/python-omfiles",  # x-release-please-version
 #     "matplotlib",
 #     "cartopy",
 # ]
@@ -20,16 +20,14 @@ import xarray as xr
 from omfiles.grids import OmGrid
 
 MODEL_DOMAIN = "dwd_icon"
-VARIABLE = "temperature_2m"
+VARIABLE = ""
 
 # Example: URI for a spatial data file in the `data_spatial` S3 bucket
 # See data organization details: https://github.com/open-meteo/open-data?tab=readme-ov-file#data-organization
 # Note: Spatial data is only retained for 7 days. The script uses one file within this period.
 date_time = dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=2)
 S3_URI = (
-    f"s3://openmeteo/data_spatial/{MODEL_DOMAIN}/{date_time.year}/"
-    f"{date_time.month:02}/{date_time.day:02}/0000Z/"
-    f"{date_time.strftime('%Y-%m-%d')}T0000.om"
+    f"s3://openmeteo/data_run/{MODEL_DOMAIN}/{date_time.year}/{date_time.month:02}/{date_time.day:02}/0000Z/rain.om"
 )
 print(f"Using om file: {S3_URI}")
 
@@ -52,23 +50,23 @@ ax.add_feature(cfeature.BORDERS, linewidth=0.5)
 ax.add_feature(cfeature.OCEAN, alpha=0.3)
 ax.add_feature(cfeature.LAND, alpha=0.3)
 
-data = ds[VARIABLE]  # shape: (lat, lon)
+data = ds[VARIABLE][:, :, 2]  # shape: (lat, lon)
 # Use OmGrid with the crs_wkt attribute to get the lat/lon grid
-grid = OmGrid(ds.attrs["crs_wkt"], ds[VARIABLE].shape)
+grid = OmGrid(ds.attrs["crs_wkt"], data.shape)
 lon2d, lat2d = grid.get_meshgrid()
 
-min = int(data.min().values)
-max = int(data.max().values)
-stepsize = int((max - min) / 30)
+min_val = int(data.min().values)
+max_val = int(data.max().values)
+stepsize = int((max_val - min_val) / min(max_val - min_val, 30))
 
 im = ax.contourf(
     lon2d,
     lat2d,
     data,
-    levels=np.arange(min, max, stepsize),
+    levels=np.arange(min_val, max_val, stepsize),
     cmap="Spectral_r",
-    vmin=min,
-    vmax=max,
+    vmin=min_val,
+    vmax=max_val,
     extend="both",
 )
 ax.gridlines(draw_labels=True, alpha=0.3)
