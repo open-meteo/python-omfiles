@@ -6,7 +6,7 @@
 #     "omfiles[fsspec]>=1.2.0",  # x-release-please-version
 #     "matplotlib",
 #     "cartopy",
-#     "earthkit-regrid==0.5.0",
+#     "earthkit-geo==1.0.0rc2",
 # ]
 # ///
 
@@ -17,7 +17,7 @@ import cartopy.feature as cfeature
 import fsspec
 import matplotlib.pyplot as plt
 import numpy as np
-from earthkit.regrid import interpolate
+from earthkit.geo.regrid.array import regrid
 from omfiles import OmFileReader
 
 MODEL_DOMAIN = "ecmwf_ifs"
@@ -52,9 +52,8 @@ with OmFileReader(backend) as reader:
     print(f"Data shape: {data.shape}")
     print(f"Data range: {np.nanmin(data)} to {np.nanmax(data)}")
 
-    # We are using earthkit-regrid for regridding: https://earthkit-regrid.readthedocs.io/en/stable/interpolate.html#interpolate
-    # with linear interpolation. Nearest neighbor interpolation can be obtained with`method="nearest-neighbour"`
-    regridded = interpolate(data, in_grid={"grid": "O1280"}, out_grid={"grid": [0.1, 0.1]}, method="linear")
+    # We are using earthkit-geo for regridding: https://earthkit-geo.readthedocs.io/en/latest/concepts/regridding/precomputed/regrid_array.html#precomputed-regrid-array
+    regridded, grid_spec = regrid(data, in_grid={"grid": "O1280"}, out_grid={"grid": [0.1, 0.1]}, backend="precomputed")
     print(f"Regridded shape: {regridded.shape}")
 
     # Create plot
