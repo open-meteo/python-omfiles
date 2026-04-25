@@ -16,7 +16,7 @@ resolution-markers = [
 
 [[package]]
 name = "aiobotocore"
-version = "3.4.0"
+version = "3.5.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohttp" },
@@ -28,9 +28,9 @@ dependencies = [
     { name = "typing-extensions", marker = "python_full_version < '3.11'" },
     { name = "wrapt" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/b8/50/a48ed11b15f926ce3dbb33e7fb0f25af17dbb99bcb7ae3b30c763723eca7/aiobotocore-3.4.0.tar.gz", hash = "sha256:a918b5cb903f81feba7e26835aed4b5e6bb2d0149d7f42bb2dd7d8089e3d9000", size = 122360, upload-time = "2026-04-07T06:12:24.884Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/e6/89/9533b377e9412013cc43a539d81bc5f8feeb4b6830643821ad612f78b09b/aiobotocore-3.5.0.tar.gz", hash = "sha256:d45d1c4659ad0e48b694a5aa4ff18829100386f7de96c8d146ec7757a6f12918", size = 123061, upload-time = "2026-04-21T07:25:26.993Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/df/d8/ce9386e6d76ea79e61dee15e62aa48cff6be69e89246b0ac4a11857cb02c/aiobotocore-3.4.0-py3-none-any.whl", hash = "sha256:26290eb6830ea92d8a6f5f90b56e9f5cedd6d126074d5db63b195e281d982465", size = 88018, upload-time = "2026-04-07T06:12:22.684Z" },
+    { url = "https://files.pythonhosted.org/packages/2d/05/6eeeadef45c24630af0ceae4d038b883e9a394786300529286ba8cc1e62d/aiobotocore-3.5.0-py3-none-any.whl", hash = "sha256:49ce35bb8b96b85d3251c2cbbb2ed7a028dc0cb0d0d0801f9ccca1ccd0d41ded", size = 88281, upload-time = "2026-04-21T07:25:25.258Z" },
 ]
 
 [[package]]
@@ -237,16 +237,16 @@ wheels = [
 
 [[package]]
 name = "botocore"
-version = "1.42.84"
+version = "1.42.91"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "jmespath" },
     { name = "python-dateutil" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/b4/b7/1c03423843fb0d1795b686511c00ee63fed1234c2400f469aeedfd42212f/botocore-1.42.84.tar.gz", hash = "sha256:234064604c80d9272a5e9f6b3566d260bcaa053a5e05246db90d7eca1c2cf44b", size = 15148615, upload-time = "2026-04-06T19:38:56.673Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/21/bc/a4b7c46471c2e789ad8c4c7acfd7f302fdb481d93ff870f441249b924ae6/botocore-1.42.91.tar.gz", hash = "sha256:d252e27bc454afdbf5ed3dc617aa423f2c855c081e98b7963093399483ecc698", size = 15213010, upload-time = "2026-04-17T19:30:50.793Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e3/37/0c0c90361c8a1b9e6c75222ca24ae12996a298c0e18822a72ab229c37207/botocore-1.42.84-py3-none-any.whl", hash = "sha256:15f3fe07dfa6545e46a60c4b049fe2bdf63803c595ae4a4eec90e8f8172764f3", size = 14827061, upload-time = "2026-04-06T19:38:53.613Z" },
+    { url = "https://files.pythonhosted.org/packages/b1/fc/24cc0a47c824f13933e210e9ad034b4fba22f7185b8d904c0fbf5a3b2be8/botocore-1.42.91-py3-none-any.whl", hash = "sha256:7a28c3cc6bfab5724ad18899d52402b776a0de7d87fa20c3c5270bcaaf199ce8", size = 14897344, upload-time = "2026-04-17T19:30:44.245Z" },
 ]
 
 [[package]]
@@ -627,11 +627,11 @@ wheels = [
 
 [[package]]
 name = "idna"
-version = "3.11"
+version = "3.12"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/6f/6d/0703ccc57f3a7233505399edb88de3cbd678da106337b9fcde432b65ed60/idna-3.11.tar.gz", hash = "sha256:795dafcc9c04ed0c1fb032c2aa73654d8e8c5023a7df64a53f39190ada629902", size = 194582, upload-time = "2025-10-12T14:55:20.501Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/22/12/2948fbe5513d062169bd91f7d7b1cd97bc8894f32946b71fa39f6e63ca0c/idna-3.12.tar.gz", hash = "sha256:724e9952cc9e2bd7550ea784adb098d837ab5267ef67a1ab9cf7846bdbdd8254", size = 194350, upload-time = "2026-04-21T13:32:48.916Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/0e/61/66938bbb5fc52dbdf84594873d5b51fb1f7c7794e9c0f5bd885f30bc507b/idna-3.11-py3-none-any.whl", hash = "sha256:771a87f49d9defaf64091e6e6fe9c18d4833f140bd19464795bc32d966ca37ea", size = 71008, upload-time = "2025-10-12T14:55:18.883Z" },
+    { url = "https://files.pythonhosted.org/packages/53/b2/acc33950394b3becb2b664741a0c0889c7ef9f9ffbfa8d47eddb53a50abd/idna-3.12-py3-none-any.whl", hash = "sha256:60ffaa1858fac94c9c124728c24fcde8160f3fb4a7f79aa8cdd33a9d1af60a67", size = 68634, upload-time = "2026-04-21T13:32:47.403Z" },
 ]
 
 [[package]]
@@ -1236,6 +1236,7 @@ all = [
     { name = "numcodecs", version = "0.16.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "pyproj", version = "3.7.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "pyproj", version = "3.7.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "pyspark" },
     { name = "s3fs" },
     { name = "xarray", version = "2025.6.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "xarray", version = "2026.4.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
@@ -1258,6 +1259,11 @@ fsspec = [
 grids = [
     { name = "pyproj", version = "3.7.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "pyproj", version = "3.7.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+]
+pyspark = [
+    { name = "fsspec" },
+    { name = "pyspark" },
+    { name = "s3fs" },
 ]
 xarray = [
     { name = "xarray", version = "2025.6.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
@@ -1301,19 +1307,23 @@ requires-dist = [
     { name = "dask", extras = ["array"], marker = "extra == 'dask'", specifier = ">=2023.1.0" },
     { name = "fsspec", marker = "extra == 'all'", specifier = ">=2023.10.0" },
     { name = "fsspec", marker = "extra == 'fsspec'", specifier = ">=2023.1.0" },
+    { name = "fsspec", marker = "extra == 'pyspark'", specifier = ">=2023.1.0" },
     { name = "numcodecs", marker = "extra == 'all'", specifier = ">=0.12.1" },
     { name = "numcodecs", marker = "extra == 'codec'", specifier = ">=0.12.1" },
     { name = "numpy", specifier = ">=1.21.0" },
     { name = "pyproj", marker = "extra == 'all'", specifier = ">=3.3.0" },
     { name = "pyproj", marker = "extra == 'grids'", specifier = ">=3.1.0" },
+    { name = "pyspark", marker = "extra == 'all'", specifier = ">=3.5.0" },
+    { name = "pyspark", marker = "extra == 'pyspark'", specifier = ">=3.5.0" },
     { name = "s3fs", marker = "extra == 'all'", specifier = ">=2023.1.0" },
     { name = "s3fs", marker = "extra == 'fsspec'", specifier = ">=2023.1.0" },
+    { name = "s3fs", marker = "extra == 'pyspark'", specifier = ">=2023.1.0" },
     { name = "xarray", marker = "extra == 'all'", specifier = ">=2023.1.0" },
     { name = "xarray", marker = "extra == 'xarray'", specifier = ">=2023.1.0" },
     { name = "zarr", marker = "extra == 'all'", specifier = ">=2.18.2" },
     { name = "zarr", marker = "extra == 'codec'", specifier = ">=2.18.2" },
 ]
-provides-extras = ["all", "codec", "dask", "fsspec", "grids", "xarray"]
+provides-extras = ["all", "codec", "dask", "fsspec", "grids", "pyspark", "xarray"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -1651,6 +1661,15 @@ wheels = [
 ]
 
 [[package]]
+name = "py4j"
+version = "0.10.9.9"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/38/31/0b210511177070c8d5d3059556194352e5753602fa64b85b7ab81ec1a009/py4j-0.10.9.9.tar.gz", hash = "sha256:f694cad19efa5bd1dee4f3e5270eb406613c974394035e5bfc4ec1aba870b879", size = 761089, upload-time = "2025-01-15T03:53:18.624Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/bd/db/ea0203e495be491c85af87b66e37acfd3bf756fd985f87e46fc5e3bf022c/py4j-0.10.9.9-py2.py3-none-any.whl", hash = "sha256:c7c26e4158defb37b0bb124933163641a2ff6e3a3913f7811b0ddbe07ed61533", size = 203008, upload-time = "2025-01-15T03:53:15.648Z" },
+]
+
+[[package]]
 name = "pygments"
 version = "2.20.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1780,6 +1799,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/bc/56/413240dd5149dd3291eda55aa55a659da4431244a2fd1319d0ae89407cfb/pyproj-3.7.2-cp314-cp314t-win_amd64.whl", hash = "sha256:1914e29e27933ba6f9822663ee0600f169014a2859f851c054c88cf5ea8a333c", size = 6517676, upload-time = "2025-08-14T12:05:39.126Z" },
     { url = "https://files.pythonhosted.org/packages/15/73/a7141a1a0559bf1a7aa42a11c879ceb19f02f5c6c371c6d57fd86cefd4d1/pyproj-3.7.2-cp314-cp314t-win_arm64.whl", hash = "sha256:d9d25bae416a24397e0d85739f84d323b55f6511e45a522dd7d7eae70d10c7e4", size = 6391844, upload-time = "2025-08-14T12:05:40.745Z" },
 ]
+
+[[package]]
+name = "pyspark"
+version = "4.1.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "py4j" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/19/bf/58ee13add151469c25825b7125bbf62c3bdcec05eec4d458fcb5c5516066/pyspark-4.1.1.tar.gz", hash = "sha256:77f78984aa84fbe865c717dd37b49913b4e5c97d76ef6824f932f1aefa6621ec", size = 455359625, upload-time = "2026-01-09T09:38:38.28Z" }
 
 [[package]]
 name = "pytest"
