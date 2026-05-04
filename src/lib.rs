@@ -20,20 +20,11 @@ fn _rust(m: &Bound<PyModule>) -> PyResult<()> {
     m.add_class::<writer::OmFileWriter>()?;
     m.add_class::<reader_async::OmFileReaderAsync>()?;
     m.add_class::<hierarchy::OmVariable>()?;
+    m.add_class::<hierarchy::OmWriterVariable>()?;
     m.add_class::<codecs::RustPforCodec>()?;
     m.add_function(wrap_pyfunction!(cpu_info::_check_cpu_features, m)?)?;
 
     Ok(())
 }
 
-// Specific items re-export from omfiles._rust to omfiles
-// This will add the explicitly mentioned classes to pyi exports for omfiles
-pyo3_stub_gen::reexport_module_members!(
-    "omfiles",
-    "omfiles._rust",
-    "OmFileReader",
-    "OmFileReaderAsync",
-    "OmFileWriter",
-    "OmVariable"
-);
 define_stub_info_gatherer!(stub_info);

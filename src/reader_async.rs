@@ -365,6 +365,34 @@ impl OmFileReaderAsync {
         })
     }
 
+    /// Get the scale factor of the variable.
+    ///
+    /// Returns:
+    ///     float: Scale factor stored in the array metadata.
+    #[getter]
+    fn scale_factor(&self) -> PyResult<f32> {
+        self.with_reader(|reader| {
+            Ok(reader
+                .expect_array()
+                .map_err(|_| Self::only_arrays_error())?
+                .scale_factor())
+        })
+    }
+
+    /// Get the add offset of the variable.
+    ///
+    /// Returns:
+    ///     float: Add offset stored in the array metadata.
+    #[getter]
+    fn add_offset(&self) -> PyResult<f32> {
+        self.with_reader(|reader| {
+            Ok(reader
+                .expect_array()
+                .map_err(|_| Self::only_arrays_error())?
+                .add_offset())
+        })
+    }
+
     /// Number of children of the variable.
     ///
     /// Returns:

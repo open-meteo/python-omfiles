@@ -76,6 +76,8 @@ def test_dask_non_multiple_chunks_raises(empty_temp_om_file):
     with pytest.raises(ValueError, match="not a multiple"):
         write_dask_array(writer, darr, chunks=[2, 5])
 
+    writer.discard()
+
 
 def test_dask_larger_chunks_than_om_2d(empty_temp_om_file):
     """Dask blocks spanning multiple OM chunks along dim 1 (full trailing dim)."""
@@ -133,12 +135,16 @@ def test_dask_misaligned_trailing_dims_raises(empty_temp_om_file):
     with pytest.raises(ValueError, match="not fully covered"):
         write_dask_array(writer, darr, chunks=[5, 5])
 
+    writer.discard()
+
 
 def test_dask_not_a_dask_array_raises(empty_temp_om_file):
     np_data = np.arange(20, dtype=np.float32).reshape(4, 5)
     writer = OmFileWriter(empty_temp_om_file)
     with pytest.raises(TypeError, match="Expected a dask array"):
         write_dask_array(writer, np_data)  # type: ignore[arg-type]
+
+    writer.discard()
 
 
 @pytest.mark.parametrize(
@@ -156,6 +162,8 @@ def test_dask_chunk_ndim_mismatch_raises(empty_temp_om_file, bad_chunks):
     with pytest.raises(ValueError, match=r"chunks has \d+ element"):
         write_dask_array(writer, darr, chunks=bad_chunks)
 
+    writer.discard()
+
 
 def test_dask_irregular_chunks_misaligned_raises(empty_temp_om_file):
     """
@@ -171,6 +179,8 @@ def test_dask_irregular_chunks_misaligned_raises(empty_temp_om_file):
     writer = OmFileWriter(empty_temp_om_file)
     with pytest.raises(ValueError, match="not fully covered"):
         write_dask_array(writer, darr, chunks=[4, 8])
+
+    writer.discard()
 
 
 def test_dask_irregular_chunks_valid_roundtrip(empty_temp_om_file):

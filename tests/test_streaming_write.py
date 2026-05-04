@@ -218,3 +218,5 @@ def test_streaming_unsupported_dtype_raises(empty_temp_om_file):
             chunk_iterator=iter([]),
             dtype=np.dtype(np.complex128),
         )
+
+    writer.discard()

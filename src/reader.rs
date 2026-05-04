@@ -185,7 +185,7 @@ impl OmFileReader {
     /// Returns:
     ///     OmFileReader: OmFileReader instance.
     #[staticmethod]
-    fn from_path(file_path: &str) -> PyResult<Self> {
+    pub(crate) fn from_path(file_path: &str) -> PyResult<Self> {
         let file_handle = File::open(file_path)
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyIOError, _>(e.to_string()))?;
         let backend =
@@ -202,7 +202,7 @@ impl OmFileReader {
     /// Returns:
     ///     OmFileReader: A new reader instance.
     #[staticmethod]
-    fn from_fsspec(fs_obj: Py<PyAny>, path: String) -> PyResult<Self> {
+    pub(crate) fn from_fsspec(fs_obj: Py<PyAny>, path: String) -> PyResult<Self> {
         Python::attach(|py| {
             let bound_object = fs_obj.bind(py);
 
@@ -409,6 +409,34 @@ impl OmFileReader {
                     .map_err(|_| Self::only_arrays_error())?
                     .compression(),
             ))
+        })
+    }
+
+    /// Get the scale factor of the variable.
+    ///
+    /// Returns:
+    ///     float: Scale factor stored in the array metadata.
+    #[getter]
+    fn scale_factor(&self) -> PyResult<f32> {
+        self.with_reader(|reader| {
+            Ok(reader
+                .expect_array()
+                .map_err(|_| Self::only_arrays_error())?
+                .scale_factor())
+        })
+    }
+
+    /// Get the add offset of the variable.
+    ///
+    /// Returns:
+    ///     float: Add offset stored in the array metadata.
+    #[getter]
+    fn add_offset(&self) -> PyResult<f32> {
+        self.with_reader(|reader| {
+            Ok(reader
+                .expect_array()
+                .map_err(|_| Self::only_arrays_error())?
+                .add_offset())
         })
     }
 

@@ -5,7 +5,7 @@ from typing import Iterator, Optional, Sequence
 
 import numpy as np
 
-from omfiles._rust import OmFileWriter, OmVariable
+from omfiles._rust import OmFileWriter, OmWriterVariable
 
 try:
     import dask.array as da
@@ -78,8 +78,8 @@ def write_dask_array(
     add_offset: float = 0.0,
     compression: str = "pfor_delta_2d",
     name: str = "data",
-    children: Optional[Sequence[OmVariable]] = None,
-) -> OmVariable:
+    children: Optional[Sequence[OmWriterVariable]] = None,
+) -> OmWriterVariable:
     """
     Write a dask array to an OM file using streaming/incremental writes.
 
@@ -111,7 +111,7 @@ def write_dask_array(
         children: Child variables (default: None).
 
     Returns:
-        OmVariable representing the written array.
+        OmWriterVariable representing the written array.
 
     Raises:
         TypeError: If data is not a dask array.

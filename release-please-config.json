@@ -8,6 +8,7 @@
   },
   "release-type": "rust",
   "extra-files": [
+    "examples/plot_map.py",
     "examples/readme_example.py",
     "examples/regrid_ecmwf_ifs_hres_gaussian_O1280_to_0.1_degree.py",
     "examples/regrid_subset_of_projected_domain.py",

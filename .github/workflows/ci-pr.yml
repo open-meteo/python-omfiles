@@ -16,6 +16,9 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: ./.github/actions/cache-rust-build
+        with:
+          cache-name: rust-tests
+          key-postfix: linux-x86_64
       - uses: ./.github/actions/install-uv
       - uses: ./.github/actions/install-python-deps
       - uses: ./.github/actions/run-cargo-tests
@@ -28,12 +31,14 @@ jobs:
       - uses: actions/checkout@v6
       - uses: ./.github/actions/cache-rust-build
         with:
-          key-postfix: build-wheel
+          cache-name: wheel-build
+          key-postfix: x86_64-unknown-linux-gnu-release
       - uses: ./.github/actions/build-wheel
         with:
           target: x86_64-unknown-linux-gnu
           args: --release --out dist
-          maturin-container: off
+          before-script-linux: python3 -m ensurepip && cat /etc/os-release && yum install clang -y
+          manylinux: "2_28"
       - uses: ./.github/actions/upload-wheels
         with:
           name: wheels-pr-linux-x86_64
