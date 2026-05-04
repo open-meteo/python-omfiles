@@ -6,7 +6,7 @@
 #     "omfiles[fsspec]>=1.2.0",  # x-release-please-version
 #     "matplotlib",
 #     "cartopy",
-#     "earthkit-geo==1.0.0rc2",
+#     "earthkit-geo==1.0.0rc7",
 # ]
 # ///
 
@@ -17,7 +17,7 @@ import cartopy.feature as cfeature
 import fsspec
 import matplotlib.pyplot as plt
 import numpy as np
-from earthkit.geo.regrid.array import regrid
+from earthkit.geo.grids.array import regrid
 from omfiles import OmFileReader
 
 MODEL_DOMAIN = "ecmwf_ifs"
