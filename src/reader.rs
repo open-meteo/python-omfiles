@@ -208,7 +208,7 @@ impl OmFileReader {
 
             if !bound_object.hasattr("cat_file")? || !bound_object.hasattr("size")? {
                 return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
-                        "Input must be a valid fsspec file object with read, seek methods and fs attribute",
+                        "Input must be a valid fsspec file object with `cat_file` and `size` methods",
                     ));
             }
 

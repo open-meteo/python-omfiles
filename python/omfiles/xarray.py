@@ -45,7 +45,6 @@ class OmXarrayEntrypoint(BackendEntrypoint):
                 store,
                 drop_variables=drop_variables,
             )
-        raise ValueError("Failed to open dataset")
 
     description = "Use .om files in Xarray"
 
