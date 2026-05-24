@@ -461,7 +461,7 @@ impl OmFileReaderAsync {
         // Convert the Python ranges to Rust ranges
         let (read_ranges, squeeze_dims) = ranges.get_ranges_and_squeeze_dims(&self.shape)?;
 
-        let guard = self.reader.try_read().unwrap();
+        let guard = self.reader.try_read().ok_or_else(Self::lock_error)?;
 
         let reader = if let Some(reader) = &*guard {
             Ok(reader)
