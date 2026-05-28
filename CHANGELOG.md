@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.1](https://github.com/open-meteo/python-omfiles/compare/v1.2.0...v1.2.1) (2026-05-28)
+
+
+### Bug Fixes
+
+* **deps:** bump development dependencies ([1bac146](https://github.com/open-meteo/python-omfiles/commit/1bac14614ea3b523a50c04ccdb4fb2c92a9e6933))
+* xarray data_run example ([#141](https://github.com/open-meteo/python-omfiles/issues/141)) ([943c47b](https://github.com/open-meteo/python-omfiles/commit/943c47bfca2d968aaa19caf9c5b495b454e664fd))
+
 ## [1.2.0](https://github.com/open-meteo/python-omfiles/compare/v1.1.2...v1.2.0) (2026-04-21)
 
 
