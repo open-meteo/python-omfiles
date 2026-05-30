@@ -574,12 +574,12 @@ class GaussianGrid:
             else:
                 return (2 * self.latitude_lines - y - 1) * 4 + 20
         else:
-            # N-type grids use lookup table
+            # N-type grids use lookup table — only first `latitude_lines` entries
             count_per_line = self.N320_COUNT_PER_LINE if self.grid_type == "N320" else self.N160_COUNT_PER_LINE
             if y < self.latitude_lines:
                 return count_per_line[y]
             else:
-                return count_per_line[2 * len(count_per_line) - y - 1]
+                return count_per_line[2 * self.latitude_lines - y - 1]
 
     def _build_integral_table(self):
         """Pre-calculate cumulative sums for faster grid point lookups."""
@@ -623,21 +623,24 @@ class GaussianGrid:
             nx = self._nx_of_y(y)
             return (y, x, nx)
         else:
-            # N-type grids use lookup
+            # N-type grids use lookup — only first `latitude_lines` entries
             count_per_line = self.N320_COUNT_PER_LINE if self.grid_type == "N320" else self.N160_COUNT_PER_LINE
+            nh_lines = self.latitude_lines
 
             # Search in northern hemisphere first
             cumsum = 0
-            for y, n in enumerate(count_per_line):
+            for y in range(nh_lines):
+                n = count_per_line[y]
                 cumsum += n
                 if gridpoint < cumsum:
                     return (y, gridpoint - (cumsum - n), n)
 
             # Search in southern hemisphere
-            for y, n in enumerate(reversed(count_per_line)):
+            for y in range(nh_lines):
+                n = count_per_line[nh_lines - y - 1]
                 cumsum += n
                 if gridpoint < cumsum:
-                    actual_y = y + len(count_per_line)
+                    actual_y = y + nh_lines
                     return (actual_y, gridpoint - (cumsum - n), n)
 
             raise ValueError(f"Grid point {gridpoint} not found")

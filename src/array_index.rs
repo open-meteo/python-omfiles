@@ -72,8 +72,16 @@ impl ArrayIndex {
         &self,
         shape: &Vec<u64>,
     ) -> PyResult<(Vec<Range<u64>>, Vec<usize>)> {
-        // Input validation
-        if self.0.len() > shape.len() {
+        // Input validation: count only non-Ellipsis, non-NewAxis indexers.
+        // Ellipsis may expand to zero dimensions when the remaining explicit
+        // indexers fully cover the array.  NewAxis adds an output dimension
+        // but does not consume a data dimension.
+        let n_explicit = self
+            .0
+            .iter()
+            .filter(|&x| !matches!(x, IndexType::Ellipsis | IndexType::NewAxis))
+            .count();
+        if n_explicit > shape.len() {
             return Err(PyErr::new::<pyo3::exceptions::PyIndexError, _>(
                 "Too many indices for array",
             ));
@@ -180,12 +188,9 @@ impl ArrayIndex {
                     current_dim += 1;
                 }
                 IndexType::NewAxis => {
-                    ranges.push(Range {
-                        start: 0,
-                        end: shape[shape_idx],
-                    });
-
-                    current_dim += 1;
+                    return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
+                        "NewAxis (None) is not yet supported in array indexing",
+                    ));
                 }
             }
         }

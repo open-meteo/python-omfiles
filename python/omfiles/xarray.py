@@ -45,7 +45,6 @@ class OmXarrayEntrypoint(BackendEntrypoint):
                 store,
                 drop_variables=drop_variables,
             )
-        raise ValueError("Failed to open dataset")
 
     description = "Use .om files in Xarray"
 
@@ -111,7 +110,7 @@ class OmDataStore(AbstractDataStore):
         for var_key in self.variables_store:
             var = self.variables_store[var_key]
             reader = self.root_variable._init_from_variable(var)
-            if reader is None or reader.is_group or reader.is_scalar:
+            if reader.is_group or reader.is_scalar:
                 continue
 
             attrs = self._get_attributes_for_variable(reader, var_key)

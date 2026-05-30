@@ -45,8 +45,6 @@ class TurboPfor(numcodecs.abc.Codec):
 
         if isinstance(buf, np.ndarray):
             buf = buf.tobytes()
-        else:
-            buf = buf
 
         return self._impl.decode_array(buf, np.dtype(self.dtype), self.chunk_elements)
 

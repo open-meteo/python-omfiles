@@ -176,7 +176,7 @@ impl OmFileReaderAsync {
         Python::attach(|py| {
             let bound_object = fs_obj.bind(py);
 
-            if !bound_object.hasattr("_cat_file")? && !bound_object.hasattr("_size")? {
+            if !bound_object.hasattr("_cat_file")? || !bound_object.hasattr("_size")? {
                 return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
                     "Input must be a valid fsspec file object with `_cat_file` and `_size` methods",
                 ));
@@ -461,7 +461,7 @@ impl OmFileReaderAsync {
         // Convert the Python ranges to Rust ranges
         let (read_ranges, squeeze_dims) = ranges.get_ranges_and_squeeze_dims(&self.shape)?;
 
-        let guard = self.reader.try_read().unwrap();
+        let guard = self.reader.try_read().ok_or_else(Self::lock_error)?;
 
         let reader = if let Some(reader) = &*guard {
             Ok(reader)

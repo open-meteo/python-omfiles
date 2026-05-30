@@ -120,7 +120,6 @@ class OmChunkFileReader:
                 if times.shape[-1] != 1 and times.shape[-1] != data.shape[-1]:
                     raise RuntimeError(f"Expected {times.shape[-1]} timestamps but got {data.shape[-1]}")
                 return times, data
-            raise RuntimeError("Unreachable Error")
         except FileNotFoundError:
             raise FileNotFoundError(f"Chunk file not found: {s3_path}")
         except Exception as e:
