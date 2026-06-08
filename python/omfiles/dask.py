@@ -67,7 +67,7 @@ def _dask_block_iterator(dask_array: da.Array) -> Iterator[np.ndarray]:
     np.ndindex yields indices in C-order: the last axis index varies fastest.
     """
     for block_indices in np.ndindex(*dask_array.numblocks):
-        yield dask_array.blocks[block_indices].compute()
+        yield np.ascontiguousarray(dask_array.blocks[block_indices].compute())
 
 
 def write_dask_array(
