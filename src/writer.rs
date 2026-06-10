@@ -643,7 +643,7 @@ impl OmFileWriter {
     ///                 to a different writer.
     ///     RuntimeError: If there is an error resolving deferred metadata or
     ///                   writing the trailer.
-    fn close(&mut self, root_variable: OmWriterVariable) -> PyResult<()> {
+    fn close(&self, root_variable: OmWriterVariable) -> PyResult<()> {
         self.validate_writer_variable(&root_variable)?;
         let mut guard = self.writer.lock().map_err(Self::lock_error)?;
 
