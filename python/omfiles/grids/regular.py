@@ -24,8 +24,6 @@ class RegularGrid:
         self.wgs84 = CRS.from_epsg(4326)
         self.ny, self.nx = shape
 
-        # TODO: Special case for gaussian grids!
-
         # Transformers for coordinate conversions
         self.to_projection = Transformer.from_crs(self.wgs84, self.crs, always_xy=True)
         self.to_wgs84 = Transformer.from_crs(self.crs, self.wgs84, always_xy=True)
