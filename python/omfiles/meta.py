@@ -50,7 +50,6 @@ class OmMetaBase:
             from omfiles.grids import OmGrid
         except ImportError:
             raise ImportError("omfiles[grids] is required for grid operations")
-        """Create grid from metadata."""
         return OmGrid(self.crs_wkt, shape)
 
 
