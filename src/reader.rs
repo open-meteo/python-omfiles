@@ -208,8 +208,8 @@ impl OmFileReader {
 
             if !bound_object.hasattr("cat_file")? || !bound_object.hasattr("size")? {
                 return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
-                        "Input must be a valid fsspec file object with read, seek methods and fs attribute",
-                    ));
+                    "Input must be a valid fsspec file object with `cat_file` and `size` methods.",
+                ));
             }
 
             let backend = ReaderBackendImpl::FsSpec(FsSpecBackend::new(fs_obj, path)?);
@@ -500,7 +500,7 @@ impl OmFileReader {
                 let array_reader = reader
                     .expect_array_with_io_sizes(65536, 512)
                     .map_err(|_| Self::only_arrays_error())?;
-                let (read_ranges, squeeze_dims) =
+                let (read_ranges, squeeze_dims, newaxis_dims) =
                     ranges.get_ranges_and_squeeze_dims(&self.shape)?;
                 let dtype = array_reader.data_type();
 
@@ -522,6 +522,7 @@ impl OmFileReader {
                             &array_reader,
                             &read_ranges,
                             &squeeze_dims,
+                            &newaxis_dims,
                         )?;
                         Ok(OmFileTypedArray::Int8(array))
                     }
@@ -530,6 +531,7 @@ impl OmFileReader {
                             &array_reader,
                             &read_ranges,
                             &squeeze_dims,
+                            &newaxis_dims,
                         )?;
                         Ok(OmFileTypedArray::Uint8(array))
                     }
@@ -538,6 +540,7 @@ impl OmFileReader {
                             &array_reader,
                             &read_ranges,
                             &squeeze_dims,
+                            &newaxis_dims,
                         )?;
                         Ok(OmFileTypedArray::Int16(array))
                     }
@@ -546,6 +549,7 @@ impl OmFileReader {
                             &array_reader,
                             &read_ranges,
                             &squeeze_dims,
+                            &newaxis_dims,
                         )?;
                         Ok(OmFileTypedArray::Uint16(array))
                     }
@@ -554,6 +558,7 @@ impl OmFileReader {
                             &array_reader,
                             &read_ranges,
                             &squeeze_dims,
+                            &newaxis_dims,
                         )?;
                         Ok(OmFileTypedArray::Int32(array))
                     }
@@ -562,6 +567,7 @@ impl OmFileReader {
                             &array_reader,
                             &read_ranges,
                             &squeeze_dims,
+                            &newaxis_dims,
                         )?;
                         Ok(OmFileTypedArray::Uint32(array))
                     }
@@ -570,6 +576,7 @@ impl OmFileReader {
                             &array_reader,
                             &read_ranges,
                             &squeeze_dims,
+                            &newaxis_dims,
                         )?;
                         Ok(OmFileTypedArray::Int64(array))
                     }
@@ -578,6 +585,7 @@ impl OmFileReader {
                             &array_reader,
                             &read_ranges,
                             &squeeze_dims,
+                            &newaxis_dims,
                         )?;
                         Ok(OmFileTypedArray::Uint64(array))
                     }
@@ -586,6 +594,7 @@ impl OmFileReader {
                             &array_reader,
                             &read_ranges,
                             &squeeze_dims,
+                            &newaxis_dims,
                         )?;
                         Ok(OmFileTypedArray::Float(array))
                     }
@@ -594,6 +603,7 @@ impl OmFileReader {
                             &array_reader,
                             &read_ranges,
                             &squeeze_dims,
+                            &newaxis_dims,
                         )?;
                         Ok(OmFileTypedArray::Double(array))
                     }
@@ -646,15 +656,14 @@ fn read_and_process_array<T: Element + OmFileArrayDataType + Clone + Zero>(
     reader: &OmFileArrayRs<impl OmFileReaderBackend>,
     read_ranges: &[Range<u64>],
     squeeze_dims: &[usize],
+    newaxis_dims: &[usize],
 ) -> PyResult<ndarray::ArrayD<T>> {
     let array = reader
         .read::<T>(read_ranges)
         .map_err(convert_omfilesrs_error)?;
 
     // Filter out dimensions of size 1 that correspond to integer indices
-    // This assumes the `array` returned by `read` has the full dimensionality
-    // matching `read_ranges` (which it does in omfiles-rs).
-    let new_shape: Vec<usize> = array
+    let mut new_shape: Vec<usize> = array
         .shape()
         .iter()
         .enumerate()
@@ -666,6 +675,13 @@ fn read_and_process_array<T: Element + OmFileArrayDataType + Clone + Zero>(
             }
         })
         .collect();
+
+    // Insert size-1 dimensions for NewAxis, sorted ascending
+    let mut newaxis_sorted = newaxis_dims.to_vec();
+    newaxis_sorted.sort();
+    for &pos in newaxis_sorted.iter() {
+        new_shape.insert(pos, 1);
+    }
 
     Ok(array
         .into_shape_with_order(new_shape)
