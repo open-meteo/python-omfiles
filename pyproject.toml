@@ -94,7 +94,6 @@ asyncio_default_fixture_loop_scope = "function"
 line-length = 120
 
 [tool.ruff.lint]
-unfixable = ["F401"]
 # Add import sorting rules (I-prefixed rules)
 extend-select = ["I"]
 select = ["D"] # Enable all docstring-related rules
