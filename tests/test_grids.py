@@ -131,7 +131,6 @@ def test_hrdps_grid(gem_hrdps_grid: OmGrid):
     test_points = [
         # lat, lon, expected_x, expected_y
         (39.626034, -133.62952, 0, 0),  # Bottom-left
-        # FIXME: Bottom-right point is not valid for HRDPS grid
         (27.284597, -66.96642, 2539, 0),  # Bottom-right
         (38.96126, -73.63256, 2032, 283),  # Middle point
         (47.876457, -40.708557, 2539, 1289),  # Top-right

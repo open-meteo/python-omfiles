@@ -41,12 +41,11 @@ class TurboPfor(numcodecs.abc.Codec):
         if out is not None:
             raise ValueError("Output array not supported")
 
-        assert self.chunk_elements is not None, "chunk_elements must be set"
+        if self.chunk_elements is None:
+            raise ValueError("chunk_elements must be set")
 
         if isinstance(buf, np.ndarray):
             buf = buf.tobytes()
-        else:
-            buf = buf
 
         return self._impl.decode_array(buf, np.dtype(self.dtype), self.chunk_elements)
 
