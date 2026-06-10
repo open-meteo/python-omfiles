@@ -474,7 +474,7 @@ impl OmFileReaderAsync {
             ))
         }?;
 
-        // Get the data type and a cloned backend from the reader
+        // Get the data type
         let data_type = reader.data_type();
         let result = match data_type {
             OmDataType::Int8Array => {
