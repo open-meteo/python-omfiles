@@ -19,15 +19,12 @@ doc = true
 [dependencies]
 pyo3 = { version = "0.29", features = ["abi3-py310", "experimental-async"] }
 pyo3-async-runtimes = { version = "0.29", features = ["async-std-runtime"] }
-pyo3-stub-gen = "0.22"
+pyo3-stub-gen = "0.23"
 async-lock = "3.4"
 numpy = "0.29"
 num-traits = "0.2"
 delegate = "0.13"
 omfiles-rs = { git = "https://github.com/open-meteo/rust-omfiles", rev = "cd6f08c097931100943b3677b6eaeac0b37327ee", package = "omfiles", features = ["metadata-tree"] }
 om-file-format-sys = { git = "https://github.com/open-meteo/om-file-format", rev = "18bee8578d953bd95ad7de1ae688faa7cf421f7c" }
-
-[patch.crates-io]
-pyo3-stub-gen = { git = "https://github.com/shimwell/pyo3-stub-gen.git", branch = "pyo3-0.29"}
 
 [features]
