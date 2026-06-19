@@ -35,7 +35,7 @@ jobs:
           - name: macOS ARM64
             runner: macos-15
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/cache-rust-build
         with:
           cache-name: rust-tests
@@ -97,7 +97,7 @@ jobs:
             target: aarch64-apple-darwin
             is-musl: false
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/cache-rust-build
         with:
           cache-name: wheel-build
@@ -119,7 +119,7 @@ jobs:
   sdist:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Build sdist
         uses: ./.github/actions/build-wheel
         with:
@@ -214,7 +214,7 @@ jobs:
             python-version: "3.10"
             is-min-deps: true
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/install-uv
         with:
           python-version: ${{ matrix.config.python-version }}
@@ -232,7 +232,7 @@ jobs:
     runs-on: ubuntu-24.04
     container: ghcr.io/astral-sh/uv:0.9.11-alpine
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Install dependencies
         shell: sh
