@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.1](https://github.com/open-meteo/python-omfiles/compare/v1.2.0...v1.2.1) (2026-06-29)
+
+
+### Bug Fixes
+
+* array not contiguous error in older dask versions ([#146](https://github.com/open-meteo/python-omfiles/issues/146)) ([2c17272](https://github.com/open-meteo/python-omfiles/commit/2c1727231b46fda1664caf70848303ad39dea1e1))
+* **ci:** min dependencies test was not correctly executed ([4eea44f](https://github.com/open-meteo/python-omfiles/commit/4eea44fea20cab7a5f4fdfcf7cdd07b0a0023bc4))
+* **deps:** bump development dependencies ([1bac146](https://github.com/open-meteo/python-omfiles/commit/1bac14614ea3b523a50c04ccdb4fb2c92a9e6933))
+* **deps:** update aiohttp ([#153](https://github.com/open-meteo/python-omfiles/issues/153)) ([2244115](https://github.com/open-meteo/python-omfiles/commit/2244115f5a1d159f01d4c0126ec8daf81293c71c))
+* **deps:** update pyo3 to 0.29 ([#152](https://github.com/open-meteo/python-omfiles/issues/152)) ([17a23ea](https://github.com/open-meteo/python-omfiles/commit/17a23eacfb0969da7122d0f3efa0dbf3c65f8615))
+* **examples:** earthkit-geo instead of earthkit-regrid ([#126](https://github.com/open-meteo/python-omfiles/issues/126)) ([6663b5e](https://github.com/open-meteo/python-omfiles/commit/6663b5eac706a59ae181ea6b717a3b5dffcd7caa))
+* xarray data_run example ([#141](https://github.com/open-meteo/python-omfiles/issues/141)) ([943c47b](https://github.com/open-meteo/python-omfiles/commit/943c47bfca2d968aaa19caf9c5b495b454e664fd))
+
 ## [1.2.0](https://github.com/open-meteo/python-omfiles/compare/v1.1.2...v1.2.0) (2026-04-21)
 
 
