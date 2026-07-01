@@ -463,6 +463,85 @@ def test_reader_close(temp_om_file):
     )
 
 
+def _ref_data():
+    return np.arange(25, dtype=np.float32).reshape(5, 5)
+
+
+def test_indexing_integer(temp_om_file):
+    ref = _ref_data()
+    reader = omfiles.OmFileReader(temp_om_file)
+    np.testing.assert_array_equal(reader[0], ref[0])
+    np.testing.assert_array_equal(reader[-1], ref[-1])
+    np.testing.assert_array_equal(reader[2, 3], np.float32(ref[2, 3]))
+    reader.close()
+
+
+def test_indexing_slice(temp_om_file):
+    ref = _ref_data()
+    reader = omfiles.OmFileReader(temp_om_file)
+    np.testing.assert_array_equal(reader[1:4], ref[1:4])
+    np.testing.assert_array_equal(reader[1:4, 2:5], ref[1:4, 2:5])
+    np.testing.assert_array_equal(reader[:3, :2], ref[:3, :2])
+    np.testing.assert_array_equal(reader[2:, 3:], ref[2:, 3:])
+    reader.close()
+
+
+def test_indexing_ellipsis(temp_om_file):
+    ref = _ref_data()
+    reader = omfiles.OmFileReader(temp_om_file)
+    np.testing.assert_array_equal(reader[...], ref[...])
+    np.testing.assert_array_equal(reader[1, ...], ref[1, ...])
+    np.testing.assert_array_equal(reader[..., 2], ref[..., 2])
+    np.testing.assert_array_equal(reader[1:4, ...], ref[1:4, ...])
+    np.testing.assert_array_equal(reader[..., 2:5], ref[..., 2:5])
+    reader.close()
+
+
+def test_indexing_negative_slice(temp_om_file):
+    ref = _ref_data()
+    reader = omfiles.OmFileReader(temp_om_file)
+    np.testing.assert_array_equal(reader[-3:], ref[-3:])
+    np.testing.assert_array_equal(reader[-3:-1], ref[-3:-1])
+    np.testing.assert_array_equal(reader[-4:-1, -3:], ref[-4:-1, -3:])
+    reader.close()
+
+
+def test_indexing_newaxis(temp_om_file):
+    ref = _ref_data()
+    reader = omfiles.OmFileReader(temp_om_file)
+    np.testing.assert_array_equal(reader[None], ref[None])
+    np.testing.assert_array_equal(reader[None, :3], ref[None, :3])
+    np.testing.assert_array_equal(reader[1, None], ref[1, None])
+    np.testing.assert_array_equal(reader[None, 1], ref[None, 1])
+    np.testing.assert_array_equal(reader[None, None], ref[None, None])
+    np.testing.assert_array_equal(reader[..., None], ref[..., None])
+    np.testing.assert_array_equal(reader[None, ...], ref[None, ...])
+    reader.close()
+
+
+def test_indexing_mixed(temp_om_file):
+    ref = _ref_data()
+    reader = omfiles.OmFileReader(temp_om_file)
+    np.testing.assert_array_equal(reader[1:4, 2], ref[1:4, 2])
+    np.testing.assert_array_equal(reader[0, 1:4], ref[0, 1:4])
+    np.testing.assert_array_equal(reader[1:4, ...], ref[1:4, ...])
+    np.testing.assert_array_equal(reader[..., 2:5], ref[..., 2:5])
+    reader.close()
+
+
+def test_indexing_errors(temp_om_file):
+    reader = omfiles.OmFileReader(temp_om_file)
+    with pytest.raises(IndexError):
+        _ = reader[10]
+    with pytest.raises(IndexError):
+        _ = reader[0, 10]
+    with pytest.raises(IndexError):
+        _ = reader[-10]
+    with pytest.raises(IndexError):
+        _ = reader[0, 0, 0]
+    reader.close()
+
+
 def test_child_traversal(temp_hierarchical_om_file):
     reader = omfiles.OmFileReader(temp_hierarchical_om_file)
 

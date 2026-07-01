@@ -71,9 +71,14 @@ impl ArrayIndex {
     pub fn get_ranges_and_squeeze_dims(
         &self,
         shape: &Vec<u64>,
-    ) -> PyResult<(Vec<Range<u64>>, Vec<usize>)> {
-        // Input validation
-        if self.0.len() > shape.len() {
+    ) -> PyResult<(Vec<Range<u64>>, Vec<usize>, Vec<usize>)> {
+        // Count how many actual dimensions are consumed by non-NewAxis indices
+        let consumed_dims: usize = self
+            .0
+            .iter()
+            .filter(|&x| !matches!(x, IndexType::NewAxis | IndexType::Ellipsis))
+            .count();
+        if consumed_dims > shape.len() {
             return Err(PyErr::new::<pyo3::exceptions::PyIndexError, _>(
                 "Too many indices for array",
             ));
@@ -81,6 +86,7 @@ impl ArrayIndex {
 
         let mut ranges = Vec::new();
         let mut squeeze_dims = Vec::new();
+        let mut newaxis_dims = Vec::new();
         let mut current_dim = 0;
 
         let mut shape_idx = 0;
@@ -88,7 +94,7 @@ impl ArrayIndex {
         let explicit_dims: usize = self
             .0
             .iter()
-            .filter(|&x| !matches!(x, IndexType::Ellipsis))
+            .filter(|&x| !matches!(x, IndexType::Ellipsis | IndexType::NewAxis))
             .count();
         let ellipsis_dims = shape.len().saturating_sub(explicit_dims);
 
@@ -100,7 +106,6 @@ impl ArrayIndex {
                             "Only one ellipsis allowed in index",
                         ));
                     }
-                    // Add full ranges for all dimensions represented by the ellipsis
                     for _ in 0..ellipsis_dims {
                         ranges.push(Range {
                             start: 0,
@@ -117,7 +122,6 @@ impl ArrayIndex {
                         start: normalized_idx,
                         end: normalized_idx + 1,
                     });
-                    // Mark this dimension for squeezing
                     squeeze_dims.push(current_dim);
 
                     shape_idx += 1;
@@ -180,11 +184,7 @@ impl ArrayIndex {
                     current_dim += 1;
                 }
                 IndexType::NewAxis => {
-                    ranges.push(Range {
-                        start: 0,
-                        end: shape[shape_idx],
-                    });
-
+                    newaxis_dims.push(current_dim);
                     current_dim += 1;
                 }
             }
@@ -198,11 +198,23 @@ impl ArrayIndex {
             });
             shape_idx += 1;
         }
-        // We must sort squeeze_dims in descending order so removing one doesn't shift
-        // the indices of subsequent ones we want to remove.
         squeeze_dims.sort_by(|a, b| b.cmp(a));
 
-        Ok((ranges, squeeze_dims))
+        // Adjust squeeze_dims from output space to read-array space:
+        // each NewAxis before a squeeze dim shifts it left by 1.
+        for pos in squeeze_dims.iter_mut() {
+            let shift = newaxis_dims.iter().filter(|&&n| n < *pos).count();
+            *pos -= shift;
+        }
+
+        // Adjust newaxis_dims from output space to post-squeeze space:
+        // each squeezed dim before a NewAxis shifts it left by 1.
+        for pos in newaxis_dims.iter_mut() {
+            let shift = squeeze_dims.iter().filter(|&&s| s < *pos).count();
+            *pos -= shift;
+        }
+
+        Ok((ranges, squeeze_dims, newaxis_dims))
     }
 
     fn normalize_index(idx: i64, dim_size: u64) -> PyResult<u64> {
@@ -377,6 +389,123 @@ mod tests {
             assert_eq!(ranges[1], Range { start: 0, end: 3 });
             assert_eq!(ranges[2], Range { start: 0, end: 4 });
             assert_eq!(ranges[3], Range { start: 2, end: 3 });
+        });
+    }
+
+    #[test]
+    fn test_newaxis() {
+        Python::initialize();
+
+        Python::attach(|py| {
+            // arr[np.newaxis] on shape (5,)
+            let shape = vec![5];
+            let none = py.None();
+            let none_value = none.bind(py);
+            let tuple = pyo3::types::PyTuple::new(py, [none_value]).unwrap();
+            let index = ArrayIndex::extract(tuple.as_any().as_borrowed()).unwrap();
+            let (ranges, squeeze, newaxis) = index.get_ranges_and_squeeze_dims(&shape).unwrap();
+            assert_eq!(ranges.len(), 1);
+            assert_eq!(ranges[0], Range { start: 0, end: 5 });
+            assert!(squeeze.is_empty());
+            assert_eq!(newaxis, vec![0]);
+
+            // arr[np.newaxis, :3] on shape (5,)
+            let slice = PySlice::new(py, 0, 3, 1);
+            let tuple = pyo3::types::PyTuple::new(
+                py,
+                [none_value, &slice.into_any()],
+            )
+            .unwrap();
+            let index = ArrayIndex::extract(tuple.as_any().as_borrowed()).unwrap();
+            let (ranges, squeeze, newaxis) = index.get_ranges_and_squeeze_dims(&shape).unwrap();
+            assert_eq!(ranges.len(), 1);
+            assert_eq!(ranges[0], Range { start: 0, end: 3 });
+            assert!(squeeze.is_empty());
+            assert_eq!(newaxis, vec![0]);
+
+            // arr[1, np.newaxis] on shape (5,)
+            let int_value = 1i64.into_pyobject(py).unwrap();
+            let tuple = pyo3::types::PyTuple::new(
+                py,
+                [&int_value.clone().into_any(), none_value],
+            )
+            .unwrap();
+            let index = ArrayIndex::extract(tuple.as_any().as_borrowed()).unwrap();
+            let (ranges, squeeze, newaxis) = index.get_ranges_and_squeeze_dims(&shape).unwrap();
+            assert_eq!(ranges.len(), 1);
+            assert_eq!(ranges[0], Range { start: 1, end: 2 });
+            assert_eq!(squeeze, vec![0]);
+            assert_eq!(newaxis, vec![0]);
+
+            // arr[np.newaxis, 1] on shape (5,) — newaxis then int
+            let tuple = pyo3::types::PyTuple::new(
+                py,
+                [none_value, &int_value.into_any()],
+            )
+            .unwrap();
+            let index = ArrayIndex::extract(tuple.as_any().as_borrowed()).unwrap();
+            let (ranges, squeeze, newaxis) = index.get_ranges_and_squeeze_dims(&shape).unwrap();
+            assert_eq!(ranges.len(), 1);
+            assert_eq!(ranges[0], Range { start: 1, end: 2 });
+            assert_eq!(squeeze, vec![0]);
+            assert_eq!(newaxis, vec![0]);
+
+            // arr[np.newaxis, np.newaxis] on shape (5,) — two newaxis
+            let tuple = pyo3::types::PyTuple::new(
+                py,
+                [none_value, none_value],
+            )
+            .unwrap();
+            let index = ArrayIndex::extract(tuple.as_any().as_borrowed()).unwrap();
+            let (ranges, squeeze, newaxis) = index.get_ranges_and_squeeze_dims(&shape).unwrap();
+            assert_eq!(ranges.len(), 1);
+            assert_eq!(ranges[0], Range { start: 0, end: 5 });
+            assert!(squeeze.is_empty());
+            assert_eq!(newaxis, vec![0, 1]);
+        });
+    }
+
+    #[test]
+    fn test_ellipsis_with_newaxis() {
+        Python::initialize();
+
+        Python::attach(|py| {
+            let shape = vec![2, 3, 4, 5];
+            let ellipsis = pyo3::types::PyEllipsis::get(py).into_any();
+            let none = py.None();
+            let none_value = none.bind(py);
+
+            // arr[..., np.newaxis] on shape (2,3,4,5)
+            let tuple = pyo3::types::PyTuple::new(
+                py,
+                [&ellipsis, none_value],
+            )
+            .unwrap();
+            let index = ArrayIndex::extract(tuple.as_any().as_borrowed()).unwrap();
+            let (ranges, squeeze, newaxis) = index.get_ranges_and_squeeze_dims(&shape).unwrap();
+            assert_eq!(ranges.len(), 4);
+            assert_eq!(ranges[0], Range { start: 0, end: 2 });
+            assert_eq!(ranges[1], Range { start: 0, end: 3 });
+            assert_eq!(ranges[2], Range { start: 0, end: 4 });
+            assert_eq!(ranges[3], Range { start: 0, end: 5 });
+            assert!(squeeze.is_empty());
+            assert_eq!(newaxis, vec![4]);
+
+            // arr[np.newaxis, ...] on shape (2,3,4,5)
+            let tuple = pyo3::types::PyTuple::new(
+                py,
+                [none_value, &ellipsis],
+            )
+            .unwrap();
+            let index = ArrayIndex::extract(tuple.as_any().as_borrowed()).unwrap();
+            let (ranges, squeeze, newaxis) = index.get_ranges_and_squeeze_dims(&shape).unwrap();
+            assert_eq!(ranges.len(), 4);
+            assert_eq!(ranges[0], Range { start: 0, end: 2 });
+            assert_eq!(ranges[1], Range { start: 0, end: 3 });
+            assert_eq!(ranges[2], Range { start: 0, end: 4 });
+            assert_eq!(ranges[3], Range { start: 0, end: 5 });
+            assert!(squeeze.is_empty());
+            assert_eq!(newaxis, vec![0]);
         });
     }
 
