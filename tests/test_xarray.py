@@ -3,7 +3,7 @@ import omfiles.xarray as om_xarray
 import pytest
 import xarray as xr
 from omfiles import OmFileReader, OmFileWriter
-from omfiles.xarray import write_dataset
+from omfiles.xarray import DIMENSION_KEY, write_dataset
 from xarray.core import indexing
 
 from .test_utils import create_test_om_file, filter_numpy_size_warning
@@ -372,9 +372,13 @@ def test_write_dataset_scalar_coordinate(empty_temp_om_file):
 def test_write_dataset_non_dimension_coordinate(empty_temp_om_file):
     """Non-dimension coordinates should preserve their dimensions and coordinate status."""
     valid_time_data = np.arange(6, dtype=np.float32)
+    forecast_age_data = np.arange(6, dtype=np.float32) + 1
     ds = xr.Dataset(
         {"t2m": (("step", "lat"), np.zeros((6, 10), dtype=np.float32))},
-        coords={"valid_time": ("step", valid_time_data)},
+        coords={
+            "valid_time": ("step", valid_time_data),
+            "forecast_age": ("step", forecast_age_data),
+        },
     )
     write_dataset(ds, empty_temp_om_file, scale_factor=100000.0)
     loaded = xr.open_dataset(empty_temp_om_file, engine="om")
@@ -383,6 +387,10 @@ def test_write_dataset_non_dimension_coordinate(empty_temp_om_file):
     assert "valid_time" in loaded.coords
     assert "valid_time" not in loaded.data_vars
     np.testing.assert_array_equal(loaded["valid_time"].values, valid_time_data)
+    assert "forecast_age" in loaded.coords
+    assert "forecast_age" not in loaded.data_vars
+    np.testing.assert_array_equal(loaded["forecast_age"].values, forecast_age_data)
+    assert DIMENSION_KEY not in loaded.attrs
 
 
 @filter_numpy_size_warning

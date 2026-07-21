@@ -50,11 +50,10 @@ class OmXarrayEntrypoint(BackendEntrypoint):
                 store,
                 drop_variables=drop_variables,
             )
-            coord_attr = "_COORDINATE_VARIABLES"
-            if coord_attr in ds.attrs:
-                coord_names = [c for c in ds.attrs[coord_attr].split(",") if c in ds]
+            if DIMENSION_KEY in ds.attrs:
+                coord_names = [name for name in ds.attrs[DIMENSION_KEY].split() if name in ds]
                 ds = ds.set_coords(coord_names)
-                ds.attrs = {k: v for k, v in ds.attrs.items() if k != coord_attr}
+                ds.attrs = {key: value for key, value in ds.attrs.items() if key != DIMENSION_KEY}
             return ds
         raise ValueError("Failed to open dataset")
 
@@ -426,7 +425,7 @@ def write_dataset(
 
     # Write list of non-dimension coordinates so the reader can restore them
     if non_dim_coords:
-        coord_list_var = writer.write_scalar(" ".join(non_dim_coords), name="_COORDINATE_VARIABLES")
+        coord_list_var = writer.write_scalar(" ".join(non_dim_coords), name=DIMENSION_KEY)
         all_children.append(coord_list_var)
 
     for attr_name, attr_value in ds.attrs.items():
