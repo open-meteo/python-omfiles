@@ -243,6 +243,7 @@ class OmFileReader:
         r"""
         Read data from the open variable.om file using basic file-backed array indexing.
 
+        Slice bounds are clipped to the array dimensions and empty selections return empty arrays.
         Currently only slices with step 1 are supported.
 
         Supports integer, slice, and ellipsis selectors:
@@ -495,6 +496,9 @@ class OmFileReaderAsync:
     ]:
         r"""
         Read data from the array concurrently based on specified ranges.
+
+        Slice bounds are clipped to the array dimensions and empty selections return empty arrays.
+        Currently only slices with step 1 are supported.
 
         Args:
             ranges (:py:data:`omfiles.types.BasicSelection`): Integer, slice, or ellipsis expression specifying the

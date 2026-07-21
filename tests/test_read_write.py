@@ -403,6 +403,16 @@ async def test_read_async(temp_om_file):
         with pytest.raises(IndexError, match=unsupported_selection):
             await reader.read_array((slice(None), None))
 
+        clipped = await reader.read_array((slice(-99, 99), slice(None)))
+        np.testing.assert_array_equal(clipped, data)
+
+        empty = await reader.read_array((slice(3, 1), slice(None)))
+        assert empty.shape == (0, 5)
+        assert empty.dtype == np.float32
+
+        with pytest.raises(IndexError):
+            await reader.read_array((5, 0))
+
     # Test that not awaiting results before closing the reader is safe
     with await omfiles.OmFileReaderAsync.from_path(temp_om_file) as reader_we_dont_await:
         for _ in range(100):
@@ -479,6 +489,7 @@ def test_indexing_integer(temp_om_file):
     ref = _ref_data()
     reader = omfiles.OmFileReader(temp_om_file)
     np.testing.assert_array_equal(reader[0], ref[0])
+    np.testing.assert_array_equal(reader[-5], ref[-5])
     np.testing.assert_array_equal(reader[-1], ref[-1])
     np.testing.assert_array_equal(reader[2, 3], np.float32(ref[2, 3]))
     reader.close()
@@ -514,6 +525,32 @@ def test_indexing_negative_slice(temp_om_file):
     reader.close()
 
 
+@pytest.mark.parametrize(
+    "selection",
+    [
+        (slice(-99, None), slice(None)),
+        (slice(None, 99), slice(None)),
+        (slice(99, None), slice(None)),
+        (slice(None, -99), slice(None)),
+        (slice(0, 0), slice(None)),
+        (slice(3, 1), slice(None)),
+        (slice(None), slice(99, None)),
+        (slice(0, 0), 2),
+    ],
+)
+def test_indexing_clipped_and_empty_slices(temp_om_file, selection):
+    ref = _ref_data()
+    reader = omfiles.OmFileReader(temp_om_file)
+
+    actual = reader[selection]
+    expected = ref[selection]
+
+    np.testing.assert_array_equal(actual, expected)
+    assert actual.shape == expected.shape
+    assert actual.dtype == expected.dtype
+    reader.close()
+
+
 def test_indexing_rejects_unsupported_selection(temp_om_file):
     reader = omfiles.OmFileReader(temp_om_file)
     unsupported_selection = (
@@ -543,6 +580,10 @@ def test_indexing_mixed(temp_om_file):
 
 def test_indexing_errors(temp_om_file):
     reader = omfiles.OmFileReader(temp_om_file)
+    with pytest.raises(IndexError):
+        _ = reader[5]
+    with pytest.raises(IndexError):
+        _ = reader[-6]
     with pytest.raises(IndexError):
         _ = reader[10]
     with pytest.raises(IndexError):
