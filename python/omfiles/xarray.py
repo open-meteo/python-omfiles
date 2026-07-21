@@ -8,7 +8,7 @@ from typing import Any, Generator
 
 import numpy as np
 
-from omfiles.dask import _validate_chunk_alignment
+from omfiles._chunk_utils import _validate_chunk_alignment
 
 try:
     from xarray.core import indexing
