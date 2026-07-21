@@ -56,6 +56,32 @@ def test_xarray_backend(temp_om_file):
 
 
 @filter_numpy_size_warning
+def test_xarray_metadata_discovery_is_cached(empty_temp_om_file):
+    writer = OmFileWriter(empty_temp_om_file)
+    coordinates = writer.write_scalar("x", name="coordinates")
+    units = writer.write_scalar("m", name="units")
+    root = writer.write_array(
+        np.arange(4, dtype=np.float32),
+        chunks=[4],
+        name="data",
+        children=[coordinates, units],
+    )
+    writer.close(root)
+
+    with OmFileReader(empty_temp_om_file) as reader:
+        store = om_xarray.OmDataStore(reader)
+        arrays = store._get_known_arrays()
+        assert store._get_known_arrays() is arrays
+
+        path, variable = next(iter(arrays.items()))
+        variable_reader = reader._init_from_variable(variable)
+        attrs = store._get_attributes_for_variable(variable_reader, path)
+
+        assert attrs == {"coordinates": "x", "units": "m"}
+        assert store._get_attributes_for_variable(variable_reader, path) is attrs
+
+
+@filter_numpy_size_warning
 def test_xarray_hierarchical_file(empty_temp_om_file):
     # Create test data
     # temperature: lat, lon, alt, time

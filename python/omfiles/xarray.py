@@ -23,7 +23,7 @@ from xarray.core.variable import Variable
 
 from ._rust import OmFileReader, OmVariable
 
-# need some special secret attributes to tell us the dimensions
+# Special metadata child used to declare array dimension names.
 DIMENSION_KEY = "coordinates"
 
 
@@ -59,6 +59,13 @@ class OmDataStore(AbstractDataStore):
     def __init__(self, root_variable: OmFileReader):
         self.root_variable = root_variable
         self.variables_store = self.root_variable._get_flat_variable_metadata()
+        self._children_by_parent: dict[str, dict[str, OmVariable]] = {}
+        self._attributes_by_path: dict[str, dict] = {}
+        self._known_arrays: dict[str, OmVariable] | None = None
+
+        for path, variable in self.variables_store.items():
+            parent_path, _, child_name = path.rpartition("/")
+            self._children_by_parent.setdefault(parent_path, {})[child_name] = variable
 
     def get_variables(self):
         datasets = self._get_datasets(self.root_variable)
@@ -71,49 +78,46 @@ class OmDataStore(AbstractDataStore):
         return FrozenDict(self._get_attributes_for_variable(self.root_variable, f"/{self.root_variable.name}"))
 
     def _get_attributes_for_variable(self, reader: OmFileReader, path: str):
+        cached = self._attributes_by_path.get(path)
+        if cached is not None:
+            return cached
+
         attrs = {}
         direct_children = self._find_direct_children_in_store(path)
         for k, variable in direct_children.items():
             child_reader = reader._init_from_variable(variable)
             if child_reader.is_scalar:
                 attrs[k] = child_reader.read_scalar()
+
+        self._attributes_by_path[path] = attrs
         return attrs
 
     def _find_direct_children_in_store(self, path: str):
-        prefix = path + "/"
-
-        return {
-            key[len(prefix) :]: variable
-            for key, variable in self.variables_store.items()
-            if key.startswith(prefix) and key != path and "/" not in key[len(prefix) :]
-        }
-
-    def _is_group(self, variable):
-        return self.root_variable._init_from_variable(variable).is_group
+        return self._children_by_parent.get(path, {})
 
     def _get_known_arrays(self):
+        if self._known_arrays is not None:
+            return self._known_arrays
+
         arrays = {}
-        for var_key, var in self.variables_store.items():
-            reader = self.root_variable._init_from_variable(var)
-            if reader.is_array:
-                arrays[var_key] = var
+        for var_key, variable in self.variables_store.items():
+            if self.root_variable._init_from_variable(variable).is_array:
+                arrays[var_key] = variable
+
+        self._known_arrays = arrays
         return arrays
 
-    def _get_known_dimensions(self):
+    def _get_known_dimensions(self, arrays: dict[str, OmVariable]):
         """
         Get a set of all dimension names used in the dataset.
 
-        This scans all variables for their _ARRAY_DIMENSIONS attribute.
+        This scans all array variables for their dimension metadata.
         """
         dimensions = set()
 
-        # Scan all variables for dimension names
-        for var_key in self.variables_store:
-            var = self.variables_store[var_key]
-            reader = self.root_variable._init_from_variable(var)
-            if reader is None or reader.is_group or reader.is_scalar:
-                continue
-
+        # Scan all array variables for dimension names.
+        for var_key, variable in arrays.items():
+            reader = self.root_variable._init_from_variable(variable)
             attrs = self._get_attributes_for_variable(reader, var_key)
             if DIMENSION_KEY in attrs:
                 dim_names = attrs[DIMENSION_KEY]
@@ -121,40 +125,36 @@ class OmDataStore(AbstractDataStore):
                     dimensions.update(dim_names.split())
                 elif isinstance(dim_names, list):
                     dimensions.update(dim_names)
-
         return dimensions
 
     def _get_datasets(self, reader: OmFileReader):
         datasets = {}
+        arrays = self._get_known_arrays()
+        known_dimensions = self._get_known_dimensions(arrays)
 
-        for var_key, variable in self._get_known_arrays().items():
+        for var_key, variable in arrays.items():
             child_reader = reader._init_from_variable(variable)
             backend_array = OmBackendArray(reader=child_reader)
             shape = backend_array.reader.shape
 
-            # Get attributes to check for dimension information
+            # Get attributes to check for dimension information.
             attrs = self._get_attributes_for_variable(child_reader, var_key)
             attrs_for_var = {attr_k: attr_v for attr_k, attr_v in attrs.items() if attr_k != DIMENSION_KEY}
 
-            # Look for dimension names in the _ARRAY_DIMENSIONS attribute
+            # Look for dimension names in the dimension metadata.
             if DIMENSION_KEY in attrs:
                 dim_names = attrs[DIMENSION_KEY]
                 if isinstance(dim_names, str):
-                    # Dimensions are stored as white space separated string, split them
-                    #
-                    # If sep is not specified or is None, a different splitting algorithm is applied:
-                    # runs of consecutive whitespace are regarded as a single separator, and the result will
-                    # contain no empty strings at the start or end if the string has leading or trailing
-                    # whitespace. Consequently, splitting an empty string or a string consisting of just
-                    # whitespace with a None separator returns [].
+                    # With no explicit separator, split() treats consecutive whitespace as one separator and
+                    # does not produce empty names for leading or trailing whitespace.
                     dim_names = dim_names.split()
             else:
-                # Default to generic dimension names if not specified
+                # Default to generic dimension names if not specified.
                 dim_names = [f"dim{i}" for i in range(len(shape))]
 
-            # Check if this variable is itself a dimension variable
+            # Check if this variable is itself a dimension variable.
             variable_name = var_key.split("/")[-1]
-            if len(shape) == 1 and variable_name in self._get_known_dimensions():
+            if len(shape) == 1 and variable_name in known_dimensions:
                 dim_names = [variable_name]
 
             data = indexing.LazilyIndexedArray(backend_array)
