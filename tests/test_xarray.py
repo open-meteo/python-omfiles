@@ -352,6 +352,25 @@ def test_write_dataset_datetime_raises(empty_temp_om_file):
         write_dataset(ds, empty_temp_om_file)
 
 
+def test_write_dataset_scalar_data_variable_attrs(empty_temp_om_file):
+    ds = xr.Dataset(
+        {
+            "height": xr.DataArray(
+                np.float32(12.5),
+                attrs={"units": "m", "long_name": "station height"},
+            )
+        }
+    )
+
+    write_dataset(ds, empty_temp_om_file)
+    loaded = xr.open_dataset(empty_temp_om_file, engine="om")
+
+    assert "height" in loaded.data_vars
+    assert loaded["height"].ndim == 0
+    np.testing.assert_almost_equal(float(loaded["height"]), 12.5)
+    assert loaded["height"].attrs == {"units": "m", "long_name": "station height"}
+
+
 @filter_numpy_size_warning
 def test_write_dataset_scalar_coordinate(empty_temp_om_file):
     """Writing a dataset with a scalar (0-d) coordinate should not segfault."""
@@ -361,7 +380,7 @@ def test_write_dataset_scalar_coordinate(empty_temp_om_file):
         coords={
             "lat": np.arange(5, dtype=np.float32),
             "lon": np.arange(5, dtype=np.float32),
-            "time": np.float32(42.0),
+            "time": xr.DataArray(np.float32(42.0), attrs={"long_name": "forecast step"}),
         },
     )
     write_dataset(ds, empty_temp_om_file, scale_factor=100000.0)
@@ -371,6 +390,7 @@ def test_write_dataset_scalar_coordinate(empty_temp_om_file):
     assert "time" not in loaded.data_vars
     assert loaded.coords["time"].ndim == 0
     np.testing.assert_almost_equal(float(loaded.coords["time"]), 42.0)
+    assert loaded.coords["time"].attrs == {"long_name": "forecast step"}
 
     np.testing.assert_array_almost_equal(loaded["temperature"].values, temperature_data, decimal=4)
     np.testing.assert_array_equal(loaded.coords["lat"].values, ds.coords["lat"].values)

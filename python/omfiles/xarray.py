@@ -213,7 +213,7 @@ class OmDataStore(AbstractDataStore):
             scalar_value = child_reader.read_scalar()
             attrs = self._get_attributes_for_variable(child_reader, var_key)
             attrs_for_var = {k: v for k, v in attrs.items() if k != DIMENSION_KEY}
-            datasets[var_key] = Variable(dims=dim_names, data=np.array(scalar_value))
+            datasets[var_key] = Variable(dims=dim_names, data=np.array(scalar_value), attrs=attrs_for_var)
 
         return datasets
 
