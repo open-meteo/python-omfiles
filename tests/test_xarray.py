@@ -3,6 +3,7 @@ import omfiles.xarray as om_xarray
 import pytest
 import xarray as xr
 from omfiles import OmFileReader, OmFileWriter
+from omfiles.xarray import DIMENSION_KEY, write_dataset
 from xarray.core import indexing
 
 from .test_utils import create_test_om_file, filter_numpy_size_warning
@@ -77,8 +78,68 @@ def test_xarray_metadata_discovery_is_cached(empty_temp_om_file):
         variable_reader = reader._init_from_variable(variable)
         attrs = store._get_attributes_for_variable(variable_reader, path)
 
-        assert attrs == {"coordinates": "x", "units": "m"}
+        assert attrs == {"units": "m"}
         assert store._get_attributes_for_variable(variable_reader, path) is attrs
+
+
+@filter_numpy_size_warning
+def test_xarray_open_meteo_run_coordinates(empty_temp_om_file):
+    writer = OmFileWriter(empty_temp_om_file)
+    coordinates = writer.write_scalar("lat lon time", name="coordinates")
+    time = writer.write_array(np.arange(4, dtype=np.int64), chunks=[4], name="time")
+    root = writer.write_array(
+        np.arange(24, dtype=np.float32).reshape(2, 3, 4),
+        chunks=[2, 3, 4],
+        name="",
+        children=[time, coordinates],
+    )
+    writer.close(root)
+
+    ds = xr.open_dataset(empty_temp_om_file, engine="om")
+
+    assert ds[""].dims == ("lat", "lon", "time")
+    assert ds["time"].dims == ("time",)
+    assert "time" in ds.coords
+    assert DIMENSION_KEY not in ds.attrs
+
+
+@filter_numpy_size_warning
+def test_xarray_open_meteo_group_coordinates(empty_temp_om_file):
+    writer = OmFileWriter(empty_temp_om_file)
+    coordinates = writer.write_scalar("lat lon", name="coordinates")
+    lat = writer.write_array(np.arange(2, dtype=np.float32), chunks=[2], name="lat")
+    lon = writer.write_array(np.arange(3, dtype=np.float32), chunks=[3], name="lon")
+    temperature = writer.write_array(
+        np.zeros((2, 3), dtype=np.float32),
+        chunks=[2, 3],
+        name="temperature",
+    )
+    root = writer.write_group("", children=[lat, lon, temperature, coordinates])
+    writer.close(root)
+
+    ds = xr.open_dataset(empty_temp_om_file, engine="om")
+
+    assert ds["temperature"].dims == ("lat", "lon")
+    assert ds["lat"].dims == ("lat",)
+    assert ds["lon"].dims == ("lon",)
+    assert "lat" in ds.coords
+    assert "lon" in ds.coords
+
+
+@filter_numpy_size_warning
+def test_xarray_rejects_direct_dimension_rank_mismatch(empty_temp_om_file):
+    writer = OmFileWriter(empty_temp_om_file)
+    coordinates = writer.write_scalar("lat lon", name="coordinates")
+    root = writer.write_array(
+        np.zeros(4, dtype=np.float32),
+        chunks=[4],
+        name="data",
+        children=[coordinates],
+    )
+    writer.close(root)
+
+    with pytest.raises(ValueError, match=r"declared 2 dimension\(s\).*array has 1"):
+        xr.open_dataset(empty_temp_om_file, engine="om")
 
 
 @filter_numpy_size_warning
@@ -183,3 +244,364 @@ def test_xarray_hierarchical_file(empty_temp_om_file):
     mean_temp = ds["temperature"].mean(dim="TIME")
     assert mean_temp.shape == (5, 5, 5)
     assert mean_temp.dims == ("LATITUDE", "LONGITUDE", "ALTITUDE")
+
+
+@filter_numpy_size_warning
+def test_write_dataset_basic_roundtrip(empty_temp_om_file):
+    ds = xr.Dataset(
+        {"temperature": (["lat", "lon"], np.random.rand(5, 5).astype(np.float32))},
+        coords={
+            "lat": xr.DataArray(np.arange(5, dtype=np.float32), dims="lat", attrs={"units": "degrees_north"}),
+            "lon": np.arange(5, dtype=np.float32),
+        },
+        attrs={"description": "Test dataset"},
+    )
+    write_dataset(ds, empty_temp_om_file, scale_factor=100000.0)
+    ds2 = xr.open_dataset(empty_temp_om_file, engine="om")
+
+    np.testing.assert_array_almost_equal(ds2["temperature"].values, ds["temperature"].values, decimal=4)
+    np.testing.assert_array_equal(ds2.coords["lat"].values, ds.coords["lat"].values)
+    np.testing.assert_array_equal(ds2.coords["lon"].values, ds.coords["lon"].values)
+    assert ds2.coords["lat"].attrs == {"units": "degrees_north"}
+    assert ds2.attrs["description"] == "Test dataset"
+
+
+@filter_numpy_size_warning
+def test_write_dataset_standalone_dimension_coordinate(empty_temp_om_file):
+    ds = xr.Dataset(
+        coords={
+            "x": xr.DataArray(
+                np.arange(4, dtype=np.float32),
+                dims="x",
+                attrs={"units": "m"},
+            )
+        }
+    )
+
+    write_dataset(ds, empty_temp_om_file)
+    loaded = xr.open_dataset(empty_temp_om_file, engine="om")
+
+    assert set(loaded.coords) == {"x"}
+    assert loaded["x"].dims == ("x",)
+    assert loaded["x"].attrs == {"units": "m"}
+
+
+@filter_numpy_size_warning
+def test_write_dataset_hierarchical_roundtrip(empty_temp_om_file):
+    """Mirrors test_xarray_hierarchical_file but uses write_dataset."""
+    temperature_data = np.random.rand(5, 5, 5, 10).astype(np.float32)
+    precipitation_data = np.random.rand(5, 5, 10).astype(np.float32)
+
+    ds = xr.Dataset(
+        {
+            "temperature": (
+                ["LATITUDE", "LONGITUDE", "ALTITUDE", "TIME"],
+                temperature_data,
+                {"units": "celsius", "description": "Surface temperature"},
+            ),
+            "precipitation": (
+                ["LATITUDE", "LONGITUDE", "TIME"],
+                precipitation_data,
+                {"units": "mm", "description": "Precipitation"},
+            ),
+        },
+        coords={
+            "LATITUDE": np.arange(5, dtype=np.float32),
+            "LONGITUDE": np.arange(5, dtype=np.float32),
+            "ALTITUDE": np.arange(5, dtype=np.float32),
+            "TIME": np.arange(10, dtype=np.float32),
+        },
+        attrs={"description": "This is a hierarchical OM File"},
+    )
+
+    write_dataset(ds, empty_temp_om_file, scale_factor=100000.0)
+    ds2 = xr.open_dataset(empty_temp_om_file, engine="om")
+
+    assert ds2.attrs["description"] == "This is a hierarchical OM File"
+    assert set(ds2.data_vars) == {"temperature", "precipitation"}
+
+    np.testing.assert_array_almost_equal(ds2["temperature"].values, temperature_data, decimal=4)
+    assert ds2["temperature"].dims == ("LATITUDE", "LONGITUDE", "ALTITUDE", "TIME")
+    assert ds2["temperature"].attrs["units"] == "celsius"
+    assert ds2["temperature"].attrs["description"] == "Surface temperature"
+
+    np.testing.assert_array_almost_equal(ds2["precipitation"].values, precipitation_data, decimal=4)
+    assert ds2["precipitation"].dims == ("LATITUDE", "LONGITUDE", "TIME")
+    assert ds2["precipitation"].attrs["units"] == "mm"
+
+    assert ds2["LATITUDE"].dims == ("LATITUDE",)
+    assert ds2["LONGITUDE"].dims == ("LONGITUDE",)
+    assert ds2["ALTITUDE"].dims == ("ALTITUDE",)
+    assert ds2["TIME"].dims == ("TIME",)
+
+
+@filter_numpy_size_warning
+def test_write_dataset_per_variable_encoding(empty_temp_om_file):
+    ds = xr.Dataset(
+        {
+            "high_res": (["x", "y"], np.random.rand(10, 10).astype(np.float32)),
+            "low_res": (["x", "y"], np.random.rand(10, 10).astype(np.float32)),
+        },
+        coords={
+            "x": np.arange(10, dtype=np.float32),
+            "y": np.arange(10, dtype=np.float32),
+        },
+    )
+
+    write_dataset(
+        ds,
+        empty_temp_om_file,
+        scale_factor=1000.0,
+        encoding={
+            "high_res": {"scale_factor": 100000.0, "chunks": [5, 5]},
+            "low_res": {"chunks": [10, 10]},
+        },
+    )
+    ds2 = xr.open_dataset(empty_temp_om_file, engine="om")
+
+    np.testing.assert_array_almost_equal(ds2["high_res"].values, ds["high_res"].values, decimal=4)
+    np.testing.assert_array_almost_equal(ds2["low_res"].values, ds["low_res"].values, decimal=2)
+
+
+@filter_numpy_size_warning
+@pytest.mark.parametrize("dtype", [np.int32, np.int64, np.uint32, np.uint64])
+def test_write_dataset_integer_dtypes(dtype, empty_temp_om_file):
+    data = np.arange(25, dtype=dtype).reshape(5, 5)
+    ds = xr.Dataset({"values": (["x", "y"], data)})
+
+    write_dataset(ds, empty_temp_om_file)
+    ds2 = xr.open_dataset(empty_temp_om_file, engine="om")
+
+    np.testing.assert_array_equal(ds2["values"].values, data)
+    assert ds2["values"].dtype == dtype
+
+
+@filter_numpy_size_warning
+def test_write_dataset_unsupported_attrs_warning(empty_temp_om_file):
+    ds = xr.Dataset(
+        {"data": (["x"], np.arange(5, dtype=np.float32))},
+        attrs={"valid": "hello", "invalid": [1, 2, 3]},
+    )
+
+    with pytest.warns(UserWarning, match="Skipping attribute"):
+        write_dataset(ds, empty_temp_om_file, scale_factor=100000.0)
+
+    ds2 = xr.open_dataset(empty_temp_om_file, engine="om")
+    assert ds2.attrs["valid"] == "hello"
+    assert "invalid" not in ds2.attrs
+
+
+def test_write_dataset_datetime_raises(empty_temp_om_file):
+    time_values = np.array(
+        ["2020-01-01", "2020-01-02", "2020-01-03", "2020-01-04", "2020-01-05"], dtype="datetime64[ns]"
+    )
+    ds = xr.Dataset(
+        {"data": (["time"], np.arange(5, dtype=np.float32))},
+        coords={"time": time_values},
+    )
+
+    with pytest.raises(TypeError, match="datetime64"):
+        write_dataset(ds, empty_temp_om_file)
+
+
+def test_write_dataset_scalar_data_variable_attrs(empty_temp_om_file):
+    ds = xr.Dataset(
+        {
+            "height": xr.DataArray(
+                np.float32(12.5),
+                attrs={"units": "m", "long_name": "station height"},
+            )
+        }
+    )
+
+    write_dataset(ds, empty_temp_om_file)
+    loaded = xr.open_dataset(empty_temp_om_file, engine="om")
+
+    assert "height" in loaded.data_vars
+    assert loaded["height"].ndim == 0
+    np.testing.assert_almost_equal(float(loaded["height"]), 12.5)
+    assert loaded["height"].attrs == {"units": "m", "long_name": "station height"}
+
+
+@filter_numpy_size_warning
+def test_write_dataset_scalar_coordinate(empty_temp_om_file):
+    """Scalar coordinates are outside the Open-Meteo coordinate convention."""
+    temperature_data = np.random.rand(5, 5).astype(np.float32)
+    ds = xr.Dataset(
+        {"temperature": (["lat", "lon"], temperature_data)},
+        coords={
+            "lat": np.arange(5, dtype=np.float32),
+            "lon": np.arange(5, dtype=np.float32),
+            "time": xr.DataArray(np.float32(42.0), attrs={"long_name": "forecast step"}),
+        },
+    )
+    with pytest.raises(ValueError, match=r"Coordinate 'time'.*only one-dimensional dimension coordinates"):
+        write_dataset(ds, empty_temp_om_file, scale_factor=100000.0)
+
+
+@filter_numpy_size_warning
+def test_write_dataset_non_dimension_coordinate(empty_temp_om_file):
+    """Auxiliary coordinates are outside the Open-Meteo coordinate convention."""
+    valid_time_data = np.arange(6, dtype=np.float32)
+    ds = xr.Dataset(
+        {"t2m": (("step", "lat"), np.zeros((6, 10), dtype=np.float32))},
+        coords={"valid_time": ("step", valid_time_data)},
+    )
+
+    with pytest.raises(ValueError, match=r"Coordinate 'valid_time'.*only one-dimensional dimension coordinates"):
+        write_dataset(ds, empty_temp_om_file, scale_factor=100000.0)
+
+
+@pytest.mark.parametrize(
+    ("attrs", "variable_attrs", "match"),
+    [
+        ({"coordinates": "custom"}, {}, "Global attribute 'coordinates'"),
+        ({"data": "custom"}, {}, "conflicts with a dataset variable"),
+        ({}, {"coordinates": "custom"}, "Variable 'data' attribute 'coordinates'"),
+    ],
+)
+def test_write_dataset_rejects_metadata_name_collisions(empty_temp_om_file, attrs, variable_attrs, match):
+    ds = xr.Dataset(
+        {"data": (["x"], np.arange(4, dtype=np.float32), variable_attrs)},
+        attrs=attrs,
+    )
+
+    with pytest.raises(ValueError, match=match):
+        write_dataset(ds, empty_temp_om_file)
+
+
+@pytest.mark.parametrize("variable_name", ["", "bad/name", "bad name", 1])
+def test_write_dataset_rejects_invalid_variable_names(empty_temp_om_file, variable_name):
+    ds = xr.Dataset({variable_name: (["x"], np.arange(4, dtype=np.float32))})
+
+    with pytest.raises(ValueError, match="Variable name"):
+        write_dataset(ds, empty_temp_om_file)
+
+
+@filter_numpy_size_warning
+def test_write_dataset_dask_roundtrip(empty_temp_om_file):
+    da = pytest.importorskip("dask.array")
+
+    np_data = np.random.rand(10, 20).astype(np.float32)
+    dask_data = da.from_array(np_data, chunks=(5, 10))
+
+    ds = xr.Dataset(
+        {"temperature": (["lat", "lon"], dask_data)},
+        coords={
+            "lat": np.arange(10, dtype=np.float32),
+            "lon": np.arange(20, dtype=np.float32),
+        },
+    )
+
+    write_dataset(ds, empty_temp_om_file, scale_factor=100000.0)
+    ds2 = xr.open_dataset(empty_temp_om_file, engine="om")
+
+    np.testing.assert_array_almost_equal(ds2["temperature"].values, np_data, decimal=4)
+    np.testing.assert_array_equal(ds2.coords["lat"].values, ds.coords["lat"].values)
+    np.testing.assert_array_equal(ds2.coords["lon"].values, ds.coords["lon"].values)
+
+
+@filter_numpy_size_warning
+def test_write_dataset_dask_mixed_variables(empty_temp_om_file):
+    da = pytest.importorskip("dask.array")
+
+    np_temp = np.random.rand(10, 20).astype(np.float32)
+    dask_temp = da.from_array(np_temp, chunks=(5, 10))
+    np_precip = np.random.rand(10, 20).astype(np.float32)
+
+    ds = xr.Dataset(
+        {
+            "temperature": (["lat", "lon"], dask_temp),
+            "precipitation": (["lat", "lon"], np_precip),
+        },
+        coords={
+            "lat": np.arange(10, dtype=np.float32),
+            "lon": np.arange(20, dtype=np.float32),
+        },
+    )
+
+    write_dataset(ds, empty_temp_om_file, scale_factor=100000.0)
+    ds2 = xr.open_dataset(empty_temp_om_file, engine="om")
+
+    np.testing.assert_array_almost_equal(ds2["temperature"].values, np_temp, decimal=4)
+    np.testing.assert_array_almost_equal(ds2["precipitation"].values, np_precip, decimal=4)
+
+
+@filter_numpy_size_warning
+def test_write_dataset_dask_boundary_chunks(empty_temp_om_file):
+    da = pytest.importorskip("dask.array")
+
+    np_data = np.arange(91, dtype=np.float32).reshape(7, 13)
+    dask_data = da.from_array(np_data, chunks=(4, 5))
+
+    ds = xr.Dataset({"data": (["x", "y"], dask_data)})
+
+    write_dataset(ds, empty_temp_om_file, scale_factor=100000.0)
+    ds2 = xr.open_dataset(empty_temp_om_file, engine="om")
+
+    np.testing.assert_array_almost_equal(ds2["data"].values, np_data, decimal=4)
+
+
+@filter_numpy_size_warning
+def test_write_dataset_dask_with_attributes(empty_temp_om_file):
+    da = pytest.importorskip("dask.array")
+
+    np_data = np.random.rand(5, 5).astype(np.float32)
+    dask_data = da.from_array(np_data, chunks=(5, 5))
+
+    ds = xr.Dataset(
+        {"temp": (["x", "y"], dask_data, {"units": "K", "long_name": "temperature"})},
+        attrs={"source": "test"},
+    )
+
+    write_dataset(ds, empty_temp_om_file, scale_factor=100000.0)
+    ds2 = xr.open_dataset(empty_temp_om_file, engine="om")
+
+    np.testing.assert_array_almost_equal(ds2["temp"].values, np_data, decimal=4)
+    assert ds2["temp"].attrs["units"] == "K"
+    assert ds2["temp"].attrs["long_name"] == "temperature"
+    assert ds2.attrs["source"] == "test"
+
+
+@filter_numpy_size_warning
+@pytest.mark.parametrize("dtype", [np.int32, np.int64, np.uint32])
+def test_write_dataset_dask_integer_dtypes(dtype, empty_temp_om_file):
+    da = pytest.importorskip("dask.array")
+
+    np_data = np.arange(25, dtype=dtype).reshape(5, 5)
+    dask_data = da.from_array(np_data, chunks=(5, 5))
+
+    ds = xr.Dataset({"values": (["x", "y"], dask_data)})
+
+    write_dataset(ds, empty_temp_om_file)
+    ds2 = xr.open_dataset(empty_temp_om_file, engine="om")
+
+    np.testing.assert_array_equal(ds2["values"].values, np_data)
+    assert ds2["values"].dtype == dtype
+
+
+@filter_numpy_size_warning
+def test_write_dataset_dask_larger_chunks_than_om(empty_temp_om_file):
+    """Dask blocks larger than OM chunks with explicit smaller OM chunk sizes."""
+    da = pytest.importorskip("dask.array")
+
+    np_data = np.random.rand(10, 20).astype(np.float32)
+    dask_data = da.from_array(np_data, chunks=(10, 20))
+
+    ds = xr.Dataset(
+        {"temperature": (["lat", "lon"], dask_data)},
+        coords={
+            "lat": np.arange(10, dtype=np.float32),
+            "lon": np.arange(20, dtype=np.float32),
+        },
+    )
+
+    write_dataset(
+        ds,
+        empty_temp_om_file,
+        chunks={"lat": 5, "lon": 10},
+        scale_factor=100000.0,
+    )
+    ds2 = xr.open_dataset(empty_temp_om_file, engine="om")
+
+    np.testing.assert_array_almost_equal(ds2["temperature"].values, np_data, decimal=4)

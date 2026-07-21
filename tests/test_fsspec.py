@@ -11,6 +11,7 @@ import pytest
 import xarray as xr
 from fsspec.implementations.local import LocalFileSystem
 from fsspec.implementations.memory import MemoryFileSystem
+from omfiles.xarray import write_dataset
 from s3fs import S3FileSystem
 
 from .test_utils import filter_numpy_size_warning, find_chunk_for_timestamp
@@ -224,10 +225,10 @@ def test_write_hierarchical_fsspec(memory_fs):
     humid_var = writer.write_array(humidity, chunks=[5, 5, 5], name="humidity", scale_factor=100.0)
     temp_units = writer.write_scalar("celsius", name="units")
     temp_desc = writer.write_scalar("Surface temperature", name="description")
-    temp_dims = writer.write_scalar("lat,lon,time", name="_ARRAY_DIMENSIONS")
+    temp_dims = writer.write_scalar("lat lon time", name="coordinates")
     humid_units = writer.write_scalar("percent", name="units")
     humid_desc = writer.write_scalar("Relative humidity", name="description")
-    humid_dims = writer.write_scalar("lat,lon,time", name="_ARRAY_DIMENSIONS")
+    humid_dims = writer.write_scalar("lat lon time", name="coordinates")
     temp_metadata = writer.write_group("temp_metadata", [temp_units, temp_desc, temp_dims])
     humid_metadata = writer.write_group("humid_metadata", [humid_units, humid_desc, humid_dims])
     root_group = writer.write_group("weather_data", [temp_var, humid_var, temp_metadata, humid_metadata])
@@ -277,3 +278,117 @@ def test_fsspec_multithreaded_read(memory_fs):
     assert len(results) == num_threads
     for i, arr in enumerate(results):
         np.testing.assert_array_equal(arr, data[i * slice_size : (i + 1) * slice_size, :])
+
+
+# --- write_dataset fsspec tests ---
+
+
+@filter_numpy_size_warning
+def test_write_dataset_memory_fsspec(memory_fs):
+    """write_dataset with fs= writes to a memory filesystem and reads back."""
+    ds = xr.Dataset(
+        {"temperature": (["lat", "lon"], np.random.rand(5, 5).astype(np.float32))},
+        coords={
+            "lat": np.arange(5, dtype=np.float32),
+            "lon": np.arange(5, dtype=np.float32),
+        },
+        attrs={"description": "Test dataset"},
+    )
+    write_dataset(ds, "dataset_test.om", fs=memory_fs, scale_factor=100000.0)
+    assert_file_exists(memory_fs, "dataset_test.om")
+
+    reader = omfiles.OmFileReader.from_fsspec(memory_fs, "dataset_test.om")
+    assert reader.num_children > 0
+    reader.close()
+
+
+@filter_numpy_size_warning
+def test_write_dataset_memory_fsspec_roundtrip(memory_fs):
+    """Full roundtrip: write_dataset via memory fs, read back with xarray."""
+    temperature_data = np.random.rand(5, 5).astype(np.float32)
+    ds = xr.Dataset(
+        {"temperature": (["lat", "lon"], temperature_data)},
+        coords={
+            "lat": np.arange(5, dtype=np.float32),
+            "lon": np.arange(5, dtype=np.float32),
+        },
+        attrs={"description": "fsspec roundtrip test"},
+    )
+    path = "roundtrip_dataset.om"
+    write_dataset(ds, path, fs=memory_fs, scale_factor=100000.0)
+
+    # Dump from memory fs to a temp file so xarray can read it back
+    with tempfile.NamedTemporaryFile(suffix=".om", delete=False) as tmp:
+        tmp.write(memory_fs.cat(path))
+        tmp_path = tmp.name
+    try:
+        ds2 = xr.open_dataset(tmp_path, engine="om")
+        np.testing.assert_array_almost_equal(ds2["temperature"].values, temperature_data, decimal=4)
+        np.testing.assert_array_equal(ds2.coords["lat"].values, ds.coords["lat"].values)
+        np.testing.assert_array_equal(ds2.coords["lon"].values, ds.coords["lon"].values)
+        assert ds2.attrs["description"] == "fsspec roundtrip test"
+    finally:
+        os.unlink(tmp_path)
+
+
+@filter_numpy_size_warning
+def test_write_dataset_local_fsspec(local_fs):
+    """write_dataset with a local fsspec filesystem produces a valid file."""
+    ds = xr.Dataset(
+        {"temperature": (["lat", "lon"], np.random.rand(8, 8).astype(np.float32))},
+        coords={
+            "lat": np.arange(8, dtype=np.float32),
+            "lon": np.arange(8, dtype=np.float32),
+        },
+    )
+    with tempfile.NamedTemporaryFile(suffix=".om", delete=False) as tmp:
+        tmp_path = tmp.name
+    try:
+        write_dataset(ds, tmp_path, fs=local_fs, scale_factor=100000.0)
+        assert os.path.exists(tmp_path)
+        assert os.path.getsize(tmp_path) > 0
+
+        ds2 = xr.open_dataset(tmp_path, engine="om")
+        np.testing.assert_array_almost_equal(ds2["temperature"].values, ds["temperature"].values, decimal=4)
+    finally:
+        os.unlink(tmp_path)
+
+
+@filter_numpy_size_warning
+def test_write_dataset_fs_none_backward_compatible():
+    """Passing fs=None behaves identically to the default (local path)."""
+    ds = xr.Dataset(
+        {"data": (["x"], np.arange(5, dtype=np.float32))},
+    )
+    with tempfile.NamedTemporaryFile(suffix=".om", delete=False) as tmp:
+        tmp_path = tmp.name
+    try:
+        write_dataset(ds, tmp_path, fs=None)
+        ds2 = xr.open_dataset(tmp_path, engine="om")
+        np.testing.assert_array_equal(ds2["data"].values, ds["data"].values)
+    finally:
+        os.unlink(tmp_path)
+
+
+@filter_numpy_size_warning
+def test_write_and_read_dataset_fsspec_roundtrip(memory_fs):
+    """Full fsspec roundtrip: write_dataset via fs, read back via fsspec file object."""
+    temperature_data = np.random.rand(5, 5).astype(np.float32)
+    ds = xr.Dataset(
+        {"temperature": (["lat", "lon"], temperature_data)},
+        coords={
+            "lat": np.arange(5, dtype=np.float32),
+            "lon": np.arange(5, dtype=np.float32),
+        },
+        attrs={"description": "full fsspec roundtrip"},
+    )
+    path = "fsspec_full_roundtrip.om"
+    write_dataset(ds, path, fs=memory_fs, scale_factor=100000.0)
+
+    # Read back via fsspec.core.OpenFile, which xr.open_dataset supports
+    backend = fsspec.core.OpenFile(memory_fs, path, mode="rb")
+    ds2 = xr.open_dataset(backend, engine="om")
+    np.testing.assert_array_almost_equal(ds2["temperature"].values, temperature_data, decimal=4)
+    np.testing.assert_array_equal(ds2.coords["lat"].values, ds.coords["lat"].values)
+    np.testing.assert_array_equal(ds2.coords["lon"].values, ds.coords["lon"].values)
+    assert ds2.attrs["description"] == "full fsspec roundtrip"
