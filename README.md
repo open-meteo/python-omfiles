@@ -99,7 +99,7 @@ with OmFileReader(backend) as root:
     print(temperature_data_subset1)
     print(f"temperature_data_subset1.shape: {temperature_data_subset1.shape}")  # (10, 10)
 
-    # Numpy basic indexing is supported for direct access if the reader is an array.
+    # Integer, slice, and ellipsis indexing is supported for direct access if the reader is an array.
     temperature_data_subset2 = temperature_reader[0:10, 0:10]
     print(temperature_data_subset2)
     print(f"temperature_data_subset2.shape: {temperature_data_subset2.shape}")  # (10, 10)

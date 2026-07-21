@@ -47,6 +47,13 @@ def test_xarray_backend(temp_om_file):
         ],
     )
 
+    clipped = variable.isel(dim0=slice(-99, 99)).values
+    np.testing.assert_array_equal(clipped, data)
+
+    empty = variable.isel(dim0=slice(3, 1)).values
+    assert empty.shape == (0, 5)
+    assert empty.dtype == np.float32
+
 
 @filter_numpy_size_warning
 def test_xarray_hierarchical_file(empty_temp_om_file):
