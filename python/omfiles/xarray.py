@@ -66,10 +66,21 @@ class OmXarrayEntrypoint(BackendEntrypoint):
 class OmDataStore(AbstractDataStore):
     root_variable: OmFileReader
     variables_store: dict[str, OmVariable]
+    _direct_children_store: dict[str, dict[str, OmVariable]]
+    _attributes_store: dict[str, dict[str, Any]]
+    _known_arrays_store: dict[str, OmVariable] | None
+    _known_dimensions_store: set[str] | None
 
     def __init__(self, root_variable: OmFileReader):
         self.root_variable = root_variable
         self.variables_store = self.root_variable._get_flat_variable_metadata()
+        self._direct_children_store = {}
+        for var_key, variable in self.variables_store.items():
+            parent_path, _, child_name = var_key.rpartition("/")
+            self._direct_children_store.setdefault(parent_path, {})[child_name] = variable
+        self._attributes_store = {}
+        self._known_arrays_store = None
+        self._known_dimensions_store = None
 
     def get_variables(self):
         datasets = self._get_datasets(self.root_variable)
@@ -82,6 +93,9 @@ class OmDataStore(AbstractDataStore):
         return FrozenDict(self._get_attributes_for_variable(self.root_variable, f"/{self.root_variable.name}"))
 
     def _get_attributes_for_variable(self, reader: OmFileReader, path: str):
+        if path in self._attributes_store:
+            return self._attributes_store[path]
+
         attrs = {}
         direct_children = self._find_direct_children_in_store(path)
         for k, variable in direct_children.items():
@@ -93,43 +107,41 @@ class OmDataStore(AbstractDataStore):
                 if dim_key in self.variables_store:
                     continue
                 attrs[k] = child_reader.read_scalar()
+        self._attributes_store[path] = attrs
         return attrs
 
     def _find_direct_children_in_store(self, path: str):
-        prefix = path + "/"
-
-        return {
-            key[len(prefix) :]: variable
-            for key, variable in self.variables_store.items()
-            if key.startswith(prefix) and key != path and "/" not in key[len(prefix) :]
-        }
+        return self._direct_children_store.get(path, {})
 
     def _is_group(self, variable):
         return self.root_variable._init_from_variable(variable).is_group
 
     def _get_known_arrays(self):
+        if self._known_arrays_store is not None:
+            return self._known_arrays_store
+
         arrays = {}
         for var_key, var in self.variables_store.items():
             reader = self.root_variable._init_from_variable(var)
             if reader.is_array:
                 arrays[var_key] = var
+        self._known_arrays_store = arrays
         return arrays
 
     def _get_known_dimensions(self):
         """
         Get a set of all dimension names used in the dataset.
 
-        This scans all variables for their _ARRAY_DIMENSIONS attribute.
+        This scans all known arrays for their _ARRAY_DIMENSIONS attribute.
         """
+        if self._known_dimensions_store is not None:
+            return self._known_dimensions_store
+
         dimensions = set()
 
-        # Scan all variables for dimension names
-        for var_key in self.variables_store:
-            var = self.variables_store[var_key]
+        # Scan all arrays for dimension names
+        for var_key, var in self._get_known_arrays().items():
             reader = self.root_variable._init_from_variable(var)
-            if reader is None or reader.is_group or reader.is_scalar:
-                continue
-
             attrs = self._get_attributes_for_variable(reader, var_key)
             if DIMENSION_KEY in attrs:
                 dim_names = attrs[DIMENSION_KEY]
@@ -138,12 +150,15 @@ class OmDataStore(AbstractDataStore):
                 elif isinstance(dim_names, list):
                     dimensions.update(dim_names)
 
+        self._known_dimensions_store = dimensions
         return dimensions
 
     def _get_datasets(self, reader: OmFileReader):
         datasets = {}
+        known_arrays = self._get_known_arrays()
+        known_dimensions = self._get_known_dimensions()
 
-        for var_key, variable in self._get_known_arrays().items():
+        for var_key, variable in known_arrays.items():
             child_reader = reader._init_from_variable(variable)
             backend_array = OmBackendArray(reader=child_reader)
             shape = backend_array.reader.shape
@@ -170,7 +185,7 @@ class OmDataStore(AbstractDataStore):
 
             # Check if this variable is itself a dimension variable
             variable_name = var_key.split("/")[-1]
-            if len(shape) == 1 and variable_name in self._get_known_dimensions():
+            if len(shape) == 1 and variable_name in known_dimensions:
                 dim_names = [variable_name]
 
             data = indexing.LazilyIndexedArray(backend_array)
