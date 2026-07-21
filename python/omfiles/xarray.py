@@ -46,15 +46,10 @@ class OmXarrayEntrypoint(BackendEntrypoint):
         with OmFileReader(filename_or_obj) as root_variable:
             store = OmDataStore(root_variable)
             store_entrypoint = StoreBackendEntrypoint()
-            ds = store_entrypoint.open_dataset(
+            return store_entrypoint.open_dataset(
                 store,
                 drop_variables=drop_variables,
             )
-            if DIMENSION_KEY in ds.attrs:
-                coord_names = [name for name in ds.attrs[DIMENSION_KEY].split() if name in ds]
-                ds = ds.set_coords(coord_names)
-                ds.attrs = {key: value for key, value in ds.attrs.items() if key != DIMENSION_KEY}
-            return ds
         raise ValueError("Failed to open dataset")
 
     description = "Use .om files in Xarray"
@@ -68,7 +63,7 @@ class OmDataStore(AbstractDataStore):
     _direct_children_store: dict[str, dict[str, OmVariable]]
     _attributes_store: dict[str, dict[str, Any]]
     _known_arrays_store: dict[str, OmVariable] | None
-    _known_dimensions_store: set[str] | None
+    _dimension_declarations_store: dict[str, tuple[str, ...] | None]
 
     def __init__(self, root_variable: OmFileReader):
         self.root_variable = root_variable
@@ -79,7 +74,7 @@ class OmDataStore(AbstractDataStore):
             self._direct_children_store.setdefault(parent_path, {})[child_name] = variable
         self._attributes_store = {}
         self._known_arrays_store = None
-        self._known_dimensions_store = None
+        self._dimension_declarations_store = {}
 
     def get_variables(self):
         datasets = self._get_datasets(self.root_variable)
@@ -98,10 +93,12 @@ class OmDataStore(AbstractDataStore):
         attrs = {}
         direct_children = self._find_direct_children_in_store(path)
         for k, variable in direct_children.items():
+            if k == DIMENSION_KEY:
+                continue
             child_reader = reader._init_from_variable(variable)
             if child_reader.is_scalar:
-                # Skip scalars that have _ARRAY_DIMENSIONS — they are 0-d
-                # coordinate variables, not plain attributes.
+                # Skip scalars that have dimension metadata — they are 0-d coordinate variables,
+                # not plain attributes.
                 dim_key = path + "/" + k + "/" + DIMENSION_KEY
                 if dim_key in self.variables_store:
                     continue
@@ -111,9 +108,6 @@ class OmDataStore(AbstractDataStore):
 
     def _find_direct_children_in_store(self, path: str):
         return self._direct_children_store.get(path, {})
-
-    def _is_group(self, variable):
-        return self.root_variable._init_from_variable(variable).is_group
 
     def _get_known_arrays(self):
         if self._known_arrays_store is not None:
@@ -127,87 +121,114 @@ class OmDataStore(AbstractDataStore):
         self._known_arrays_store = arrays
         return arrays
 
-    def _get_known_dimensions(self):
-        """
-        Get a set of all dimension names used in the dataset.
+    @staticmethod
+    def _display_path(path: str) -> str:
+        return "/" + path.lstrip("/")
 
-        This scans all array variables for their dimension metadata.
-        """
-        if self._known_dimensions_store is not None:
-            return self._known_dimensions_store
+    def _get_dimension_declaration(self, path: str) -> tuple[str, ...] | None:
+        if path in self._dimension_declarations_store:
+            return self._dimension_declarations_store[path]
 
-        dimensions = set()
+        dimension_variable = self._find_direct_children_in_store(path).get(DIMENSION_KEY)
+        if dimension_variable is None:
+            self._dimension_declarations_store[path] = None
+            return None
 
-        # Scan all array variables for dimension names.
-        for var_key, var in self._get_known_arrays().items():
-            reader = self.root_variable._init_from_variable(var)
-            attrs = self._get_attributes_for_variable(reader, var_key)
-            if DIMENSION_KEY in attrs:
-                dim_names = attrs[DIMENSION_KEY]
-                if isinstance(dim_names, str):
-                    dimensions.update(dim_names.split())
-                elif isinstance(dim_names, list):
-                    dimensions.update(dim_names)
+        dimension_path = f"{self._display_path(path).rstrip('/')}/{DIMENSION_KEY}"
+        dimension_reader = self.root_variable._init_from_variable(dimension_variable)
+        if not dimension_reader.is_scalar:
+            raise ValueError(f"Invalid dimension metadata at '{dimension_path}': expected a scalar string.")
 
-        self._known_dimensions_store = dimensions
-        return dimensions
+        value = dimension_reader.read_scalar()
+        if not isinstance(value, str):
+            raise ValueError(
+                f"Invalid dimension metadata at '{dimension_path}': expected a string, got {type(value).__name__}."
+            )
+
+        declaration = tuple(value.split())
+        self._dimension_declarations_store[path] = declaration
+        return declaration
+
+    def _get_parent_reader(self, path: str) -> OmFileReader | None:
+        if path == f"/{self.root_variable.name}":
+            return self.root_variable
+
+        variable = self.variables_store.get(path)
+        if variable is None:
+            return None
+        return self.root_variable._init_from_variable(variable)
+
+    def _validate_array_dimensions(self, path: str, declaration: tuple[str, ...], ndim: int) -> None:
+        if len(declaration) == ndim:
+            return
+
+        dimension_path = f"{self._display_path(path).rstrip('/')}/{DIMENSION_KEY}"
+        raise ValueError(
+            f"Invalid dimension metadata at '{dimension_path}' for array '{self._display_path(path)}': "
+            f"declared {len(declaration)} dimension(s) {declaration}, but the array has {ndim}."
+        )
 
     def _get_datasets(self, reader: OmFileReader):
         datasets = {}
         known_arrays = self._get_known_arrays()
-        known_dimensions = self._get_known_dimensions()
+        arrays = []
+        sibling_dimensions: dict[str, set[str]] = {}
 
         for var_key, variable in known_arrays.items():
             child_reader = reader._init_from_variable(variable)
             backend_array = OmBackendArray(reader=child_reader)
             shape = backend_array.reader.shape
-
-            # Get attributes to check for dimension information.
             attrs = self._get_attributes_for_variable(child_reader, var_key)
-            attrs_for_var = {attr_k: attr_v for attr_k, attr_v in attrs.items() if attr_k != DIMENSION_KEY}
+            declaration = self._get_dimension_declaration(var_key)
+            if declaration is not None:
+                self._validate_array_dimensions(var_key, declaration, len(shape))
+                parent_path = var_key.rpartition("/")[0]
+                sibling_dimensions.setdefault(parent_path, set()).update(declaration)
+            arrays.append((var_key, backend_array, shape, attrs, declaration))
 
-            # Look for dimension names in the dimension metadata.
-            if DIMENSION_KEY in attrs:
-                dim_names = attrs[DIMENSION_KEY]
-                if isinstance(dim_names, str):
-                    # With no explicit separator, split() treats consecutive whitespace as one separator and
-                    # does not produce empty names for leading or trailing whitespace.
-                    dim_names = dim_names.split()
+        parent_declarations: dict[str, tuple[str, ...] | None] = {}
+        for var_key, backend_array, shape, attrs, declaration in arrays:
+            if declaration is not None:
+                dim_names = declaration
             else:
-                # Default to generic dimension names if not specified.
-                dim_names = [f"dim{i}" for i in range(len(shape))]
+                parent_path, _, variable_name = var_key.rpartition("/")
+                if parent_path not in parent_declarations:
+                    parent_declarations[parent_path] = self._get_dimension_declaration(parent_path)
+                parent_declaration = parent_declarations[parent_path]
+                known_parent_dimensions = sibling_dimensions.get(parent_path, set())
+                if parent_declaration is not None:
+                    known_parent_dimensions = known_parent_dimensions.union(parent_declaration)
 
-            # Check if this variable is itself a dimension variable.
-            variable_name = var_key.split("/")[-1]
-            if len(shape) == 1 and variable_name in known_dimensions:
-                dim_names = [variable_name]
+                parent_reader = self._get_parent_reader(parent_path)
+                if len(shape) == 1 and variable_name in known_parent_dimensions:
+                    dim_names = (variable_name,)
+                elif (
+                    parent_reader is not None
+                    and parent_reader.is_group
+                    and parent_declaration is not None
+                    and len(parent_declaration) == len(shape)
+                ):
+                    dim_names = parent_declaration
+                else:
+                    dim_names = tuple(f"dim{i}" for i in range(len(shape)))
 
             data = indexing.LazilyIndexedArray(backend_array)
-            datasets[var_key] = Variable(dims=dim_names, data=data, attrs=attrs_for_var, encoding=None, fastpath=True)
+            datasets[var_key] = Variable(dims=dim_names, data=data, attrs=attrs, encoding=None, fastpath=True)
 
-        # Handle 0-d (scalar) variables that have _ARRAY_DIMENSIONS metadata.
-        # These are scalar coordinates written by write_dataset.
+        # Handle 0-d (scalar) variables that have dimension metadata.
         for var_key, var in self.variables_store.items():
             if var_key in datasets:
                 continue
             child_reader = reader._init_from_variable(var)
             if not child_reader.is_scalar:
                 continue
-            dim_path = var_key + "/" + DIMENSION_KEY
-            if dim_path not in self.variables_store:
+            declaration = self._get_dimension_declaration(var_key)
+            if declaration is None:
                 continue
-            dim_reader = reader._init_from_variable(self.variables_store[dim_path])
-            dim_names_str = dim_reader.read_scalar()
-            if isinstance(dim_names_str, str) and dim_names_str == "":
-                dim_names = ()
-            elif isinstance(dim_names_str, str):
-                dim_names = tuple(dim_names_str.split(","))
-            else:
-                dim_names = ()
+            self._validate_array_dimensions(var_key, declaration, 0)
             scalar_value = child_reader.read_scalar()
             attrs = self._get_attributes_for_variable(child_reader, var_key)
-            attrs_for_var = {k: v for k, v in attrs.items() if k != DIMENSION_KEY}
-            datasets[var_key] = Variable(dims=dim_names, data=np.array(scalar_value), attrs=attrs_for_var)
+            datasets[var_key] = Variable(dims=(), data=np.array(scalar_value), attrs=attrs)
 
         return datasets
 
@@ -303,6 +324,56 @@ def _resolve_encoding_for_variable(
     return sf, ao, comp
 
 
+def _validate_om_name(name: Any, description: str) -> None:
+    """Validate a name that will become an OM hierarchy child or dimension token."""
+    if not isinstance(name, str):
+        raise ValueError(f"{description} must be a string, got {type(name).__name__}.")
+    if not name:
+        raise ValueError(f"{description} must not be empty.")
+    if "/" in name:
+        raise ValueError(f"{description} '{name}' must not contain '/'.")
+    if any(character.isspace() for character in name):
+        raise ValueError(f"{description} '{name}' must not contain whitespace.")
+
+
+def _validate_dataset_for_writing(ds: Dataset) -> None:
+    """Validate that a dataset can be represented without extending the Open-Meteo convention."""
+    variable_names = set(ds.variables)
+
+    for dimension_name in ds.dims:
+        _validate_om_name(dimension_name, "Dimension name")
+
+    for variable_name, variable in ds.variables.items():
+        _validate_om_name(variable_name, "Variable name")
+        if DIMENSION_KEY in variable.attrs:
+            raise ValueError(
+                f"Variable '{variable_name}' attribute '{DIMENSION_KEY}' conflicts with OM dimension metadata."
+            )
+        for attribute_name in variable.attrs:
+            _validate_om_name(attribute_name, f"Attribute name on variable '{variable_name}'")
+
+        if np.issubdtype(variable.dtype, np.datetime64) or np.issubdtype(variable.dtype, np.timedelta64):
+            raise TypeError(
+                f"Variable '{variable_name}' has dtype {variable.dtype}. "
+                "OM files do not support datetime64/timedelta64 natively. "
+                "Convert to a numeric type before writing."
+            )
+
+    for coordinate_name, coordinate in ds.coords.items():
+        if coordinate.ndim != 1 or coordinate.dims != (coordinate_name,):
+            raise ValueError(
+                f"Coordinate '{coordinate_name}' with dimensions {coordinate.dims} is not supported. "
+                "OM dataset writing supports only one-dimensional dimension coordinates."
+            )
+
+    for attribute_name in ds.attrs:
+        _validate_om_name(attribute_name, "Global attribute name")
+        if attribute_name == DIMENSION_KEY:
+            raise ValueError(f"Global attribute '{DIMENSION_KEY}' conflicts with OM dimension metadata.")
+        if attribute_name in variable_names:
+            raise ValueError(f"Global attribute '{attribute_name}' conflicts with a dataset variable of the same name.")
+
+
 def write_dataset(
     ds: Dataset,
     path: str | os.PathLike,
@@ -319,6 +390,10 @@ def write_dataset(
 
     The resulting file can be read back with ``xr.open_dataset(path, engine="om")``.
 
+    Only one-dimensional dimension coordinates are supported. Auxiliary and
+    scalar coordinates cannot be represented by the Open-Meteo coordinate
+    convention and are rejected before the output file is created.
+
     Args:
         ds: The xarray Dataset to write.
         path: Output file path (local path or path within the fsspec filesystem).
@@ -332,6 +407,7 @@ def write_dataset(
         add_offset: Global default offset for float compression.
         compression: Global default compression algorithm.
     """
+    _validate_dataset_for_writing(ds)
     path = str(path)
     if fs is not None:
         writer = OmFileWriter.from_fsspec(fs, path)
@@ -340,25 +416,14 @@ def write_dataset(
     all_children: list[OmVariable] = []
 
     def _write_variable(name: str, var: Variable, is_dim_coord: bool) -> None:
-        """Write a single variable (data var or non-dimension coordinate)."""
-        if np.issubdtype(var.dtype, np.datetime64) or np.issubdtype(var.dtype, np.timedelta64):
-            raise TypeError(
-                f"Variable '{name}' has dtype {var.dtype}. "
-                "OM files do not support datetime64/timedelta64 natively. "
-                "Convert to a numeric type before writing."
-            )
+        """Write a data variable or dimension coordinate."""
+        dim_var = writer.write_scalar(" ".join(var.dims), name=DIMENSION_KEY)
+        var_children: list[OmVariable] = [dim_var]
 
-        var_children: list[OmVariable] = []
-
-        if not is_dim_coord:
-            dim_str = " ".join(var.dims)
-            dim_var = writer.write_scalar(dim_str, name=DIMENSION_KEY)
-            var_children.append(dim_var)
-
-            for attr_name, attr_value in var.attrs.items():
-                scalar = _write_scalar_safe(writer, attr_value, attr_name)
-                if scalar is not None:
-                    var_children.append(scalar)
+        for attr_name, attr_value in var.attrs.items():
+            scalar = _write_scalar_safe(writer, attr_value, attr_name)
+            if scalar is not None:
+                var_children.append(scalar)
 
         if var.ndim == 0:
             om_var = writer.write_scalar(
@@ -413,20 +478,9 @@ def write_dataset(
     for var_name in ds.data_vars:
         _write_variable(var_name, ds[var_name].variable, is_dim_coord=False)
 
-    non_dim_coords: list[str] = []
     for coord_name in ds.coords:
-        if coord_name in ds.data_vars:
-            continue
         coord = ds.coords[coord_name]
-        is_dim_coord = coord.ndim == 1 and coord.dims[0] == coord_name
-        if not is_dim_coord:
-            non_dim_coords.append(coord_name)
-        _write_variable(coord_name, coord.variable, is_dim_coord=is_dim_coord)
-
-    # Write list of non-dimension coordinates so the reader can restore them
-    if non_dim_coords:
-        coord_list_var = writer.write_scalar(" ".join(non_dim_coords), name=DIMENSION_KEY)
-        all_children.append(coord_list_var)
+        _write_variable(coord_name, coord.variable, is_dim_coord=True)
 
     for attr_name, attr_value in ds.attrs.items():
         scalar = _write_scalar_safe(writer, attr_value, attr_name)

@@ -78,8 +78,68 @@ def test_xarray_metadata_discovery_is_cached(empty_temp_om_file):
         variable_reader = reader._init_from_variable(variable)
         attrs = store._get_attributes_for_variable(variable_reader, path)
 
-        assert attrs == {"coordinates": "x", "units": "m"}
+        assert attrs == {"units": "m"}
         assert store._get_attributes_for_variable(variable_reader, path) is attrs
+
+
+@filter_numpy_size_warning
+def test_xarray_open_meteo_run_coordinates(empty_temp_om_file):
+    writer = OmFileWriter(empty_temp_om_file)
+    coordinates = writer.write_scalar("lat lon time", name="coordinates")
+    time = writer.write_array(np.arange(4, dtype=np.int64), chunks=[4], name="time")
+    root = writer.write_array(
+        np.arange(24, dtype=np.float32).reshape(2, 3, 4),
+        chunks=[2, 3, 4],
+        name="",
+        children=[time, coordinates],
+    )
+    writer.close(root)
+
+    ds = xr.open_dataset(empty_temp_om_file, engine="om")
+
+    assert ds[""].dims == ("lat", "lon", "time")
+    assert ds["time"].dims == ("time",)
+    assert "time" in ds.coords
+    assert DIMENSION_KEY not in ds.attrs
+
+
+@filter_numpy_size_warning
+def test_xarray_open_meteo_group_coordinates(empty_temp_om_file):
+    writer = OmFileWriter(empty_temp_om_file)
+    coordinates = writer.write_scalar("lat lon", name="coordinates")
+    lat = writer.write_array(np.arange(2, dtype=np.float32), chunks=[2], name="lat")
+    lon = writer.write_array(np.arange(3, dtype=np.float32), chunks=[3], name="lon")
+    temperature = writer.write_array(
+        np.zeros((2, 3), dtype=np.float32),
+        chunks=[2, 3],
+        name="temperature",
+    )
+    root = writer.write_group("", children=[lat, lon, temperature, coordinates])
+    writer.close(root)
+
+    ds = xr.open_dataset(empty_temp_om_file, engine="om")
+
+    assert ds["temperature"].dims == ("lat", "lon")
+    assert ds["lat"].dims == ("lat",)
+    assert ds["lon"].dims == ("lon",)
+    assert "lat" in ds.coords
+    assert "lon" in ds.coords
+
+
+@filter_numpy_size_warning
+def test_xarray_rejects_direct_dimension_rank_mismatch(empty_temp_om_file):
+    writer = OmFileWriter(empty_temp_om_file)
+    coordinates = writer.write_scalar("lat lon", name="coordinates")
+    root = writer.write_array(
+        np.zeros(4, dtype=np.float32),
+        chunks=[4],
+        name="data",
+        children=[coordinates],
+    )
+    writer.close(root)
+
+    with pytest.raises(ValueError, match=r"declared 2 dimension\(s\).*array has 1"):
+        xr.open_dataset(empty_temp_om_file, engine="om")
 
 
 @filter_numpy_size_warning
@@ -191,7 +251,7 @@ def test_write_dataset_basic_roundtrip(empty_temp_om_file):
     ds = xr.Dataset(
         {"temperature": (["lat", "lon"], np.random.rand(5, 5).astype(np.float32))},
         coords={
-            "lat": np.arange(5, dtype=np.float32),
+            "lat": xr.DataArray(np.arange(5, dtype=np.float32), dims="lat", attrs={"units": "degrees_north"}),
             "lon": np.arange(5, dtype=np.float32),
         },
         attrs={"description": "Test dataset"},
@@ -202,7 +262,28 @@ def test_write_dataset_basic_roundtrip(empty_temp_om_file):
     np.testing.assert_array_almost_equal(ds2["temperature"].values, ds["temperature"].values, decimal=4)
     np.testing.assert_array_equal(ds2.coords["lat"].values, ds.coords["lat"].values)
     np.testing.assert_array_equal(ds2.coords["lon"].values, ds.coords["lon"].values)
+    assert ds2.coords["lat"].attrs == {"units": "degrees_north"}
     assert ds2.attrs["description"] == "Test dataset"
+
+
+@filter_numpy_size_warning
+def test_write_dataset_standalone_dimension_coordinate(empty_temp_om_file):
+    ds = xr.Dataset(
+        coords={
+            "x": xr.DataArray(
+                np.arange(4, dtype=np.float32),
+                dims="x",
+                attrs={"units": "m"},
+            )
+        }
+    )
+
+    write_dataset(ds, empty_temp_om_file)
+    loaded = xr.open_dataset(empty_temp_om_file, engine="om")
+
+    assert set(loaded.coords) == {"x"}
+    assert loaded["x"].dims == ("x",)
+    assert loaded["x"].attrs == {"units": "m"}
 
 
 @filter_numpy_size_warning
@@ -344,7 +425,7 @@ def test_write_dataset_scalar_data_variable_attrs(empty_temp_om_file):
 
 @filter_numpy_size_warning
 def test_write_dataset_scalar_coordinate(empty_temp_om_file):
-    """Writing a dataset with a scalar (0-d) coordinate should not segfault."""
+    """Scalar coordinates are outside the Open-Meteo coordinate convention."""
     temperature_data = np.random.rand(5, 5).astype(np.float32)
     ds = xr.Dataset(
         {"temperature": (["lat", "lon"], temperature_data)},
@@ -354,43 +435,47 @@ def test_write_dataset_scalar_coordinate(empty_temp_om_file):
             "time": xr.DataArray(np.float32(42.0), attrs={"long_name": "forecast step"}),
         },
     )
-    write_dataset(ds, empty_temp_om_file, scale_factor=100000.0)
-    loaded = xr.open_dataset(empty_temp_om_file, engine="om")
-
-    assert "time" in loaded.coords
-    assert "time" not in loaded.data_vars
-    assert loaded.coords["time"].ndim == 0
-    np.testing.assert_almost_equal(float(loaded.coords["time"]), 42.0)
-    assert loaded.coords["time"].attrs == {"long_name": "forecast step"}
-
-    np.testing.assert_array_almost_equal(loaded["temperature"].values, temperature_data, decimal=4)
-    np.testing.assert_array_equal(loaded.coords["lat"].values, ds.coords["lat"].values)
-    np.testing.assert_array_equal(loaded.coords["lon"].values, ds.coords["lon"].values)
+    with pytest.raises(ValueError, match=r"Coordinate 'time'.*only one-dimensional dimension coordinates"):
+        write_dataset(ds, empty_temp_om_file, scale_factor=100000.0)
 
 
 @filter_numpy_size_warning
 def test_write_dataset_non_dimension_coordinate(empty_temp_om_file):
-    """Non-dimension coordinates should preserve their dimensions and coordinate status."""
+    """Auxiliary coordinates are outside the Open-Meteo coordinate convention."""
     valid_time_data = np.arange(6, dtype=np.float32)
-    forecast_age_data = np.arange(6, dtype=np.float32) + 1
     ds = xr.Dataset(
         {"t2m": (("step", "lat"), np.zeros((6, 10), dtype=np.float32))},
-        coords={
-            "valid_time": ("step", valid_time_data),
-            "forecast_age": ("step", forecast_age_data),
-        },
+        coords={"valid_time": ("step", valid_time_data)},
     )
-    write_dataset(ds, empty_temp_om_file, scale_factor=100000.0)
-    loaded = xr.open_dataset(empty_temp_om_file, engine="om")
 
-    assert loaded["valid_time"].dims == ("step",)
-    assert "valid_time" in loaded.coords
-    assert "valid_time" not in loaded.data_vars
-    np.testing.assert_array_equal(loaded["valid_time"].values, valid_time_data)
-    assert "forecast_age" in loaded.coords
-    assert "forecast_age" not in loaded.data_vars
-    np.testing.assert_array_equal(loaded["forecast_age"].values, forecast_age_data)
-    assert DIMENSION_KEY not in loaded.attrs
+    with pytest.raises(ValueError, match=r"Coordinate 'valid_time'.*only one-dimensional dimension coordinates"):
+        write_dataset(ds, empty_temp_om_file, scale_factor=100000.0)
+
+
+@pytest.mark.parametrize(
+    ("attrs", "variable_attrs", "match"),
+    [
+        ({"coordinates": "custom"}, {}, "Global attribute 'coordinates'"),
+        ({"data": "custom"}, {}, "conflicts with a dataset variable"),
+        ({}, {"coordinates": "custom"}, "Variable 'data' attribute 'coordinates'"),
+    ],
+)
+def test_write_dataset_rejects_metadata_name_collisions(empty_temp_om_file, attrs, variable_attrs, match):
+    ds = xr.Dataset(
+        {"data": (["x"], np.arange(4, dtype=np.float32), variable_attrs)},
+        attrs=attrs,
+    )
+
+    with pytest.raises(ValueError, match=match):
+        write_dataset(ds, empty_temp_om_file)
+
+
+@pytest.mark.parametrize("variable_name", ["", "bad/name", "bad name", 1])
+def test_write_dataset_rejects_invalid_variable_names(empty_temp_om_file, variable_name):
+    ds = xr.Dataset({variable_name: (["x"], np.arange(4, dtype=np.float32))})
+
+    with pytest.raises(ValueError, match="Variable name"):
+        write_dataset(ds, empty_temp_om_file)
 
 
 @filter_numpy_size_warning
