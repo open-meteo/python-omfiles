@@ -14,11 +14,11 @@ jobs:
     name: Rust tests (Linux x86_64)
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/cache-rust-build
         with:
           cache-name: rust-tests
-          key-postfix: linux-x86_64
+          key-postfix: Linux x86_64
       - uses: ./.github/actions/install-uv
       - uses: ./.github/actions/install-python-deps
       - uses: ./.github/actions/run-cargo-tests
@@ -28,7 +28,7 @@ jobs:
     name: Build Wheel (Linux x86_64)
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/cache-rust-build
         with:
           cache-name: wheel-build
@@ -49,7 +49,7 @@ jobs:
     name: Test (Linux x86_64, Python 3.12)
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/install-uv
         with:
           python-version: "3.12"

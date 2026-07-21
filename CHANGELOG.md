@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0](https://github.com/open-meteo/python-omfiles/compare/v1.1.2...v1.2.0) (2026-04-21)
+
+
+### Features
+
+* Add streaming write support to enable writing larger-than-ram dask-backed arrays and datasets ([#108](https://github.com/open-meteo/python-omfiles/issues/108)) ([9077abb](https://github.com/open-meteo/python-omfiles/commit/9077abb128bd4af0a4695e175db43b26b402d3b5))
+* implement scale_factor and add_offset getters for both readers ([#127](https://github.com/open-meteo/python-omfiles/issues/127)) ([a3628dd](https://github.com/open-meteo/python-omfiles/commit/a3628ddd27cd18c14ba763580cfe8533bde36fbf))
+
+
+### Bug Fixes
+
+* add tests for non contiguous behavior ([#123](https://github.com/open-meteo/python-omfiles/issues/123)) ([10ac68b](https://github.com/open-meteo/python-omfiles/commit/10ac68bea33f9630772c20a45e6abbef7b3f2e85))
+* consolidate child metadata at end of file ([#124](https://github.com/open-meteo/python-omfiles/issues/124)) ([c4954c6](https://github.com/open-meteo/python-omfiles/commit/c4954c6dea65242d50ab0ece8a37ccd08ffd1a64))
+* do not overwrite python builtin min max in example ([#136](https://github.com/open-meteo/python-omfiles/issues/136)) ([d90fd94](https://github.com/open-meteo/python-omfiles/commit/d90fd9457d4c75c15926240c1c1aae1d0974d42b))
+* hopefully fix windows test failure because of inaccessible files in psutil ([3491c10](https://github.com/open-meteo/python-omfiles/commit/3491c105c471d9359f6a850e6a81e3b70bb12691))
+* improve type stubs ([#137](https://github.com/open-meteo/python-omfiles/issues/137)) ([948d932](https://github.com/open-meteo/python-omfiles/commit/948d9328c16854ffee3715030c30962833a2f0ac))
+* improve upstream build script ([#114](https://github.com/open-meteo/python-omfiles/issues/114)) ([43e8496](https://github.com/open-meteo/python-omfiles/commit/43e8496bdf1d07933819ce276b2ea89e4bf306b6))
+* missing entry in release please config extra files ([4c43008](https://github.com/open-meteo/python-omfiles/commit/4c430083a0a296e1fe487e73edf7799ac2813184))
+* use scalar coordinates variable for array dimensions in xarray ([#135](https://github.com/open-meteo/python-omfiles/issues/135)) ([967270e](https://github.com/open-meteo/python-omfiles/commit/967270e3d876216f8c9e76375903b11174ae15f4))
+
 ## [1.1.2](https://github.com/open-meteo/python-omfiles/compare/v1.1.1...v1.1.2) (2026-03-11)
 
 
