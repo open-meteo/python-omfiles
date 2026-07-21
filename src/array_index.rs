@@ -77,13 +77,13 @@ impl ArrayIndex {
         &self,
         shape: &[u64],
     ) -> PyResult<(Vec<Range<u64>>, Vec<usize>)> {
-        // Count how many actual dimensions are consumed by non-ellipsis indices.
-        let consumed_dims: usize = self
+        // Each explicit index (integer or slice) applies to one input dimension.
+        let explicit_dims: usize = self
             .0
             .iter()
             .filter(|&x| !matches!(x, IndexType::Ellipsis))
             .count();
-        if consumed_dims > shape.len() {
+        if explicit_dims > shape.len() {
             return Err(PyErr::new::<pyo3::exceptions::PyIndexError, _>(
                 "Too many indices for array",
             ));
@@ -94,11 +94,6 @@ impl ArrayIndex {
 
         let mut shape_idx = 0;
         let mut ellipsis_seen = false;
-        let explicit_dims: usize = self
-            .0
-            .iter()
-            .filter(|&x| !matches!(x, IndexType::Ellipsis))
-            .count();
         let ellipsis_dims = shape.len().saturating_sub(explicit_dims);
 
         for idx in &self.0 {
