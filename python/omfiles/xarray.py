@@ -28,7 +28,7 @@ from xarray.core.variable import Variable
 
 from ._rust import OmFileReader, OmFileWriter, OmVariable
 
-# need some special secret attributes to tell us the dimensions
+# Special metadata child used to declare array dimension names.
 DIMENSION_KEY = "coordinates"
 
 
@@ -132,14 +132,14 @@ class OmDataStore(AbstractDataStore):
         """
         Get a set of all dimension names used in the dataset.
 
-        This scans all known arrays for their _ARRAY_DIMENSIONS attribute.
+        This scans all array variables for their dimension metadata.
         """
         if self._known_dimensions_store is not None:
             return self._known_dimensions_store
 
         dimensions = set()
 
-        # Scan all arrays for dimension names
+        # Scan all array variables for dimension names.
         for var_key, var in self._get_known_arrays().items():
             reader = self.root_variable._init_from_variable(var)
             attrs = self._get_attributes_for_variable(reader, var_key)
@@ -163,27 +163,22 @@ class OmDataStore(AbstractDataStore):
             backend_array = OmBackendArray(reader=child_reader)
             shape = backend_array.reader.shape
 
-            # Get attributes to check for dimension information
+            # Get attributes to check for dimension information.
             attrs = self._get_attributes_for_variable(child_reader, var_key)
             attrs_for_var = {attr_k: attr_v for attr_k, attr_v in attrs.items() if attr_k != DIMENSION_KEY}
 
-            # Look for dimension names in the _ARRAY_DIMENSIONS attribute
+            # Look for dimension names in the dimension metadata.
             if DIMENSION_KEY in attrs:
                 dim_names = attrs[DIMENSION_KEY]
                 if isinstance(dim_names, str):
-                    # Dimensions are stored as white space separated string, split them
-                    #
-                    # If sep is not specified or is None, a different splitting algorithm is applied:
-                    # runs of consecutive whitespace are regarded as a single separator, and the result will
-                    # contain no empty strings at the start or end if the string has leading or trailing
-                    # whitespace. Consequently, splitting an empty string or a string consisting of just
-                    # whitespace with a None separator returns [].
+                    # With no explicit separator, split() treats consecutive whitespace as one separator and
+                    # does not produce empty names for leading or trailing whitespace.
                     dim_names = dim_names.split()
             else:
-                # Default to generic dimension names if not specified
+                # Default to generic dimension names if not specified.
                 dim_names = [f"dim{i}" for i in range(len(shape))]
 
-            # Check if this variable is itself a dimension variable
+            # Check if this variable is itself a dimension variable.
             variable_name = var_key.split("/")[-1]
             if len(shape) == 1 and variable_name in known_dimensions:
                 dim_names = [variable_name]

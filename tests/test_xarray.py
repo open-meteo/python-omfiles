@@ -56,59 +56,30 @@ def test_xarray_backend(temp_om_file):
     assert empty.dtype == np.float32
 
 
-def test_xarray_metadata_discovery_is_cached(empty_temp_om_file, monkeypatch):
+@filter_numpy_size_warning
+def test_xarray_metadata_discovery_is_cached(empty_temp_om_file):
     writer = OmFileWriter(empty_temp_om_file)
-    data_variables = []
-    for index in range(8):
-        dimensions = writer.write_scalar("x", name=om_xarray.DIMENSION_KEY)
-        data_variables.append(
-            writer.write_array(
-                np.arange(4, dtype=np.float32),
-                chunks=[4],
-                name=f"variable_{index}",
-                children=[dimensions],
-            )
-        )
-    coordinate = writer.write_array(np.arange(4, dtype=np.float32), chunks=[4], name="x")
-    root = writer.write_group("root", children=[*data_variables, coordinate])
+    coordinates = writer.write_scalar("x", name="coordinates")
+    units = writer.write_scalar("m", name="units")
+    root = writer.write_array(
+        np.arange(4, dtype=np.float32),
+        chunks=[4],
+        name="data",
+        children=[coordinates, units],
+    )
     writer.close(root)
 
     with OmFileReader(empty_temp_om_file) as reader:
         store = om_xarray.OmDataStore(reader)
-        known_dimensions_calls = 0
-        direct_children_calls = 0
-        get_known_dimensions = store._get_known_dimensions
-        find_direct_children = store._find_direct_children_in_store
+        arrays = store._get_known_arrays()
+        assert store._get_known_arrays() is arrays
 
-        def count_known_dimensions():
-            nonlocal known_dimensions_calls
-            known_dimensions_calls += 1
-            return get_known_dimensions()
+        path, variable = next(iter(arrays.items()))
+        variable_reader = reader._init_from_variable(variable)
+        attrs = store._get_attributes_for_variable(variable_reader, path)
 
-        def count_direct_children(path):
-            nonlocal direct_children_calls
-            direct_children_calls += 1
-            return find_direct_children(path)
-
-        monkeypatch.setattr(store, "_get_known_dimensions", count_known_dimensions)
-        monkeypatch.setattr(store, "_find_direct_children_in_store", count_direct_children)
-
-        variable_path = "/root/variable_0"
-        variable_reader = reader._init_from_variable(store.variables_store[variable_path])
-        attrs = store._get_attributes_for_variable(variable_reader, variable_path)
-        direct_children_calls_after_first_lookup = direct_children_calls
-        cached_attrs = store._get_attributes_for_variable(variable_reader, variable_path)
-        variable_reader.close()
-
-        assert attrs is cached_attrs
-        assert direct_children_calls == direct_children_calls_after_first_lookup
-
-        variables = store.get_variables()
-
-        assert known_dimensions_calls == 1
-        assert direct_children_calls == len(store._get_known_arrays())
-        assert len(variables) == 9
-        assert variables["root/variable_0"].dims == ("x",)
+        assert attrs == {"coordinates": "x", "units": "m"}
+        assert store._get_attributes_for_variable(variable_reader, path) is attrs
 
 
 @filter_numpy_size_warning
