@@ -241,22 +241,24 @@ class OmFileReader:
         ]
     ]:
         r"""
-        Read data from the open variable.om file using numpy-style indexing.
+        Read data from the open variable.om file using basic file-backed array indexing.
 
         Currently only slices with step 1 are supported.
 
-        Follows NumPy indexing semantics:
+        Supports integer, slice, and ellipsis selectors:
         - Integer indices remove that dimension
         - Slice indices (even of length 1) preserve the dimension
+        - Ellipsis expands to the remaining dimensions
 
         Args:
             ranges (:py:data:`omfiles.types.BasicSelection`): Index expression to select data from the array.
-                Supports basic numpy indexing.
+                Supports integers, slices, and ellipsis. ``None``/``numpy.newaxis`` is not supported.
 
         Returns:
             numpy.typing.NDArray[numpy.int8 | numpy.int16 | numpy.int32 | numpy.int64 | numpy.uint8 | numpy.uint16 | numpy.uint32 | numpy.uint64 | numpy.float32 | numpy.float64]: NDArray containing the requested data with squeezed singleton dimensions.
 
         Raises:
+            IndexError: If a selector is unsupported or there are too many indices.
             ValueError: If the requested ranges are invalid or if there's an error reading the data.
         """
     def __getitem__(
@@ -495,12 +497,14 @@ class OmFileReaderAsync:
         Read data from the array concurrently based on specified ranges.
 
         Args:
-            ranges (:py:data:`omfiles.types.BasicSelection`): Index or slice object specifying the ranges to read.
+            ranges (:py:data:`omfiles.types.BasicSelection`): Integer, slice, or ellipsis expression specifying the
+                ranges to read. ``None``/``numpy.newaxis`` is not supported.
 
         Returns:
             OmFileTypedArray: Array data of the appropriate numpy type.
 
         Raises:
+            IndexError: If a selector is unsupported or there are too many indices.
             ValueError: If the reader is closed.
             TypeError: If the data type is not supported.
         """

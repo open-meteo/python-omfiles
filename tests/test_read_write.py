@@ -395,6 +395,14 @@ async def test_read_async(temp_om_file):
             ],
         )
 
+        unsupported_selection = (
+            "unsupported selection item for basic indexing; expected integer or slice, got <class 'NoneType'>"
+        )
+        with pytest.raises(IndexError, match=unsupported_selection):
+            await reader.read_array(None)
+        with pytest.raises(IndexError, match=unsupported_selection):
+            await reader.read_array((slice(None), None))
+
     # Test that not awaiting results before closing the reader is safe
     with await omfiles.OmFileReaderAsync.from_path(temp_om_file) as reader_we_dont_await:
         for _ in range(100):
@@ -506,16 +514,20 @@ def test_indexing_negative_slice(temp_om_file):
     reader.close()
 
 
-def test_indexing_newaxis(temp_om_file):
-    ref = _ref_data()
+def test_indexing_rejects_unsupported_selection(temp_om_file):
     reader = omfiles.OmFileReader(temp_om_file)
-    np.testing.assert_array_equal(reader[None], ref[None])
-    np.testing.assert_array_equal(reader[None, :3], ref[None, :3])
-    np.testing.assert_array_equal(reader[1, None], ref[1, None])
-    np.testing.assert_array_equal(reader[None, 1], ref[None, 1])
-    np.testing.assert_array_equal(reader[None, None], ref[None, None])
-    np.testing.assert_array_equal(reader[..., None], ref[..., None])
-    np.testing.assert_array_equal(reader[None, ...], ref[None, ...])
+    unsupported_selection = (
+        "unsupported selection item for basic indexing; expected integer or slice, got <class 'NoneType'>"
+    )
+
+    with pytest.raises(IndexError, match=unsupported_selection):
+        _ = reader[None]
+    with pytest.raises(IndexError, match=unsupported_selection):
+        _ = reader[:, None]
+    with pytest.raises(IndexError, match=unsupported_selection):
+        _ = reader[..., None]
+    with pytest.raises(IndexError, match=unsupported_selection):
+        _ = reader[None, :, None, 0]
     reader.close()
 
 
