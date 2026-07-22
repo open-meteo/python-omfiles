@@ -4,7 +4,6 @@ use crate::{
     typed_array::OmFileTypedArray,
 };
 use async_lock::RwLock;
-use delegate::delegate;
 use num_traits::Zero;
 use numpy::{
     ndarray::{self},
@@ -21,11 +20,16 @@ use omfiles_rs::{
 use pyo3::{
     exceptions::{PyRuntimeError, PyValueError},
     prelude::*,
+    pybacked::PyBackedBytes,
     types::PyTuple,
     BoundObject,
 };
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
-use std::{fs::File, ops::Range, sync::Arc};
+use std::{
+    fs::File,
+    ops::{Deref, Range},
+    sync::Arc,
+};
 
 /// An OmFileReaderAsync class for reading .om files asynchronously.
 ///
@@ -617,14 +621,46 @@ enum AsyncReaderBackendImpl {
     Mmap(MmapFile),
 }
 
+enum AsyncReaderBytes {
+    FsSpec(PyBackedBytes),
+    Mmap(Vec<u8>),
+}
+
+impl Deref for AsyncReaderBytes {
+    type Target = [u8];
+
+    fn deref(&self) -> &Self::Target {
+        match self {
+            Self::FsSpec(bytes) => bytes,
+            Self::Mmap(bytes) => bytes,
+        }
+    }
+}
+
 impl OmFileReaderBackendAsync for AsyncReaderBackendImpl {
-    delegate! {
-        to match self {
-            AsyncReaderBackendImpl::Mmap(backend) => backend,
-            AsyncReaderBackendImpl::FsSpec(backend) => backend,
-        } {
-            fn count_async(&self) -> usize;
-            async fn get_bytes_async(&self, offset: u64, count: u64) -> Result<Vec<u8>, omfiles_rs::OmFilesError>;
+    type Bytes = AsyncReaderBytes;
+
+    fn count_async(&self) -> usize {
+        match self {
+            Self::FsSpec(backend) => backend.count_async(),
+            Self::Mmap(backend) => backend.count_async(),
+        }
+    }
+
+    async fn get_bytes_async(
+        &self,
+        offset: u64,
+        count: u64,
+    ) -> Result<Self::Bytes, omfiles_rs::OmFilesError> {
+        match self {
+            Self::FsSpec(backend) => backend
+                .get_bytes_async(offset, count)
+                .await
+                .map(AsyncReaderBytes::FsSpec),
+            Self::Mmap(backend) => backend
+                .get_bytes_async(offset, count)
+                .await
+                .map(AsyncReaderBytes::Mmap),
         }
     }
 }

@@ -20,15 +20,15 @@ use omfiles_rs::{
 use pyo3::{
     exceptions::{PyRuntimeError, PyValueError},
     prelude::*,
+    pybacked::PyBackedBytes,
     types::PyTuple,
     BoundObject,
 };
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
 use std::{
-    borrow::Cow,
     collections::HashMap,
     fs::File,
-    ops::Range,
+    ops::{Deref, Range},
     sync::{Arc, RwLock},
 };
 
@@ -687,24 +687,35 @@ enum ReaderBackendImpl {
     FsSpec(FsSpecBackend),
 }
 
+enum ReaderBytes<'a> {
+    Mmap(&'a [u8]),
+    FsSpec(PyBackedBytes),
+}
+
+impl Deref for ReaderBytes<'_> {
+    type Target = [u8];
+
+    fn deref(&self) -> &Self::Target {
+        match self {
+            Self::Mmap(bytes) => bytes,
+            Self::FsSpec(bytes) => bytes,
+        }
+    }
+}
+
 impl OmFileReaderBackend for ReaderBackendImpl {
-    // `Cow` can hold either a borrowed slice or an owned Vec, and it
-    // also implements `Deref<Target=[u8]>`, `Send`, and `Sync`,
-    // satisfying all our trait bounds.
-    type Bytes<'a> = Cow<'a, [u8]>;
+    type Bytes<'a> = ReaderBytes<'a>;
 
     // We must implement `get_bytes` manually to handle the type unification.
     fn get_bytes(&self, offset: u64, count: u64) -> Result<Self::Bytes<'_>, OmFilesError> {
         match self {
             ReaderBackendImpl::Mmap(backend) => {
-                // The mmap backend returns a `&[u8]`. We wrap it in `Cow::Borrowed`.
                 let slice = backend.get_bytes(offset, count)?;
-                Ok(Cow::Borrowed(slice))
+                Ok(ReaderBytes::Mmap(slice))
             }
             ReaderBackendImpl::FsSpec(backend) => {
-                // The fsspec backend returns a `Vec<u8>`. We wrap it in `Cow::Owned`.
-                let vec = backend.get_bytes(offset, count)?;
-                Ok(Cow::Owned(vec))
+                let bytes = backend.get_bytes(offset, count)?;
+                Ok(ReaderBytes::FsSpec(bytes))
             }
         }
     }
