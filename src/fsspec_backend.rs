@@ -1,6 +1,7 @@
 use omfiles_rs::traits::{OmFileReaderBackend, OmFileReaderBackendAsync, OmFileWriterBackend};
 use omfiles_rs::OmFilesError;
 use pyo3::prelude::*;
+use pyo3::pybacked::PyBackedBytes;
 use pyo3::types::PyDict;
 use pyo3::Python;
 use pyo3_async_runtimes::async_std::into_future;
@@ -41,6 +42,8 @@ impl AsyncFsSpecBackend {
 }
 
 impl OmFileReaderBackendAsync for AsyncFsSpecBackend {
+    type Bytes = PyBackedBytes;
+
     fn count_async(&self) -> usize {
         self.file_size as usize
     }
@@ -48,7 +51,7 @@ impl OmFileReaderBackendAsync for AsyncFsSpecBackend {
     // This function calls an async read_bytes method on the Python file object
     // and transforms it into a future that can be awaited
     // This allows us to execute multiple asynchronous operations concurrently
-    async fn get_bytes_async(&self, offset: u64, count: u64) -> Result<Vec<u8>, OmFilesError> {
+    async fn get_bytes_async(&self, offset: u64, count: u64) -> Result<Self::Bytes, OmFilesError> {
         let fut = Python::attach(|py| {
             let bound_fs = self.fs.bind(py);
             // We only use named parameters here, because positional arguments can
@@ -66,9 +69,17 @@ impl OmFileReaderBackendAsync for AsyncFsSpecBackend {
             .await
             .map_err(|e| OmFilesError::DecoderError(format!("Python I/O error {}", e)))?;
 
-        let bytes = Python::attach(|py| bytes_obj.extract::<Vec<u8>>(py))
-            .map_err(|e| OmFilesError::DecoderError(format!("Python I/O error: {}", e)));
-        bytes
+        let bytes = Python::attach(|py| -> PyResult<PyBackedBytes> {
+            bytes_obj.extract::<PyBackedBytes>(py).map_err(Into::into)
+        })
+        .map_err(|e| OmFilesError::DecoderError(format!("Python I/O error: {}", e)))?;
+
+        if bytes.len() != count as usize {
+            return Err(OmFilesError::DecoderError(
+                "Obtained unexpected number of bytes from fsspec".to_string(),
+            ));
+        }
+        Ok(bytes)
     }
 }
 
@@ -101,7 +112,7 @@ impl FsSpecBackend {
 }
 
 impl OmFileReaderBackend for FsSpecBackend {
-    type Bytes<'a> = Vec<u8>;
+    type Bytes<'a> = PyBackedBytes;
 
     fn count(&self) -> usize {
         self.file_size as usize
@@ -117,7 +128,7 @@ impl OmFileReaderBackend for FsSpecBackend {
         offset: u64,
         count: u64,
     ) -> Result<Self::Bytes<'_>, omfiles_rs::OmFilesError> {
-        let bytes = Python::attach(|py| {
+        let bytes = Python::attach(|py| -> PyResult<PyBackedBytes> {
             let bound_fs = self.fs.bind(py);
             // We only use named parameters here, because positional arguments can
             // be different between different implementations of the super class!
@@ -127,7 +138,8 @@ impl OmFileReaderBackend for FsSpecBackend {
             kwargs.set_item("path", &self.path)?;
             bound_fs
                 .call_method("cat_file", (), Some(&kwargs))?
-                .extract::<Vec<u8>>()
+                .extract::<PyBackedBytes>()
+                .map_err(Into::into)
         })
         .map_err(|e| OmFilesError::DecoderError(format!("Python I/O error {}", e)))?;
 
