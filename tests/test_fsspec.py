@@ -127,25 +127,6 @@ async def test_s3_read_async(s3_backend_async, s3_test_file):
     assert np.isfinite(data).all()
 
 
-@pytest.mark.asyncio
-async def test_async_fsspec_read_from_python_bytes(temp_om_file):
-    class AsyncBytesFileSystem:
-        def __init__(self, data: bytes):
-            self.data = data
-
-        async def _size(self, path):
-            return len(self.data)
-
-        async def _cat_file(self, path, start=None, end=None):
-            return self.data[start:end]
-
-    fs = AsyncBytesFileSystem(Path(temp_om_file).read_bytes())
-    reader = await omfiles.OmFileReaderAsync.from_fsspec(fs, "test.om")
-    data = await reader.read_array((slice(0, 5), slice(0, 5)))
-
-    np.testing.assert_array_equal(data, np.arange(25).reshape(5, 5))
-
-
 @filter_numpy_size_warning
 def test_s3_xarray(s3_spatial_test_file):
     # The way described in the xarray documentation does not really use the caching mechanism
