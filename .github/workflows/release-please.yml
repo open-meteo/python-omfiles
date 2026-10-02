@@ -28,7 +28,7 @@ jobs:
         if: ${{ steps.release.outputs.release_created }}
 
       - name: Download artifacts from CI
-        uses: dawidd6/action-download-artifact@v24
+        uses: dawidd6/action-download-artifact@v27
         if: ${{ steps.release.outputs.release_created }}
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
