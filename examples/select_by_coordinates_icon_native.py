@@ -4,42 +4,39 @@
 # requires-python = ">=3.12"
 # dependencies = [
 #     "omfiles[fsspec]>=1.2.0",  # x-release-please-version
-#     "scipy",
 #     "matplotlib",
+#     "scipy",
 # ]
 # ///
 
-"""Plot nearest-cell forecasts on ICON's native icosahedral grid.
+from datetime import datetime, timezone
 
-Run with: uv run examples/select_by_coordinates_icon_native.py
-Edit LOCATIONS and VARIABLE below to choose points and a forecast variable.
-The first run reads all static coordinates and builds a KD-tree in memory;
-allow a few hundred MB of RAM. Reuse the tree for further location queries.
-Only the selected cells' forecast chunks are fetched, not the global forecast.
-
-Data organization: https://github.com/open-meteo/open-data#data-organization
-"""
-
-import datetime as dt
-import json
-
-import fsspec
-import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import numpy as np
+from fsspec.implementations.cached import CachingFileSystem
 from omfiles import OmFileReader
+from omfiles.chunk_reader import OmChunkFileReader
+from omfiles.meta import OmChunksMeta
 from s3fs import S3FileSystem
 from scipy.spatial import cKDTree
 
-MODEL_DOMAIN = "dwd_icon_global_native"
-VARIABLE = "temperature_2m"
+# We load data from this Cached Fs-Spec Filesystem
+FS = CachingFileSystem(
+    fs=S3FileSystem(anon=True, default_block_size=256, default_cache_type="none"),
+    # TODO: we'd need to verify files do not change on the remote if they still could change
+    cache_check=60,
+    block_size=256,
+    cache_storage="cache",
+    check_files=False,
+)
 LOCATIONS = {
-    "Zurich": (47.3769, 8.5417),
-    "Paris": (48.8647, 2.3490),
+    "London": (51.5074, -0.1278),
+    "Paris": (48.864716, 2.349014),
 }
-COORDINATES_URI = f"s3://openmeteo/data/{MODEL_DOMAIN}/static/coordinates.om"
-RUN_PREFIX = f"s3://openmeteo/data_run/{MODEL_DOMAIN}"
-OUTPUT_PATH = f"{MODEL_DOMAIN}_{VARIABLE}_timeseries.png"
+START_DATE = np.datetime64(datetime.now(timezone.utc).date())
+END_DATE = START_DATE + np.timedelta64(2, "D")
+VARIABLE = "temperature_2m"
+DOMAIN = "dwd_icon_global_native"
 
 
 def unit_sphere(latitude, longitude):
@@ -50,71 +47,38 @@ def unit_sphere(latitude, longitude):
     return np.stack((cos_lat * np.cos(lon), cos_lat * np.sin(lon), np.sin(lat)), axis=-1)
 
 
-def main():
-    backend = fsspec.open(
-        f"filecache::{COORDINATES_URI}",
-        mode="rb",
-        s3={"anon": True},
-        # A domain's grid is fixed, so its coordinates are immutable too
-        filecache={"cache_storage": "cache/icon_native/filecache", "check_files": False},
-    )
-    with OmFileReader(backend) as coordinates:
-        # Coordinates have shape (1, n_cells); remove the singleton dimension.
-        latitude = coordinates.get_child_by_name("lat")[0, :]
-        longitude = coordinates.get_child_by_name("lon")[0, :]
+print(f"Fetching {VARIABLE} data for {', '.join(LOCATIONS)}")
+print(f"Date range: {START_DATE} to {END_DATE}")
 
-    # Euclidean chord distance on the unit sphere has the same nearest neighbour
-    # as great-circle distance. Using degrees directly fails at poles/date line.
-    print(f"Building KD-tree for {latitude.size:,} cells...", flush=True)
-    tree = cKDTree(unit_sphere(latitude, longitude))
-    targets = np.asarray(list(LOCATIONS.values()))
-    chord_distances, cell_indices = tree.query(unit_sphere(targets[:, 0], targets[:, 1]))
+meta = OmChunksMeta.from_s3_json_path(f"openmeteo/data/{DOMAIN}/static/meta.json", FS)
+chunk_reader = OmChunkFileReader(meta, FS, f"s3://openmeteo/data/{DOMAIN}/{VARIABLE}", START_DATE, END_DATE)
 
-    # Discover an available run instead of assuming a particular date exists.
-    # Fetch the manifest afresh; do not cache a mutable 'latest' pointer.
-    fs = S3FileSystem(anon=True)
-    latest = json.loads(fs.cat_file(f"{RUN_PREFIX}/latest.json"))
-    run_time = dt.datetime.fromisoformat(latest["reference_time"].replace("Z", "+00:00"))
-    forecast_uri = f"{RUN_PREFIX}/{run_time:%Y/%m/%d/%H%MZ}/{VARIABLE}.om"
-    print(f"Reading forecast: {forecast_uri}", flush=True)
+with OmFileReader.from_fsspec(FS, f"s3://openmeteo/data/{DOMAIN}/static/coordinates.om") as coordinates:
+    # Coordinates have shape (1, n_cells), in the same cell order as the data.
+    latitude = coordinates.get_child_by_name("lat")[0, :]
+    longitude = coordinates.get_child_by_name("lon")[0, :]
 
-    backend = fsspec.open(
-        f"blockcache::{forecast_uri}",
-        mode="rb",
-        s3={"anon": True, "default_block_size": 65536},
-        blockcache={"cache_storage": "cache/icon_native/blockcache", "check_files": False},
-    )
-    fig, ax = plt.subplots(figsize=(12, 6))
-    with OmFileReader(backend) as forecast:
-        # Forecasts have shape (1, n_cells, n_times), with the same cell order
-        # as the static coordinates. The root array holds VARIABLE's data.
-        if len(forecast.shape) != 3 or forecast.shape[:2] != (1, latitude.size):
-            raise ValueError(f"Forecast shape {forecast.shape} does not match the native coordinates")
-        times = forecast.get_child_by_name("time")[:].astype("datetime64[s]").ravel()
-        unit = forecast.get_child_by_name("unit").read_scalar()
+# Search on the unit sphere so distances work across the date line and near poles.
+# Build the tree once and reuse it when querying additional locations.
+tree = cKDTree(unit_sphere(latitude, longitude))
 
-        for name, cell, chord in zip(LOCATIONS, cell_indices, chord_distances):
-            # Index before loading: this fetches only chunks covering this cell.
-            values = forecast[0, int(cell), :]
-            distance_km = 2 * 6371.229 * np.arcsin(np.clip(chord / 2, 0, 1))
-            print(
-                f"\n{name}: cell {cell}, lat={latitude[cell]:.5f}, lon={longitude[cell]:.5f}, "
-                f"distance={distance_km:.2f} km"
-            )
-            ax.plot(times, values, label=name)
+plt.figure(figsize=(12, 6))
+for name, (target_latitude, target_longitude) in LOCATIONS.items():
+    _, cell_index = tree.query(unit_sphere(target_latitude, target_longitude))
+    print(f"{name}: cell {cell_index}, lat={latitude[cell_index]:.5f}, lon={longitude[cell_index]:.5f}")
 
-    ax.set_title(f"{MODEL_DOMAIN} {VARIABLE}\nRun: {run_time:%Y-%m-%d %H:%M} UTC")
-    ax.set_xlabel("Forecast time (UTC)")
-    ax.set_ylabel(f"{VARIABLE} ({unit})")
-    ax.xaxis.set_major_locator(mdates.AutoDateLocator(maxticks=8))
-    ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m-%d\n%H:%M"))
-    ax.grid(True, alpha=0.3)
-    ax.legend()
-    fig.tight_layout()
-    fig.savefig(OUTPUT_PATH, dpi=300, bbox_inches="tight")
-    plt.close(fig)
-    print(f"Saved plot to {OUTPUT_PATH}")
+    # Native chunk files have shape (1, n_cells, time). load_data takes (x, y).
+    indices = (int(cell_index), 0)
+    times, data = chunk_reader.load_data(indices)
+    plt.plot(times, data, label=name, linewidth=1)
 
+plt.title(f"{DOMAIN}: {VARIABLE}")
+plt.xlabel("Time")
+plt.ylabel(VARIABLE)
+plt.grid(True, alpha=0.3)
+plt.legend(loc="best")
+plt.tight_layout()
 
-if __name__ == "__main__":
-    main()
+output_filename = f"{DOMAIN}_{VARIABLE}_timeseries.png"
+plt.savefig(output_filename, dpi=300)
+print(f"\nPlot saved as: {output_filename}")
