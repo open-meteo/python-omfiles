@@ -51,19 +51,14 @@ def unit_sphere(latitude, longitude):
 
 
 def main():
-    # Native cells are unstructured: a regular lat/lon projection cannot locate
-    # them. The static lat/lon arrays use the same cell order as the forecasts.
-    print(f"Reading coordinates: {COORDINATES_URI}", flush=True)
-    # Download the entire static file once: both coordinate arrays are needed,
-    # so a whole-file cache avoids many small remote range requests.
-    coordinates_path = fsspec.open_local(
+    backend = fsspec.open(
         f"filecache::{COORDINATES_URI}",
+        mode="rb",
         s3={"anon": True},
-        # A domain's grid is fixed, so its coordinates are immutable too.
+        # A domain's grid is fixed, so its coordinates are immutable too
         filecache={"cache_storage": "cache/icon_native/filecache", "check_files": False},
     )
-    # Decode from the local path to avoid fsspec overhead for each byte range.
-    with OmFileReader(coordinates_path) as coordinates:
+    with OmFileReader(backend) as coordinates:
         # Coordinates have shape (1, n_cells); remove the singleton dimension.
         latitude = coordinates.get_child_by_name("lat")[0, :]
         longitude = coordinates.get_child_by_name("lon")[0, :]
