@@ -41,6 +41,8 @@ jobs:
           cache-name: rust-tests
           key-postfix: ${{ matrix.platform.name }}
       - uses: ./.github/actions/install-uv
+        with:
+          python-version: "3.12"
       - uses: ./.github/actions/install-python-deps
       - uses: ./.github/actions/run-cargo-tests
 
